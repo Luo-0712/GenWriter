@@ -5,28 +5,37 @@ spring:
     alibaba:
       # 通义千问 (DashScope)
       dashscope:
-        api-key: your-dashscope-api-key-here
+        api-key: your-dashscope-api-key-here  # 硬编码的API密钥
         chat:
           enabled: true
           options:
             model: qwen-plus
             temperature: 0.7
-      # OpenAI兼容API（如DeepSeek、本地模型等）
-      openai:
-        base-url: https://api.deepseek.com
-        api-key: your-openai-compatible-api-key-here
-        chat:
-          enabled: false
+        # 嵌入模型配置
+        embedding:
+          enabled: true
           options:
-            model: deepseek-chat
-            temperature: 0.7
+            model: text-embedding-v1
+        # OpenAI兼容API
+        openai:
+          base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+          api-key: your-dashscope-api-key-here  # 硬编码的API密钥
+          embedding:
+            enabled: true
+            options:
+              model: text-embedding-v1
+          chat:
+            enabled: true
+            options:
+              model: qwen-plus
+              temperature: 0.7
 
 genwriter:
   llm:
     default-provider: dashscope
     default-model: qwen-plus
     default-temperature: 0.7
-    default-max-tokens: 4096
+    default-max-tokens: 65535
     prompts:
       writing-system-prompt: |
         你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。

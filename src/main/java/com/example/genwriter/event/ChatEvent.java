@@ -5,9 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 写作事件
+ * 聊天事件
  *
- * 基于 Spring Event 机制。当用户发起写作请求时，系统会发布此事件。
+ * 基于 Spring Event 机制。当用户发起聊天/写作请求时，系统会发布此事件。
  * 后台的异步监听器（@EventListener）会捕获此事件，并负责处理：
  * 1. 调用 AI 模型生成内容
  * 2. 通过 SSE 推送实时进度
@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WritingEvent {
+public class ChatEvent {
 
     /**
      * 任务会话 ID

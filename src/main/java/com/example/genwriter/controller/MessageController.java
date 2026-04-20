@@ -1,6 +1,6 @@
 package com.example.genwriter.controller;
 
-import com.example.genwriter.event.WritingEvent;
+import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.model.common.ApiResponse;
 import com.example.genwriter.model.dto.request.CreateMessageRequest;
 import com.example.genwriter.model.dto.request.UpdateMessageRequest;
@@ -46,7 +46,7 @@ public class MessageController {
     @PostMapping("/{sessionId}/chat")
     public ApiResponse<Void> chat(
             @PathVariable String sessionId,
-            @RequestParam(defaultValue = "CREATE") WritingEvent.WritingType type,
+            @RequestParam(defaultValue = "CREATE") ChatEvent.WritingType type,
             @RequestBody(required = false) String userInput) {
         log.info("聊天请求：sessionId={}, type={}", sessionId, type);
         // 发布写作事件，由 @EventListener 异步处理并通过 SSE 推送结果

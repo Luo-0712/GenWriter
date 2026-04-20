@@ -11,6 +11,9 @@ import com.example.genwriter.model.entity.KnowledgeChunk;
 import com.example.genwriter.service.KnowledgeChunkService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +34,9 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
     private final KnowledgeChunkMapper knowledgeChunkMapper;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final EmbeddingModel embeddingModel;
 
-    @Value("${app.embedding.dimensions.bge-m3:1024}")
+    @Value("${app.embedding.dimensions.text-embedding-v1:1536}")
     private int defaultEmbeddingDimension;
 
     @Override
@@ -46,15 +50,17 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
             throw new BizException(BizException.ErrorCode.KNOWLEDGE_BASE_NOT_FOUND);
         }
 
+        // 生成文本嵌入
+        float[] embedding = generateEmbedding(request.getContent());
+
         KnowledgeChunk chunk = KnowledgeChunk.builder()
                 .kbId(request.getKbId())
                 .sourceId(request.getSourceId())
                 .content(request.getContent())
-                .embedding(request.getEmbedding())
-                .embeddingDimension(request.getEmbeddingDimension() != null ? 
-                        request.getEmbeddingDimension() : defaultEmbeddingDimension)
-                .embeddingModel(StringUtils.hasText(request.getEmbeddingModel()) ? 
-                        request.getEmbeddingModel() : "bge-m3")
+                .embedding(vectorToString(embedding))
+                .embeddingDimension(embedding.length)
+                .embeddingModel(StringUtils.hasText(request.getEmbeddingModel()) ?
+                        request.getEmbeddingModel() : "text-embedding-v1")
                 .metadata(request.getMetadata())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -73,23 +79,29 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public List<KnowledgeChunkDTO> createChunks(List<CreateKnowledgeChunkRequest> requests) {
         log.info("批量创建知识片段: {} 个", requests.size());
 
+        // 批量生成嵌入
+        List<String> contents = requests.stream()
+                .map(CreateKnowledgeChunkRequest::getContent)
+                .collect(Collectors.toList());
+
+        List<float[]> embeddings = batchGenerateEmbeddings(contents);
+
         List<KnowledgeChunk> chunks = requests.stream()
-                .map(req -> KnowledgeChunk.builder()
+                .map((req, index) -> KnowledgeChunk.builder()
                         .kbId(req.getKbId())
                         .sourceId(req.getSourceId())
                         .content(req.getContent())
-                        .embedding(req.getEmbedding())
-                        .embeddingDimension(req.getEmbeddingDimension() != null ? 
-                                req.getEmbeddingDimension() : defaultEmbeddingDimension)
-                        .embeddingModel(StringUtils.hasText(req.getEmbeddingModel()) ? 
-                                req.getEmbeddingModel() : "bge-m3")
+                        .embedding(vectorToString(embeddings.get(index)))
+                        .embeddingDimension(embeddings.get(index).length)
+                        .embeddingModel(StringUtils.hasText(req.getEmbeddingModel()) ?
+                                req.getEmbeddingModel() : "text-embedding-v1")
                         .metadata(req.getMetadata())
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build())
                 .collect(Collectors.toList());
 
-        // 这里简化处理,实际应该使用批量插入
+        // 批量插入
         for (KnowledgeChunk chunk : chunks) {
             knowledgeChunkMapper.insert(chunk);
         }
@@ -123,9 +135,29 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public List<KnowledgeChunkDTO> searchSimilarChunks(SearchKnowledgeChunkRequest request) {
         log.info("相似度搜索: kbId={}, query={}", request.getKbId(), request.getQuery());
 
-        // 这里简化处理,实际应该调用嵌入服务将query转换为向量
-        // 暂时返回空列表或根据配置决定是否抛出异常
-        throw new BizException("EMBEDDING_ERROR", "需要集成嵌入服务才能进行相似度搜索");
+        // 1. 将查询转换为嵌入向量
+        float[] queryEmbedding = generateEmbedding(request.getQuery());
+
+        // 2. 查询所有相关的知识片段
+        List<KnowledgeChunk> allChunks = knowledgeChunkMapper.selectByKbId(request.getKbId());
+
+        // 3. 计算相似度并排序
+        List<SimilarityScore> scoredChunks = allChunks.stream()
+                .map(chunk -> {
+                    float[] chunkVector = stringToVector(chunk.getEmbedding());
+                    double similarity = calculateCosineSimilarity(queryEmbedding, chunkVector);
+                    return new SimilarityScore(chunk, similarity);
+                })
+                .filter(score -> score.getSimilarity() >= 0.7) // 相似度阈值
+                .sorted((a, b) -> Double.compare(b.getSimilarity(), a.getSimilarity()))
+                .limit(request.getTopK() != null ? request.getTopK() : 5)
+                .collect(Collectors.toList());
+
+        // 4. 返回排序后的结果
+        return scoredChunks.stream()
+                .map(SimilarityScore::getChunk)
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -165,6 +197,83 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     /**
      * 将float数组转换为PostgreSQL向量字符串格式
      */
+    /**
+     * 生成文本嵌入
+     */
+    private float[] generateEmbedding(String text) {
+        try {
+            EmbeddingRequest request = new EmbeddingRequest(List.of(text), null);
+            EmbeddingResponse response = embeddingModel.call(request);
+            return response.getResults().get(0).getOutput();
+        } catch (Exception e) {
+            log.error("生成嵌入失败: {}", e.getMessage(), e);
+            throw new BizException("EMBEDDING_ERROR", "生成嵌入失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量生成嵌入
+     */
+    private List<float[]> batchGenerateEmbeddings(List<String> contents) {
+        try {
+            EmbeddingRequest request = new EmbeddingRequest(contents, null);
+            EmbeddingResponse response = embeddingModel.call(request);
+            return response.getResults().stream()
+                    .map(EmbeddingResult::getOutput)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("批量生成嵌入失败: {}", e.getMessage(), e);
+            throw new BizException("EMBEDDING_ERROR", "批量生成嵌入失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 将向量字符串转换为float数组
+     */
+    private float[] stringToVector(String vectorString) {
+        if (vectorString == null || vectorString.isEmpty()) {
+            return new float[0];
+        }
+        // 移除方括号并分割
+        String content = vectorString.substring(1, vectorString.length() - 1);
+        String[] parts = content.split(",");
+        float[] vector = new float[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            vector[i] = Float.parseFloat(parts[i].trim());
+        }
+        return vector;
+    }
+
+    /**
+     * 计算余弦相似度
+     */
+    private double calculateCosineSimilarity(float[] vecA, float[] vecB) {
+        if (vecA.length != vecB.length) {
+            throw new IllegalArgumentException("向量维度不匹配");
+        }
+
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+
+        for (int i = 0; i < vecA.length; i++) {
+            dotProduct += vecA[i] * vecB[i];
+            normA += Math.pow(vecA[i], 2);
+            normB += Math.pow(vecB[i], 2);
+        }
+
+        if (normA == 0 || normB == 0) {
+            return 0.0;
+        }
+
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    /**
+     * 相似度分数辅助类
+     */
+    private record SimilarityScore(KnowledgeChunk chunk, double similarity) {}
+
     private String vectorToString(float[] vector) {
         if (vector == null) return null;
         StringBuilder sb = new StringBuilder("[");

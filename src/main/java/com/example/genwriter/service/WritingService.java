@@ -1,6 +1,6 @@
 package com.example.genwriter.service;
 
-import com.example.genwriter.event.WritingEvent;
+import com.example.genwriter.event.ChatEvent;
 import lombok.AllArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -16,23 +16,23 @@ public class WritingService {
     private final ApplicationEventPublisher publisher;
 
     /**
-     * 发布写作事件
+     * 发布聊天事件
      * @param sessionId 会话 ID
      * @param userInput 用户输入
-     * @param type 写作类型
+     * @param type 聊天类型
      */
-    public void submitWritingTask(String sessionId, String userInput, WritingEvent.WritingType type) {
-        publisher.publishEvent(new WritingEvent(sessionId, null, userInput, type));
+    public void submitWritingTask(String sessionId, String userInput, ChatEvent.WritingType type) {
+        publisher.publishEvent(new ChatEvent(sessionId, null, userInput, type));
     }
 
     /**
-     * 发布写作事件（带文档 ID）
+     * 发布聊天事件（带文档 ID）
      * @param sessionId 会话 ID
      * @param documentId 文档 ID
      * @param userInput 用户输入
-     * @param type 写作类型
+     * @param type 聊天类型
      */
-    public void submitWritingTask(String sessionId, String documentId, String userInput, WritingEvent.WritingType type) {
-        publisher.publishEvent(new WritingEvent(sessionId, documentId, userInput, type));
+    public void submitWritingTask(String sessionId, String documentId, String userInput, ChatEvent.WritingType type) {
+        publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, type));
     }
 }

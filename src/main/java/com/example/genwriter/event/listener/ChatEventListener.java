@@ -2,7 +2,7 @@ package com.example.genwriter.event.listener;
 
 import com.example.genwriter.agent.AgentEngine;
 import com.example.genwriter.agent.AgentEngineFactory;
-import com.example.genwriter.event.WritingEvent;
+import com.example.genwriter.event.ChatEvent;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -10,24 +10,24 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
- * 写作事件监听器
- * 异步处理写作事件，调用 Agent 引擎生成内容
+ * 聊天事件监听器
+ * 异步处理聊天事件，调用 Agent 引擎生成内容
  */
 @Slf4j
 @Component
 @AllArgsConstructor
-public class WritingEventListener {
+public class ChatEventListener {
 
     private final AgentEngineFactory agentEngineFactory;
 
     /**
-     * 异步处理写作事件
-     * @param event 写作事件
+     * 异步处理聊天事件
+     * @param event 聊天事件
      */
     @Async("taskExecutor")
     @EventListener
-    public void handle(WritingEvent event) {
-        log.info("接收到写作事件：sessionId={}, type={}, documentId={}",
+    public void handle(ChatEvent event) {
+        log.info("接收到聊天事件：sessionId={}, type={}, documentId={}",
                 event.getSessionId(), event.getType(), event.getDocumentId());
 
         try {

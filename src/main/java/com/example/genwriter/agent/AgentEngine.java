@@ -1,6 +1,6 @@
 package com.example.genwriter.agent;
 
-import com.example.genwriter.event.WritingEvent;
+import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import lombok.AllArgsConstructor;
@@ -30,9 +30,9 @@ public class AgentEngine {
     /**
      * 运行 Agent 引擎
      * @param userInput 用户输入
-     * @param type 写作类型
+     * @param type 聊天类型
      */
-    public void run(String userInput, WritingEvent.WritingType type) {
+    public void run(String userInput, ChatEvent.WritingType type) {
         log.info("Agent 引擎启动：sessionId={}, type={}", sessionId, type);
 
         try {
@@ -68,7 +68,7 @@ public class AgentEngine {
     /**
      * 根据类型获取对应的 Agent
      */
-    private BaseAgent getAgentByType(WritingEvent.WritingType type) {
+    private BaseAgent getAgentByType(ChatEvent.WritingType type) {
         return switch (type) {
             case CREATE, CONTINUE -> writingAgent;
             case POLISH -> polishAgent;
@@ -77,14 +77,14 @@ public class AgentEngine {
         };
     }
 
-    private SseMessage.Type resolveStatusType(WritingEvent.WritingType type) {
+    private SseMessage.Type resolveStatusType(ChatEvent.WritingType type) {
         return switch (type) {
             case CREATE, CONTINUE -> SseMessage.Type.AI_PLANNING;
             case POLISH, KNOWLEDGE_QA -> SseMessage.Type.AI_EXECUTING;
         };
     }
 
-    private String resolveStatusText(WritingEvent.WritingType type) {
+    private String resolveStatusText(ChatEvent.WritingType type) {
         return switch (type) {
             case CREATE, CONTINUE -> "正在生成内容...";
             case POLISH -> "正在润色文本...";

@@ -1,6 +1,6 @@
 package com.example.genwriter.agent;
 
-import com.example.genwriter.event.WritingEvent;
+import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import lombok.AllArgsConstructor;
