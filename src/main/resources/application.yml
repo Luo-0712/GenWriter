@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: GenWriter
+  ai:
+    alibaba:
+      # 通义千问 (DashScope)
+      dashscope:
+        api-key: your-dashscope-api-key-here
+        chat:
+          enabled: true
+          options:
+            model: qwen-plus
+            temperature: 0.7
+      # OpenAI兼容API（如DeepSeek、本地模型等）
+      openai:
+        base-url: https://api.deepseek.com
+        api-key: your-openai-compatible-api-key-here
+        chat:
+          enabled: false
+          options:
+            model: deepseek-chat
+            temperature: 0.7
+
+genwriter:
+  llm:
+    default-provider: dashscope
+    default-model: qwen-plus
+    default-temperature: 0.7
+    default-max-tokens: 4096
+    prompts:
+      writing-system-prompt: |
+        你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
+        请根据用户的输入，提供有帮助、准确且富有创意的回复。
+      document-continuation-prompt: |
+        请根据以下文档内容继续写作，保持原有风格和语气：
+        已有内容：
+        {content}
+        请继续：
+      document-polish-prompt: |
+        请对以下文档进行润色优化，提升表达质量，保持原意不变：
+        原文：
+        {content}
+        润色后：
+      knowledge-qa-prompt: |
+        基于以下知识库内容回答问题：
+        知识库内容：
+        {context}
+        用户问题：{question}
+        请根据知识库内容提供准确、简洁的回答。如果知识库中没有相关信息，请明确说明。

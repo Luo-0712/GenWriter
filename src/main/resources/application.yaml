@@ -1,0 +1,105 @@
+spring:
+  application:
+    name: GenWriter
+  
+  # 数据源配置
+  datasource:
+    url: jdbc:postgresql://localhost:5432/genwriter_db
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # AI配置
+  ai:
+    vectorstore:
+      pgvector:
+        index-type: hnsw
+        distance-type: cosine_distance
+        dimensions: 1024
+        initialize-schema: false  # 使用自定义脚本初始化,不自动创建表
+
+# MyBatis配置
+mybatis:
+  type-aliases-package: com.example.genwriter.model.entity
+  type-handlers-package: com.example.genwriter.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+    cache-enabled: true
+    lazy-loading-enabled: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.example.genwriter: DEBUG
+    org.springframework.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/genwriter.log
+
+# 应用自定义配置
+app:
+  # 嵌入模型配置
+  embedding:
+    # 默认嵌入模型: bge-m3, openai-ada-002, openai-small, openai-large-3
+    default-model: bge-m3
+    # 向量维度配置
+    dimensions:
+      bge-m3: 1024
+      openai-ada-002: 1536
+      openai-small: 1536
+      openai-large-3: 3072
+  
+  # 写作系统配置
+  writing:
+    # 默认写作风格
+    default-style: formal
+    # 支持的风格列表
+    supported-styles:
+      - formal      # 正式
+      - casual      # 随意
+      - academic    # 学术
+      - creative    # 创意
+      - business    # 商务
+      - technical   # 技术
+    # 默认文档格式
+    default-format: markdown
+    # 最大上下文消息数
+    max-context-messages: 20
+  
+  # 知识库配置
+  knowledge:
+    # 默认返回的相似片段数量
+    default-search-limit: 5
+    # 相似度阈值
+    similarity-threshold: 0.7
+    # 最大片段长度(字符)
+    max-chunk-size: 1000
+    # 片段重叠大小
+    chunk-overlap: 100
+
+# 服务器配置
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+# Spring Doc (API文档)
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

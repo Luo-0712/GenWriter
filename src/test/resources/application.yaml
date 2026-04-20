@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: GenWriter
+
+  # 禁用AI自动配置（测试中使用Mock）
+  ai:
+    alibaba:
+      dashscope:
+        api-key: test-api-key
+        chat:
+          enabled: false
+
+  # 测试数据源配置(H2内存数据库)
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+# MyBatis配置
+mybatis:
+  type-aliases-package: com.example.genwriter.model.entity
+  type-handlers-package: com.example.genwriter.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+
+# LLM配置（测试用）
+genwriter:
+  llm:
+    default-provider: dashscope
+    default-model: qwen-plus
+    default-temperature: 0.7
+    default-max-tokens: 4096
+    prompts:
+      writing-system-prompt: |
+        你是一位专业的写作助手。
+      document-polish-prompt: |
+        请润色文档。
+      knowledge-qa-prompt: |
+        回答问题。
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.example.genwriter: INFO
