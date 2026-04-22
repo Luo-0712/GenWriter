@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.embedding.EmbeddingResult;
+import org.springframework.ai.embedding.Embedding;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -44,7 +44,7 @@ public class EmbeddingService {
             EmbeddingRequest request = new EmbeddingRequest(texts, null);
             EmbeddingResponse response = embeddingModel.call(request);
             return response.getResults().stream()
-                    .map(EmbeddingResult::getOutput)
+                    .map(Embedding::getOutput)
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.error("批量生成嵌入失败: error={}", e.getMessage(), e);

@@ -2,34 +2,14 @@ spring:
   application:
     name: GenWriter
   ai:
-    alibaba:
-      # 通义千问 (DashScope)
-      dashscope:
-        api-key: your-dashscope-api-key-here  # 硬编码的API密钥
-        chat:
-          enabled: true
-          options:
-            model: qwen-plus
-            temperature: 0.7
-        # 嵌入模型配置
-        embedding:
-          enabled: true
-          options:
-            model: text-embedding-v1
-        # OpenAI兼容API
-        openai:
-          base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-          api-key: your-dashscope-api-key-here  # 硬编码的API密钥
-          embedding:
-            enabled: true
-            options:
-              model: text-embedding-v1
-          chat:
-            enabled: true
-            options:
-              model: qwen-plus
-              temperature: 0.7
-
+    dashscope:
+      api-key: sk-670875c6a84a4d84a5f83035be45b86d  # 临时硬编码API密钥
+      chat:
+        enabled: true
+        options:
+          model: qwen-plus
+          temperature: 0.7
+      
 genwriter:
   llm:
     default-provider: dashscope

@@ -72,7 +72,19 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- LangChain4j for document chunking and RAG -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>1.13.0</version>
+        </dependency>
+
         <!-- Apache Tika for document processing -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-core</artifactId>

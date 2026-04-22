@@ -1,0 +1,117 @@
+package com.example.genwriter.config;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * DynamicChatModel 单元测试
+ */
+@ExtendWith(MockitoExtension.class)
+class DynamicChatModelTest {
+
+    @Mock
+    private ChatModel chatModel1;
+
+    @Mock
+    private ChatModel chatModel2;
+
+    @Mock
+    private Prompt prompt;
+
+    @Mock
+    private ChatResponse chatResponse;
+
+    private DynamicChatModel dynamicChatModel;
+
+    @BeforeEach
+    void setUp() {
+        dynamicChatModel = new DynamicChatModel("default");
+    }
+
+    @Test
+    @DisplayName("默认模型应正确设置")
+    void defaultModel_shouldBeSet() {
+        assertEquals("default", dynamicChatModel.getActiveModel());
+    }
+
+    @Test
+    @DisplayName("注册模型应成功")
+    void registerModel_shouldSucceed() {
+        // When
+        dynamicChatModel.registerModel("qwen-plus", chatModel1);
+
+        // Then
+        assertTrue(dynamicChatModel.getRegisteredModels().contains("qwen-plus"));
+    }
+
+    @Test
+    @DisplayName("切换模型应成功")
+    void switchModel_shouldSucceed() {
+        // Given
+        dynamicChatModel.registerModel("qwen-plus", chatModel1);
+        dynamicChatModel.registerModel("qwen-turbo", chatModel2);
+
+        // When
+        boolean result = dynamicChatModel.switchModel("qwen-turbo");
+
+        // Then
+        assertTrue(result);
+        assertEquals("qwen-turbo", dynamicChatModel.getActiveModel());
+    }
+
+    @Test
+    @DisplayName("切换到未注册的模型应返回false")
+    void switchModel_unregistered_shouldReturnFalse() {
+        // When
+        boolean result = dynamicChatModel.switchModel("non-existent");
+
+        // Then
+        assertFalse(result);
+    }
+
+    @Test
+    @DisplayName("call方法应委托给当前模型")
+    void call_shouldDelegateToCurrentModel() {
+        // Given
+        dynamicChatModel.registerModel("default", chatModel1);
+        when(chatModel1.call(prompt)).thenReturn(chatResponse);
+
+        // When
+        ChatResponse response = dynamicChatModel.call(prompt);
+
+        // Then
+        verify(chatModel1).call(prompt);
+    }
+
+    @Test
+    @DisplayName("获取当前模型未注册时应抛出异常")
+    void getCurrentModel_unregistered_shouldThrowException() {
+        // When & Then
+        assertThrows(IllegalStateException.class, () -> {
+            dynamicChatModel.getCurrentModel();
+        });
+    }
+
+    @Test
+    @DisplayName("注册多个模型应全部可用")
+    void registerMultipleModels_shouldAllBeAvailable() {
+        // When
+        dynamicChatModel.registerModel("dashscope", chatModel1);
+        dynamicChatModel.registerModel("openai", chatModel2);
+
+        // Then
+        assertEquals(2, dynamicChatModel.getRegisteredModels().size());
+        assertTrue(dynamicChatModel.getRegisteredModels().contains("dashscope"));
+        assertTrue(dynamicChatModel.getRegisteredModels().contains("openai"));
+    }
+}
