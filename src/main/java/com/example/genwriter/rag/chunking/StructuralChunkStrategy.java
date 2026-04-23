@@ -115,8 +115,13 @@ public class StructuralChunkStrategy implements DocumentChunkStrategy {
                 while (start < section.length()) {
                     int end = Math.min(start + chunkSize, section.length());
                     result.add(section.substring(start, end));
+                    if (end >= section.length()) {
+                        break;
+                    }
                     start = end - overlap;
-                    if (start >= end) break;
+                    if (start < 0 || start >= end) {
+                        start = end;
+                    }
                 }
             }
         }
@@ -138,14 +143,48 @@ public class StructuralChunkStrategy implements DocumentChunkStrategy {
             int endOffset = startOffset + content.length();
             searchPos = endOffset;
 
+            String metadata = buildMetadata(i, startOffset, endOffset, content);
+
             chunks.add(DocumentChunk.builder()
                     .index(i)
                     .content(content)
                     .startOffset(startOffset)
                     .endOffset(endOffset)
                     .tokenCount((int) Math.ceil(content.length() / 4.0))
+                    .metadata(metadata)
                     .build());
         }
         return chunks;
+    }
+
+    private String buildMetadata(int index, int startOffset, int endOffset, String content) {
+        StringBuilder metadata = new StringBuilder();
+        metadata.append("{");
+        metadata.append("\"chunkIndex\":" ).append(index).append(",");
+        metadata.append("\"startOffset\":" ).append(startOffset).append(",");
+        metadata.append("\"endOffset\":" ).append(endOffset).append(",");
+        metadata.append("\"tokenCount\":" ).append((int) Math.ceil(content.length() / 4.0));
+
+        Matcher matcher = HEADING_PATTERN.matcher(content);
+        if (matcher.find()) {
+            int level = matcher.group(1).length();
+            String title = matcher.group(0).replaceFirst("^#{1,6}\\s+", "").trim();
+            metadata.append(",\"headingLevel\":" ).append(level);
+            metadata.append(",\"headingTitle\":\"" ).append(escapeJson(title)).append("\"");
+        }
+
+        metadata.append("}");
+        return metadata.toString();
+    }
+
+    private String escapeJson(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

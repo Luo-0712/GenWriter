@@ -2,6 +2,7 @@ package com.example.genwriter.agent;
 
 import com.example.genwriter.config.LLMConfig;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 /**
  * 写作助手 Agent
@@ -9,8 +10,8 @@ import org.springframework.ai.chat.client.ChatClient;
  */
 public class WritingAgent extends BaseAgent {
 
-    public WritingAgent(ChatClient chatClient, LLMConfig llmConfig) {
-        super(AgentType.WRITING, chatClient, llmConfig);
+    public WritingAgent(ChatClient chatClient, LLMConfig llmConfig, ChatMemory chatMemory) {
+        super(AgentType.WRITING, chatClient, llmConfig, chatMemory);
     }
 
     @Override
@@ -26,6 +27,6 @@ public class WritingAgent extends BaseAgent {
 
     @Override
     protected String act(AgentExecutionContext context) {
-        return callLLM(context.getThought());
+        return callLLM(context.getThought(), context.getSessionId());
     }
 }

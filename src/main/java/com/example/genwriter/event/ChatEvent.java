@@ -34,6 +34,11 @@ public class ChatEvent {
     private String userInput;
 
     /**
+     * 知识库ID（知识库问答时使用）
+     */
+    private String kbId;
+
+    /**
      * 写作类型
      */
     private WritingType type;

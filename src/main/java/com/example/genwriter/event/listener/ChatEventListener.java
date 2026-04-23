@@ -38,7 +38,7 @@ public class ChatEventListener {
             );
 
             // 运行 Agent 引擎
-            agentEngine.run(event.getUserInput(), event.getType());
+            agentEngine.run(event.getUserInput(), event.getType(), event.getKbId());
 
             log.info("写作事件处理完成：sessionId={}", event.getSessionId());
         } catch (Exception e) {

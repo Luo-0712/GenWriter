@@ -16,12 +16,26 @@ public class AgentExecutionContext {
     private String observation;
     private int round;
     private AgentState state;
+    private String kbId;
+    private String sessionId;
 
     public AgentExecutionContext(AgentType agentType, String originalInput) {
         this.agentType = agentType;
         this.originalInput = originalInput;
         this.currentInput = originalInput;
         this.state = AgentState.IDLE;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    public void setKbId(String kbId) {
+        this.kbId = kbId;
+    }
+
+    public String getKbId() {
+        return kbId;
     }
 
     public void nextRound() {

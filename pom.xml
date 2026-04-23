@@ -46,6 +46,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Spring AI Alibaba (支持通义千问及OpenAI兼容API) -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>

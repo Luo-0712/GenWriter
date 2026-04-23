@@ -33,7 +33,11 @@ public class AgentEngine {
      * @param type 聊天类型
      */
     public void run(String userInput, ChatEvent.WritingType type) {
-        log.info("Agent 引擎启动：sessionId={}, type={}", sessionId, type);
+        run(userInput, type, null);
+    }
+
+    public void run(String userInput, ChatEvent.WritingType type, String kbId) {
+        log.info("Agent 引擎启动：sessionId={}, type={}, kbId={}", sessionId, type, kbId);
 
         try {
             // 发送开始信号（发布到频道，即使无订阅者也缓存）
@@ -47,7 +51,7 @@ public class AgentEngine {
             }
 
             publishStatusMessage(resolveStatusType(type), resolveStatusText(type), false);
-            String result = agent.execute(userInput);
+            String result = agent.execute(userInput, kbId, sessionId);
 
             if (result != null) {
                 // 发送生成内容（发布到频道）

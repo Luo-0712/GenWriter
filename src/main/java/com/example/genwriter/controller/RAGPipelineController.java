@@ -2,6 +2,7 @@ package com.example.genwriter.controller;
 
 import com.example.genwriter.model.common.ApiResponse;
 import com.example.genwriter.model.dto.response.KnowledgeChunkDTO;
+import com.example.genwriter.service.KnowledgeImportService;
 import com.example.genwriter.service.RAGPipelineService;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Min;
@@ -9,10 +10,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -21,6 +29,46 @@ import java.util.List;
 public class RAGPipelineController {
 
     private final RAGPipelineService ragPipelineService;
+    private final KnowledgeImportService knowledgeImportService;
+
+    @Value("${app.upload.path:uploads}")
+    private String uploadPath;
+
+    @PostMapping("/upload")
+    public ApiResponse<UploadResponse> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("kbId") String kbId,
+            @RequestParam(value = "strategy", required = false) String strategy) {
+        log.info("Uploading document: {} -> kb:{}", file.getOriginalFilename(), kbId);
+
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be empty");
+        }
+
+        try {
+            Path uploadDir = Paths.get(uploadPath);
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
+
+            String taskId = UUID.randomUUID().toString();
+            String filename = taskId + "_" + file.getOriginalFilename();
+            Path filePath = uploadDir.resolve(filename);
+            file.transferTo(filePath.toFile());
+
+            knowledgeImportService.processImportAsync(taskId, filePath.toString(), kbId, strategy);
+
+            return ApiResponse.success(UploadResponse.builder()
+                    .taskId(taskId)
+                    .kbId(kbId)
+                    .filename(file.getOriginalFilename())
+                    .build());
+
+        } catch (IOException e) {
+            log.error("Failed to save uploaded file", e);
+            throw new RuntimeException("Failed to save file: " + e.getMessage());
+        }
+    }
 
     @PostMapping("/process/document")
     public ApiResponse<List<KnowledgeChunkDTO>> processDocument(@Validated @RequestBody ProcessDocumentRequest request) {
@@ -104,5 +152,13 @@ public class RAGPipelineController {
         private String kbId;
         @NotBlank(message = "Query cannot be empty")
         private String query;
+    }
+
+    @Data
+    @Builder
+    static class UploadResponse {
+        private String taskId;
+        private String kbId;
+        private String filename;
     }
 }

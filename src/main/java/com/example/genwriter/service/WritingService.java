@@ -22,7 +22,7 @@ public class WritingService {
      * @param type 聊天类型
      */
     public void submitWritingTask(String sessionId, String userInput, ChatEvent.WritingType type) {
-        publisher.publishEvent(new ChatEvent(sessionId, null, userInput, type));
+        publisher.publishEvent(new ChatEvent(sessionId, null, userInput, null, type));
     }
 
     /**
@@ -33,6 +33,16 @@ public class WritingService {
      * @param type 聊天类型
      */
     public void submitWritingTask(String sessionId, String documentId, String userInput, ChatEvent.WritingType type) {
-        publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, type));
+        publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, null, type));
+    }
+
+    /**
+     * 发布知识库问答事件
+     * @param sessionId 会话 ID
+     * @param kbId 知识库 ID
+     * @param userInput 用户输入
+     */
+    public void submitKnowledgeQaTask(String sessionId, String kbId, String userInput) {
+        publisher.publishEvent(new ChatEvent(sessionId, null, userInput, kbId, ChatEvent.WritingType.KNOWLEDGE_QA));
     }
 }

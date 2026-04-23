@@ -1,5 +1,6 @@
 package com.example.genwriter.service.impl;
 
+import com.example.genwriter.config.EmbeddingConfig;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.mapper.KnowledgeBaseMapper;
 import com.example.genwriter.mapper.KnowledgeChunkMapper;
@@ -8,14 +9,11 @@ import com.example.genwriter.model.dto.request.SearchKnowledgeChunkRequest;
 import com.example.genwriter.model.dto.response.KnowledgeChunkDTO;
 import com.example.genwriter.model.entity.KnowledgeBase;
 import com.example.genwriter.model.entity.KnowledgeChunk;
+import com.example.genwriter.service.EmbeddingService;
 import com.example.genwriter.service.KnowledgeChunkService;
+import com.example.genwriter.util.VectorUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.Embedding;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,10 +33,8 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
     private final KnowledgeChunkMapper knowledgeChunkMapper;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
-    private final EmbeddingModel embeddingModel;
-
-    @Value("${app.embedding.dimensions.text-embedding-v1:1536}")
-    private int defaultEmbeddingDimension;
+    private final EmbeddingService embeddingService;
+    private final EmbeddingConfig embeddingConfig;
 
     @Override
     @Transactional
@@ -51,8 +47,10 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
             throw new BizException(BizException.ErrorCode.KNOWLEDGE_BASE_NOT_FOUND);
         }
 
-        // 生成文本嵌入
-        float[] embedding = generateEmbedding(request.getContent());
+        // 复用已有嵌入或生成新的
+        float[] embedding = request.getEmbedding() != null
+                ? request.getEmbedding()
+                : embeddingService.embed(request.getContent());
 
         KnowledgeChunk chunk = KnowledgeChunk.builder()
                 .kbId(request.getKbId())
@@ -61,7 +59,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
                 .embedding(embedding)
                 .embeddingDimension(embedding.length)
                 .embeddingModel(StringUtils.hasText(request.getEmbeddingModel()) ?
-                        request.getEmbeddingModel() : "text-embedding-v1")
+                        request.getEmbeddingModel() : embeddingConfig.getDefaultModel())
                 .metadata(request.getMetadata())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -80,24 +78,43 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public List<KnowledgeChunkDTO> createChunks(List<CreateKnowledgeChunkRequest> requests) {
         log.info("批量创建知识片段: {} 个", requests.size());
 
-        // 批量生成嵌入
-        List<String> contents = requests.stream()
-                .map(CreateKnowledgeChunkRequest::getContent)
+        // 分离已有嵌入和需要生成的请求
+        List<float[]> embeddings = IntStream.range(0, requests.size())
+                .mapToObj(i -> {
+                    CreateKnowledgeChunkRequest req = requests.get(i);
+                    return req.getEmbedding() != null ? req.getEmbedding() : null;
+                })
                 .collect(Collectors.toList());
 
-        List<float[]> embeddings = batchGenerateEmbeddings(contents);
+        // 收集需要生成嵌入的文本
+        List<String> textsToEmbed = IntStream.range(0, requests.size())
+                .filter(i -> embeddings.get(i) == null)
+                .mapToObj(i -> requests.get(i).getContent())
+                .collect(Collectors.toList());
+
+        // 批量生成缺失的嵌入
+        if (!textsToEmbed.isEmpty()) {
+            List<float[]> generated = embeddingService.embed(textsToEmbed);
+            int genIndex = 0;
+            for (int i = 0; i < embeddings.size(); i++) {
+                if (embeddings.get(i) == null) {
+                    embeddings.set(i, generated.get(genIndex++));
+                }
+            }
+        }
 
         List<KnowledgeChunk> chunks = IntStream.range(0, requests.size())
                 .mapToObj(index -> {
                     CreateKnowledgeChunkRequest req = requests.get(index);
+                    float[] embedding = embeddings.get(index);
                     return KnowledgeChunk.builder()
                             .kbId(req.getKbId())
                             .sourceId(req.getSourceId())
                             .content(req.getContent())
-                            .embedding(embeddings.get(index))
-                            .embeddingDimension(embeddings.get(index).length)
+                            .embedding(embedding)
+                            .embeddingDimension(embedding.length)
                             .embeddingModel(StringUtils.hasText(req.getEmbeddingModel()) ?
-                                    req.getEmbeddingModel() : "text-embedding-v1")
+                                    req.getEmbeddingModel() : embeddingConfig.getDefaultModel())
                             .metadata(req.getMetadata())
                             .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now())
@@ -140,19 +157,29 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         log.info("相似度搜索: kbId={}, query={}", request.getKbId(), request.getQuery());
 
         // 1. 将查询转换为嵌入向量
-        float[] queryEmbedding = generateEmbedding(request.getQuery());
+        float[] queryEmbedding = embeddingService.embed(request.getQuery());
 
-        // 2. 查询所有相关的知识片段
+        double threshold = request.getThreshold() != null ? request.getThreshold() : embeddingConfig.getSimilarityThreshold();
+        int limit = request.getLimit() != null ? request.getLimit() : embeddingConfig.getDefaultSearchLimit();
+
+        if (embeddingConfig.isUseDbVectorSearch()) {
+            // 使用 pgvector 数据库级向量搜索 (欧氏距离 <->)
+            String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
+            List<KnowledgeChunk> results = knowledgeChunkMapper.similaritySearchWithThreshold(
+                    request.getKbId(), vectorLiteral, 1 - threshold, limit);
+
+            return results.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        }
+
+        // 回退到内存计算
         List<KnowledgeChunk> allChunks = knowledgeChunkMapper.selectByKbId(request.getKbId());
 
-        double threshold = request.getThreshold() != null ? request.getThreshold() : 0.7;
-        int limit = request.getLimit() != null ? request.getLimit() : 5;
-
-        // 3. 计算相似度并排序
         List<SimilarityScore> scoredChunks = allChunks.stream()
                 .map(chunk -> {
                     float[] chunkVector = chunk.getEmbedding();
-                    double similarity = calculateCosineSimilarity(queryEmbedding, chunkVector);
+                    double similarity = VectorUtils.cosineSimilarity(queryEmbedding, chunkVector);
                     return new SimilarityScore(chunk, similarity);
                 })
                 .filter(score -> score.similarity() >= threshold)
@@ -160,7 +187,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
                 .limit(limit)
                 .collect(Collectors.toList());
 
-        // 4. 返回排序后的结果
         return scoredChunks.stream()
                 .map(SimilarityScore::chunk)
                 .map(this::convertToDTO)
@@ -199,61 +225,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
         int result = knowledgeChunkMapper.deleteBySourceId(sourceId);
         log.info("成功删除 {} 个片段", result);
-    }
-
-    /**
-     * 生成文本嵌入
-     */
-    private float[] generateEmbedding(String text) {
-        try {
-            EmbeddingRequest request = new EmbeddingRequest(List.of(text), null);
-            EmbeddingResponse response = embeddingModel.call(request);
-            return response.getResults().get(0).getOutput();
-        } catch (Exception e) {
-            log.error("生成嵌入失败: {}", e.getMessage(), e);
-            throw new BizException("EMBEDDING_ERROR", "生成嵌入失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 批量生成嵌入
-     */
-    private List<float[]> batchGenerateEmbeddings(List<String> contents) {
-        try {
-            EmbeddingRequest request = new EmbeddingRequest(contents, null);
-            EmbeddingResponse response = embeddingModel.call(request);
-            return response.getResults().stream()
-                    .map(Embedding::getOutput)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error("批量生成嵌入失败: {}", e.getMessage(), e);
-            throw new BizException("EMBEDDING_ERROR", "批量生成嵌入失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 计算余弦相似度
-     */
-    private double calculateCosineSimilarity(float[] vecA, float[] vecB) {
-        if (vecA.length != vecB.length) {
-            throw new IllegalArgumentException("向量维度不匹配");
-        }
-
-        double dotProduct = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
-
-        for (int i = 0; i < vecA.length; i++) {
-            dotProduct += vecA[i] * vecB[i];
-            normA += Math.pow(vecA[i], 2);
-            normB += Math.pow(vecB[i], 2);
-        }
-
-        if (normA == 0 || normB == 0) {
-            return 0.0;
-        }
-
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     /**

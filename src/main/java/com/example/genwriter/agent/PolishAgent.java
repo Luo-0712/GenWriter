@@ -2,6 +2,7 @@ package com.example.genwriter.agent;
 
 import com.example.genwriter.config.LLMConfig;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 /**
  * 文本润色 Agent
@@ -9,8 +10,8 @@ import org.springframework.ai.chat.client.ChatClient;
  */
 public class PolishAgent extends BaseAgent {
 
-    public PolishAgent(ChatClient chatClient, LLMConfig llmConfig) {
-        super(AgentType.POLISH, chatClient, llmConfig);
+    public PolishAgent(ChatClient chatClient, LLMConfig llmConfig, ChatMemory chatMemory) {
+        super(AgentType.POLISH, chatClient, llmConfig, chatMemory);
     }
 
     @Override
@@ -26,6 +27,6 @@ public class PolishAgent extends BaseAgent {
 
     @Override
     protected String act(AgentExecutionContext context) {
-        return callLLM(context.getThought());
+        return callLLM(context.getThought(), context.getSessionId());
     }
 }

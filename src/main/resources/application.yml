@@ -2,37 +2,144 @@ spring:
   application:
     name: GenWriter
   ai:
-    dashscope:
-      api-key: sk-670875c6a84a4d84a5f83035be45b86d  # 临时硬编码API密钥
-      chat:
-        enabled: true
-        options:
-          model: qwen-plus
-          temperature: 0.7
-      
+    alibaba:
+      dashscope:
+        api-key: sk-670875c6a84a4d84a5f83035be45b86d
+        chat:
+          enabled: true
+          options:
+            model: qwen-plus
+            temperature: 0.7
+    vectorstore:
+      pgvector:
+        index-type: hnsw
+        distance-type: cosine_distance
+        dimensions: 1024
+        initialize-schema: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+  datasource:
+    url: jdbc:postgresql://localhost:5432/genwriter_db
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+mybatis:
+  type-aliases-package: com.example.genwriter.model.entity
+  type-handlers-package: com.example.genwriter.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+    cache-enabled: true
+    lazy-loading-enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.example.genwriter: DEBUG
+    org.springframework.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/genwriter.log
+
+app:
+  embedding:
+    default-model: bge-m3
+    dimensions:
+      bge-m3: 1024
+      openai-ada-002: 1536
+      openai-small: 1536
+      openai-large-3: 3072
+  writing:
+    default-style: formal
+    supported-styles:
+      - formal
+      - casual
+      - academic
+      - creative
+      - business
+      - technical
+    default-format: markdown
+    max-context-messages: 20
+  knowledge:
+    default-search-limit: 5
+    similarity-threshold: 0.7
+    max-chunk-size: 1000
+    chunk-overlap: 100
+  upload:
+    path: uploads
+
 genwriter:
   llm:
     default-provider: dashscope
     default-model: qwen-plus
     default-temperature: 0.7
     default-max-tokens: 65535
-    prompts:
-      writing-system-prompt: |
-        你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
-        请根据用户的输入，提供有帮助、准确且富有创意的回复。
-      document-continuation-prompt: |
-        请根据以下文档内容继续写作，保持原有风格和语气：
-        已有内容：
-        {content}
-        请继续：
-      document-polish-prompt: |
-        请对以下文档进行润色优化，提升表达质量，保持原意不变：
-        原文：
-        {content}
-        润色后：
-      knowledge-qa-prompt: |
-        基于以下知识库内容回答问题：
-        知识库内容：
-        {context}
-        用户问题：{question}
-        请根据知识库内容提供准确、简洁的回答。如果知识库中没有相关信息，请明确说明。
+  embedding:
+    default-model: text-embedding-v1
+    dimension: 1024
+    batch-size: 100
+    default-search-limit: 5
+    similarity-threshold: 0.7
+    use-db-vector-search: true
+  memory:
+    key-prefix: "genwriter:chat:memory:"
+    ttl-hours: 24
+    window-size: 20
+    max-messages: 50
+  prompts:
+    writing-system-prompt: |
+      你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
+      请根据用户的输入，提供有帮助、准确且富有创意的回复。
+    document-continuation-prompt: |
+      请根据以下文档内容继续写作，保持原有风格和语气：
+      已有内容：
+      {content}
+      请继续：
+    document-polish-prompt: |
+      请对以下文档进行润色优化，提升表达质量，保持原意不变：
+      原文：
+      {content}
+      润色后：
+    knowledge-qa-prompt: |
+      基于以下知识库内容回答问题：
+      知识库内容：
+      {context}
+      用户问题：{question}
+      请根据知识库内容提供准确、简洁的回答。如果知识库中没有相关信息，请明确说明。
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html

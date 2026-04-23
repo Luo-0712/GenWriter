@@ -2,6 +2,7 @@ package com.example.genwriter.agent;
 
 import com.example.genwriter.config.LLMConfig;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 /**
  * 大纲生成 Agent
@@ -9,8 +10,8 @@ import org.springframework.ai.chat.client.ChatClient;
  */
 public class OutlineAgent extends BaseAgent {
 
-    public OutlineAgent(ChatClient chatClient, LLMConfig llmConfig) {
-        super(AgentType.OUTLINE, chatClient, llmConfig);
+    public OutlineAgent(ChatClient chatClient, LLMConfig llmConfig, ChatMemory chatMemory) {
+        super(AgentType.OUTLINE, chatClient, llmConfig, chatMemory);
     }
 
     @Override
@@ -26,6 +27,6 @@ public class OutlineAgent extends BaseAgent {
 
     @Override
     protected String act(AgentExecutionContext context) {
-        return callLLM(context.getThought());
+        return callLLM(context.getThought(), context.getSessionId());
     }
 }

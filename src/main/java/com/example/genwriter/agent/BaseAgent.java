@@ -4,10 +4,14 @@ import com.example.genwriter.config.LLMConfig;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 /**
  * Agent 基类
  * 通过模板方法统一控制 ReAct 的执行骨架，子类只负责实现思考和动作。
+ * 集成 Spring AI ChatMemory 实现短期记忆。
  */
 @Slf4j
 @Getter
@@ -16,18 +20,38 @@ public abstract class BaseAgent {
     private final AgentType agentType;
     private final ChatClient chatClient;
     protected final LLMConfig llmConfig;
+    private final ChatMemory chatMemory;
+    protected final MessageChatMemoryAdvisor memoryAdvisor;
 
-    protected BaseAgent(AgentType agentType, ChatClient chatClient, LLMConfig llmConfig) {
+    protected BaseAgent(AgentType agentType, ChatClient chatClient, LLMConfig llmConfig, ChatMemory chatMemory) {
         this.agentType = agentType;
         this.chatClient = chatClient;
         this.llmConfig = llmConfig;
+        this.chatMemory = chatMemory;
+        this.memoryAdvisor = chatMemory != null ? new MessageChatMemoryAdvisor(chatMemory) : null;
     }
 
     /**
      * 统一执行入口，按 ReAct 的思考 -> 执行 -> 观察节奏推进。
      */
     public final String execute(String input) {
+        return execute(input, null, null);
+    }
+
+    /**
+     * 统一执行入口，支持知识库ID。
+     */
+    public final String execute(String input, String kbId) {
+        return execute(input, kbId, null);
+    }
+
+    /**
+     * 统一执行入口，支持知识库ID和会话ID（用于短期记忆）。
+     */
+    public final String execute(String input, String kbId, String sessionId) {
         AgentExecutionContext context = new AgentExecutionContext(agentType, input);
+        context.setKbId(kbId);
+        context.setSessionId(sessionId);
 
         try {
             context.transitionTo(AgentState.THINKING);
@@ -95,13 +119,25 @@ public abstract class BaseAgent {
     }
 
     /**
-     * 统一的 LLM 调用封装。
+     * 统一的 LLM 调用封装（不带记忆）。
      */
     protected String callLLM(String input) {
+        return callLLM(input, null);
+    }
+
+    /**
+     * 统一的 LLM 调用封装，支持短期记忆。
+     */
+    protected String callLLM(String input, String sessionId) {
         String prompt = input == null ? "" : input.trim();
-        return chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
+        var spec = chatClient.prompt().user(prompt);
+
+        if (memoryAdvisor != null && sessionId != null) {
+            spec.advisors(memoryAdvisor)
+                    .advisors(a -> a.param(
+                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, sessionId));
+        }
+
+        return spec.call().content();
     }
 }

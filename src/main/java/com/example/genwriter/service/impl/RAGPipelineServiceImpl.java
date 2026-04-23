@@ -7,6 +7,7 @@ import com.example.genwriter.model.dto.response.KnowledgeChunkDTO;
 import com.example.genwriter.rag.chunking.ChunkingConfig;
 import com.example.genwriter.rag.chunking.DocumentChunkingConfig;
 import com.example.genwriter.service.DocumentChunkingService;
+import com.example.genwriter.service.EmbeddingService;
 import com.example.genwriter.service.KnowledgeChunkService;
 import com.example.genwriter.service.RAGPipelineService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -24,6 +26,7 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
 
     private final DocumentChunkingService chunkingService;
     private final KnowledgeChunkService chunkService;
+    private final EmbeddingService embeddingService;
     private final DocumentChunkingConfig chunkingConfig;
 
     @Value("${app.knowledge.default-search-limit:5}")
@@ -114,12 +117,19 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
             return List.of();
         }
 
-        List<CreateKnowledgeChunkRequest> requests = chunks.stream()
-                .map(chunk -> CreateKnowledgeChunkRequest.builder()
+        // 批量生成嵌入
+        List<String> contents = chunks.stream()
+                .map(DocumentChunk::getContent)
+                .toList();
+        List<float[]> embeddings = embeddingService.embed(contents);
+
+        List<CreateKnowledgeChunkRequest> requests = IntStream.range(0, chunks.size())
+                .mapToObj(i -> CreateKnowledgeChunkRequest.builder()
                         .kbId(kbId)
                         .sourceId(sourceId)
-                        .content(chunk.getContent())
-                        .metadata(chunk.getMetadata())
+                        .content(chunks.get(i).getContent())
+                        .embedding(embeddings.get(i))
+                        .metadata(chunks.get(i).getMetadata())
                         .build())
                 .toList();
 

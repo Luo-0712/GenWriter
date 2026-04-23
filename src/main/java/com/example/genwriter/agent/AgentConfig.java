@@ -2,9 +2,11 @@ package com.example.genwriter.agent;
 
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.chatclient.ChatClientRegistry;
+import com.example.genwriter.agent.tool.KnowledgeBaseTool;
 import com.example.genwriter.config.LLMConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,12 +23,15 @@ public class AgentConfig {
     private final ChatClientFactory chatClientFactory;
     private final ChatClientRegistry chatClientRegistry;
     private final LLMConfig llmConfig;
+    private final ChatMemory chatMemory;
+    private final KnowledgeBaseTool knowledgeBaseTool;
 
     @Bean
     public WritingAgent writingAgent() {
         WritingAgent agent = new WritingAgent(
                 chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getWritingSystemPrompt()),
-                llmConfig
+                llmConfig,
+                chatMemory
         );
         chatClientRegistry.register(AgentType.WRITING, agent.getChatClient());
         chatClientRegistry.register("writing", agent.getChatClient());
@@ -38,7 +43,8 @@ public class AgentConfig {
     public OutlineAgent outlineAgent() {
         OutlineAgent agent = new OutlineAgent(
                 chatClientFactory.createWithSystemPrompt("你是一位专业的大纲生成助手，擅长根据用户需求生成清晰、层次分明的文档大纲。"),
-                llmConfig
+                llmConfig,
+                chatMemory
         );
         chatClientRegistry.register(AgentType.OUTLINE, agent.getChatClient());
         chatClientRegistry.register("outline", agent.getChatClient());
@@ -50,7 +56,8 @@ public class AgentConfig {
     public PolishAgent polishAgent() {
         PolishAgent agent = new PolishAgent(
                 chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getDocumentPolishPrompt()),
-                llmConfig
+                llmConfig,
+                chatMemory
         );
         chatClientRegistry.register(AgentType.POLISH, agent.getChatClient());
         chatClientRegistry.register("polish", agent.getChatClient());
@@ -62,7 +69,9 @@ public class AgentConfig {
     public KnowledgeAgent knowledgeAgent() {
         KnowledgeAgent agent = new KnowledgeAgent(
                 chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getKnowledgeQaPrompt()),
-                llmConfig
+                llmConfig,
+                chatMemory,
+                knowledgeBaseTool
         );
         chatClientRegistry.register(AgentType.KNOWLEDGE, agent.getChatClient());
         chatClientRegistry.register("knowledge", agent.getChatClient());
