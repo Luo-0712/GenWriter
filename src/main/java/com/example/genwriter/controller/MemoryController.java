@@ -108,7 +108,7 @@ public class MemoryController {
 
         return MemoryMessageVO.builder()
                 .role(message.getMessageType().getValue())
-                .content(message.getContent())
+                .content(message.getText())
                 .metadata(message.getMetadata())
                 .hasToolCalls(hasToolCalls)
                 .hasToolResponses(hasToolResponses)

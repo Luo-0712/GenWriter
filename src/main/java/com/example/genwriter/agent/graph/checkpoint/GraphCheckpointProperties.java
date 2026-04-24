@@ -1,0 +1,24 @@
+package com.example.genwriter.agent.graph.checkpoint;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+/**
+ * StateGraph Checkpoint 配置属性
+ */
+@Data
+@Component
+@ConfigurationProperties(prefix = "genwriter.graph.checkpoint")
+public class GraphCheckpointProperties {
+
+    /**
+     * Redis Key 前缀
+     */
+    private String keyPrefix = "genwriter:graph:checkpoint:";
+
+    /**
+     * Checkpoint 过期时间（小时）
+     */
+    private long ttlHours = 24;
+}

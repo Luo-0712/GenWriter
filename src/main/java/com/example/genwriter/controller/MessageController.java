@@ -7,7 +7,7 @@ import com.example.genwriter.model.dto.request.UpdateMessageRequest;
 import com.example.genwriter.model.dto.response.MessageDTO;
 import com.example.genwriter.model.vo.MessageVO;
 import com.example.genwriter.service.MessageService;
-import com.example.genwriter.service.WritingService;
+import com.example.genwriter.service.ChatService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class MessageController {
 
     private final MessageService messageService;
-    private final WritingService writingService;
+    private final ChatService chatService;
 
     /**
      * 创建消息
@@ -49,8 +49,8 @@ public class MessageController {
             @RequestParam(defaultValue = "CREATE") ChatEvent.WritingType type,
             @RequestBody(required = false) String userInput) {
         log.info("聊天请求：sessionId={}, type={}", sessionId, type);
-        // 发布写作事件，由 @EventListener 异步处理并通过 SSE 推送结果
-        writingService.submitWritingTask(sessionId, userInput, type);
+        // 发布聊天事件，由 @EventListener 异步处理并通过 SSE 推送结果
+        chatService.submitChatTask(sessionId, userInput, type);
         return ApiResponse.success(null);
     }
 

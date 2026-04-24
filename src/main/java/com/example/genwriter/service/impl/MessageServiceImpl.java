@@ -165,6 +165,26 @@ public class MessageServiceImpl implements MessageService {
         return messageMapper.countBySessionId(sessionId);
     }
 
+    @Override
+    @Transactional
+    public void createMessage(String sessionId, String role, String content) {
+        log.debug("创建消息: sessionId={}, role={}", sessionId, role);
+
+        Integer sequence = messageMapper.getMaxSequenceBySessionId(sessionId) + 1;
+
+        Message message = Message.builder()
+                .sessionId(sessionId)
+                .role(role)
+                .type("text")
+                .content(content)
+                .sequence(sequence)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        messageMapper.insert(message);
+    }
+
     /**
      * 转换为DTO
      */

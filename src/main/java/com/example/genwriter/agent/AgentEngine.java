@@ -2,6 +2,7 @@ package com.example.genwriter.agent;
 
 import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,11 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Agent 引擎
  * 统一调度各类 Agent，支持 SSE 实时推送（发布-订阅模式）
- *
- * 核心特性：
- * - 通过 SseService.publish() 发布消息到频道
- * - 任务执行不依赖订阅者存在
- * - 用户切换页面不影响任务执行
  */
 @Slf4j
 @AllArgsConstructor
@@ -22,6 +18,7 @@ public class AgentEngine {
     private final String sessionId;
     private final String documentId;
     private final SseService sseService;
+    private final MessageService messageService;
     private final WritingAgent writingAgent;
     private final OutlineAgent outlineAgent;
     private final PolishAgent polishAgent;
@@ -40,7 +37,8 @@ public class AgentEngine {
         log.info("Agent 引擎启动：sessionId={}, type={}, kbId={}", sessionId, type, kbId);
 
         try {
-            // 发送开始信号（发布到频道，即使无订阅者也缓存）
+            messageService.createMessage(sessionId, "user", userInput);
+
             publishStatusMessage(SseMessage.Type.AI_THINKING, "正在处理您的请求...", false);
 
             BaseAgent agent = getAgentByType(type);
@@ -54,10 +52,8 @@ public class AgentEngine {
             String result = agent.execute(userInput, kbId, sessionId);
 
             if (result != null) {
-                // 发送生成内容（发布到频道）
                 publishContentMessage(result);
-
-                // 标记频道完成（发送完成信号 + 通知所有订阅者）
+                messageService.createMessage(sessionId, "assistant", result);
                 sseService.complete(sessionId);
             }
 

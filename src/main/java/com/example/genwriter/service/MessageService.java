@@ -83,4 +83,13 @@ public interface MessageService {
      * @return 消息数量
      */
     long countMessagesBySessionId(String sessionId);
+
+    /**
+     * 创建消息（简化版）
+     *
+     * @param sessionId 会话ID
+     * @param role 消息角色
+     * @param content 消息内容
+     */
+    void createMessage(String sessionId, String role, String content);
 }

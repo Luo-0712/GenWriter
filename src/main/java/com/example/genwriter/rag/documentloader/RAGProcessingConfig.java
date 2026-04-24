@@ -7,12 +7,7 @@ import org.springframework.context.annotation.Configuration;
 public class RAGProcessingConfig {
 
     @Bean
-    public DocumentLoader documentLoader() {
-        return new TikaDocumentLoader();
-    }
-
-    @Bean
-    public DocumentLoaderFactory documentLoaderFactory(DocumentLoader loader) {
-        return new DocumentLoaderFactory(loader);
+    public DocumentLoaderFactory documentLoaderFactory(DocumentLoader tikaDocumentLoader) {
+        return new DocumentLoaderFactory(tikaDocumentLoader);
     }
 }

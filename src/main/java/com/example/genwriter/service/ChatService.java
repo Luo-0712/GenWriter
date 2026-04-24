@@ -6,12 +6,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
- * 写作服务
- * 发布写作事件，触发异步处理
+ * 聊天服务
+ * 发布聊天事件，触发异步处理
  */
 @Service
 @AllArgsConstructor
-public class WritingService {
+public class ChatService {
 
     private final ApplicationEventPublisher publisher;
 
@@ -21,7 +21,7 @@ public class WritingService {
      * @param userInput 用户输入
      * @param type 聊天类型
      */
-    public void submitWritingTask(String sessionId, String userInput, ChatEvent.WritingType type) {
+    public void submitChatTask(String sessionId, String userInput, ChatEvent.WritingType type) {
         publisher.publishEvent(new ChatEvent(sessionId, null, userInput, null, type));
     }
 
@@ -32,7 +32,7 @@ public class WritingService {
      * @param userInput 用户输入
      * @param type 聊天类型
      */
-    public void submitWritingTask(String sessionId, String documentId, String userInput, ChatEvent.WritingType type) {
+    public void submitChatTask(String sessionId, String documentId, String userInput, ChatEvent.WritingType type) {
         publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, null, type));
     }
 

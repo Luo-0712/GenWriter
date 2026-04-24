@@ -1,25 +1,29 @@
 spring:
   application:
     name: GenWriter
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
   ai:
-    alibaba:
-      dashscope:
-        api-key: sk-670875c6a84a4d84a5f83035be45b86d
-        chat:
-          enabled: true
-          options:
-            model: qwen-plus
-            temperature: 0.7
+    dashscope:
+      api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
+      chat:
+        enabled: true
+        options:
+          model: qwen-plus
+          temperature: 0.7
     vectorstore:
       pgvector:
         index-type: hnsw
         distance-type: cosine_distance
         dimensions: 1024
         initialize-schema: false
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:db/schema.sql
+  # sql:
+  #   init:
+  #     mode: always
+  #     schema-locations: classpath:db/schema.sql
   datasource:
     url: jdbc:postgresql://localhost:5432/genwriter_db
     username: postgres
@@ -107,6 +111,11 @@ genwriter:
     ttl-hours: 24
     window-size: 20
     max-messages: 50
+  graph:
+    enabled: true
+    checkpoint:
+      key-prefix: "genwriter:graph:checkpoint:"
+      ttl-hours: 24
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
@@ -132,6 +141,12 @@ server:
   port: 8080
   servlet:
     context-path: /
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-response: true
+      force-request: true
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain

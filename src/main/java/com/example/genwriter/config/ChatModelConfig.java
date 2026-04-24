@@ -2,6 +2,7 @@ package com.example.genwriter.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -24,13 +25,13 @@ public class ChatModelConfig {
      * 创建动态 ChatModel
      * 注入 Spring AI Alibaba 提供的 ChatModel Bean
      *
-     * @param dashScopeChatModel Spring AI Alibaba 自动配置的 DashScope ChatModel
+     * @param dashScopeChatModel Spring AI Alibaba 自动配置的 dashscope ChatModel
      * @return DynamicChatModel 实例
      */
     @Bean
     @Primary
     public DynamicChatModel dynamicChatModel(
-            @Qualifier("dashScopeChatModel") ChatModel dashScopeChatModel) {
+            @Qualifier("dashscopeChatModel") ChatModel dashScopeChatModel) {
         DynamicChatModel dynamicModel = new DynamicChatModel(llmConfig.getDefaultModel());
 
         // 注册 DashScope 模型（通义千问）
@@ -40,5 +41,13 @@ public class ChatModelConfig {
         log.info("已注册 DashScope ChatModel，默认模型: {}", llmConfig.getDefaultModel());
 
         return dynamicModel;
+    }
+
+    /**
+     * 创建默认 ChatClient，供 Graph 节点直接注入使用
+     */
+    @Bean
+    public ChatClient chatClient(DynamicChatModel dynamicChatModel) {
+        return ChatClient.builder(dynamicChatModel).build();
     }
 }

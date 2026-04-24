@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: GenWriter-RealTest
+
+  # 启用真实 AI API 配置
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-your-real-api-key-here}
+      chat:
+        enabled: true
+        options:
+          model: qwen-plus
+          temperature: 0.7
+          max-tokens: 4096
+
+  # 测试数据源配置(H2内存数据库)
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+# MyBatis配置
+mybatis:
+  type-aliases-package: com.example.genwriter.model.entity
+  type-handlers-package: com.example.genwriter.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+
+# LLM配置
+genwriter:
+  llm:
+    default-provider: dashscope
+    default-model: qwen-plus
+    default-temperature: 0.7
+    default-max-tokens: 4096
+    prompts:
+      writing-system-prompt: |
+        你是一位专业的写作助手，擅长各类文体的创作。
+        请用优美的中文进行写作，注意文笔流畅、意境深远。
+      document-polish-prompt: |
+        你是一位专业的文字润色专家。
+        请在保持原意的基础上，让文字更加优美流畅。
+      knowledge-qa-prompt: |
+        你是一位知识渊博的问答助手。
+        请根据上下文和已知信息，给出准确、详细的回答。
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.example.genwriter: DEBUG
+    com.alibaba.cloud.ai: DEBUG

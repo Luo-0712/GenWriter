@@ -132,7 +132,7 @@ public class RedisChatMemory implements ChatMemory {
         try {
             ChatMessageRecord record = new ChatMessageRecord();
             record.setMessageType(message.getMessageType().getValue());
-            record.setContent(message.getContent());
+            record.setContent(message.getText());
             record.setMetadata(message.getMetadata());
 
             if (message instanceof AssistantMessage assistantMessage) {

@@ -47,10 +47,7 @@ public class KnowledgeAgent extends BaseAgent {
 
         var spec = getChatClient().prompt()
                 .user(context.getThought())
-                .function("searchKnowledgeBase",
-                        "根据查询语句从知识库中检索最相关的文本片段，用于回答用户问题。",
-                        KnowledgeSearchInput.class,
-                        input -> knowledgeBaseTool.search(input));
+                .tools("searchKnowledgeBase");
 
         if (memoryAdvisor != null && sessionId != null) {
             spec.advisors(memoryAdvisor)

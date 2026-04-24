@@ -12,11 +12,6 @@ import java.util.List;
 
 /**
  * SSE 控制器 - 发布-订阅模式
- *
- * 核心特性：
- * - SSE连接断开 ≠ 任务停止，只是取消订阅
- * - 用户切换页面后可重连并恢复进度
- * - 同一 session 可被多个前端页面订阅
  */
 @RestController
 @RequestMapping("/sse")
