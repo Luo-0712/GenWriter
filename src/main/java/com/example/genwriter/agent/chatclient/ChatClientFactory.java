@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.chatclient;
 
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.example.genwriter.config.DynamicChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -69,5 +70,16 @@ public class ChatClientFactory {
      */
     public boolean switchModel(String modelName) {
         return dynamicChatModel.switchModel(modelName);
+    }
+
+    /**
+     * 创建指定 temperature 的 ChatClient，用于不同节点的差异化参数
+     */
+    public ChatClient create(double temperature) {
+        return ChatClient.builder(dynamicChatModel)
+                .defaultOptions(DashScopeChatOptions.builder()
+                        .withTemperature(temperature)
+                        .build())
+                .build();
     }
 }

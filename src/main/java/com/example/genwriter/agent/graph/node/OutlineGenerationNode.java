@@ -2,7 +2,11 @@ package com.example.genwriter.agent.graph.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.example.genwriter.config.LLMConfig;
+import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.skill.OutlineSkill;
+import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.service.SseService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -17,25 +21,40 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class OutlineGenerationNode implements NodeAction {
+    private static final double TEMPERATURE = 0.3;
 
-    private final ChatClient chatClient;
-    private final LLMConfig llmConfig;
+    private final ChatClientFactory chatClientFactory;
+    private final OutlineSkill skill;
+    private final SseService sseService;
+
+    private ChatClient chatClient;
+
+    @PostConstruct
+    void initChatClient() {
+        this.chatClient = chatClientFactory.create(TEMPERATURE);
+    }
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
+        String sessionId = state.value("sessionId", String.class).orElse("");
         String userInput = state.value("userInput", String.class).orElse("");
         String context = state.value("context", String.class).orElse("");
 
         log.debug("大纲生成: userInput={}", userInput);
+        publishStatus(sessionId, "【大纲生成】正在设计文章结构...");
 
-        String prompt = buildPrompt(userInput, context);
+        String userPrompt = skill.buildUserPrompt(Map.of(
+                "userInput", userInput,
+                "context", context
+        ));
         String response = chatClient.prompt()
-                .system("你是一位专业的写作大纲设计师，擅长根据用户需求设计清晰、结构化的文章大纲。")
-                .user(prompt)
+                .system(skill.systemPrompt())
+                .user(userPrompt)
                 .call()
                 .content();
 
         log.debug("大纲生成完成: length={}", response.length());
+        publishStatusWithData(sessionId, "【大纲生成】完成，大纲长度=" + response.length() + " 字符", response);
 
         return Map.of(
                 "outline", response,
@@ -43,17 +62,22 @@ public class OutlineGenerationNode implements NodeAction {
         );
     }
 
-    private String buildPrompt(String userInput, String context) {
-        if (context != null && !context.isBlank()) {
-            return """
-                    请根据以下参考信息，为用户需求设计一份详细的文章大纲：
+    private void publishStatus(String sessionId, String statusText) {
+        publishStatusWithData(sessionId, statusText, null);
+    }
 
-                    参考信息：
-                    %s
-
-                    用户需求：%s
-                    """.formatted(context, userInput);
+    private void publishStatusWithData(String sessionId, String statusText, Object data) {
+        if (sessionId.isBlank()) return;
+        try {
+            sseService.publish(sessionId, SseMessage.builder()
+                    .type(SseMessage.Type.AI_THINKING)
+                    .payload(SseMessage.Payload.builder()
+                            .statusText(statusText)
+                            .data(data)
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.debug("SSE 状态推送失败: {}", e.getMessage());
         }
-        return "请为以下需求设计一份详细的文章大纲：\n\n" + userInput;
     }
 }

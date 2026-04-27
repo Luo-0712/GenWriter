@@ -31,7 +31,7 @@ public class SsePublishNode implements NodeAction {
             SseMessage message = SseMessage.builder()
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
                     .payload(SseMessage.Payload.builder()
-                            .data(finalOutput)
+                            .data(Map.of("content", finalOutput))
                             .build())
                     .metadata(SseMessage.Metadata.builder()
                             .resourceId(documentId)

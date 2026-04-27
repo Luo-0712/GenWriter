@@ -16,6 +16,7 @@ import java.util.Optional;
 /**
  * StateGraph 执行器
  * 封装 Graph 的编译、调用和错误处理
+ * 执行过程中通过 SSE 实时推送各阶段状态给前端
  */
 @Slf4j
 @Component
@@ -37,6 +38,7 @@ public class StateGraphRunner {
      */
     public void run(String sessionId, String documentId, String userInput, String kbId, String writingType) {
         log.info("StateGraph 执行开始: sessionId={}, type={}", sessionId, writingType);
+        publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
             messageService.createMessage(sessionId, "user", userInput);
@@ -56,21 +58,39 @@ public class StateGraphRunner {
             if (result.isPresent()) {
                 OverAllState state = result.get();
                 String finalOutput = state.value("finalOutput", String.class).orElse(null);
-                
+                String currentNode = state.value("currentNode", String.class).orElse("UNKNOWN");
+
                 log.info("StateGraph 执行完成: sessionId={}, finalNode={}",
-                        sessionId, state.value("currentNode").orElse("UNKNOWN"));
-                
+                        sessionId, currentNode);
+                publishStatus(sessionId, "【任务完成】最终节点: " + currentNode);
+
                 if (finalOutput != null && !finalOutput.isBlank()) {
                     messageService.createMessage(sessionId, "assistant", finalOutput);
                     log.debug("AI 响应消息已持久化: sessionId={}", sessionId);
                 }
             } else {
                 log.warn("StateGraph 执行返回空结果: sessionId={}", sessionId);
+                publishStatus(sessionId, "【任务完成】未产生输出");
             }
 
         } catch (Exception e) {
             log.error("StateGraph 执行失败: sessionId={}, error={}", sessionId, e.getMessage(), e);
+            publishStatus(sessionId, "【任务失败】" + e.getMessage());
             sendErrorMessage(sessionId, "处理失败：" + e.getMessage());
+        }
+    }
+
+    private void publishStatus(String sessionId, String statusText) {
+        if (sessionId == null || sessionId.isBlank()) return;
+        try {
+            sseService.publish(sessionId, SseMessage.builder()
+                    .type(SseMessage.Type.AI_THINKING)
+                    .payload(SseMessage.Payload.builder()
+                            .statusText(statusText)
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.debug("SSE 状态推送失败: {}", e.getMessage());
         }
     }
 

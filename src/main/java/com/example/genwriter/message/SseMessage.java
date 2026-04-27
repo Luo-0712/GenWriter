@@ -93,6 +93,11 @@ public class SseMessage {
         AI_DONE,
 
         /**
+         * 会话标题已更新（由 LLM 智能生成）
+         */
+        TITLE_UPDATED,
+
+        /**
          * 错误信息
          */
         ERROR,

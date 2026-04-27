@@ -14,11 +14,11 @@ function App() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [hasContentStarted, setHasContentStarted] = useState(false);
 
   const abortRef = useRef(null);
   const msgBufferRef = useRef({});
 
-  // 初始加载会话列表
   useEffect(() => {
     let cancelled = false;
     async function init() {
@@ -50,7 +50,6 @@ function App() {
     };
   }, []);
 
-  // 切换会话时加载消息
   useEffect(() => {
     if (!activeSession?.id) {
       setMessages([]);
@@ -88,7 +87,6 @@ function App() {
     };
   }, [activeSession?.id]);
 
-  // 清理 SSE 连接
   useEffect(() => {
     return () => {
       if (abortRef.current) {
@@ -104,7 +102,6 @@ function App() {
 
       const sessionId = activeSession.id;
 
-      // 本地添加用户消息（后端 chat 流程会自动持久化）
       const userMsg = {
         id: `local-user-${Date.now()}`,
         role: 'user',
@@ -113,9 +110,9 @@ function App() {
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
+      setHasContentStarted(false);
       setError(null);
 
-      // 建立 SSE 连接
       if (abortRef.current) {
         abortRef.current();
       }
@@ -131,106 +128,131 @@ function App() {
           role: 'assistant',
           content: '',
           statusText: '',
+          thinkingSteps: [],
           timestamp: new Date().toISOString(),
         },
       ]);
 
-      abortRef.current = connectSSE(
-        sessionId,
-        {
-          onMessage: (channelMsg) => {
-            const { payload, completed } = channelMsg;
-            if (!payload) return;
+      // 发送 chat 请求，在 SSE onOpen 回调中触发，确保连接就绪
+      const doChat = async () => {
+        try {
+          await messagesApi.chat(sessionId, content);
+        } catch (e) {
+          setIsLoading(false);
+          setError('触发聊天失败: ' + e.message);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, content: '服务暂时不可用，请重试。' }
+                : m
+            )
+          );
+          if (abortRef.current) {
+            abortRef.current();
+            abortRef.current = null;
+          }
+        }
+      };
 
-            const ssePayload = payload.payload || {};
-            const { data, statusText: st, done } = ssePayload;
+      abortRef.current = connectSSE(sessionId, {
+        onOpen: () => {
+          doChat();
+        },
+        onMessage: (channelMsg) => {
+          const { payload, completed } = channelMsg;
+          if (!payload) return;
 
-            if (st && st !== statusText) {
-              statusText = st;
-              setMessages((prev) =
-                prev.map((m) =
-                  m.id === assistantMsgId ? { ...m, statusText } : m
-                )
-              );
-            }
+          const ssePayload = payload.payload || {};
+          const { data, statusText: st, done } = ssePayload;
 
-            if (typeof data === 'string' && data) {
-              assistantContent += data;
-              setMessages((prev) =
-                prev.map((m) =
+          if (payload.type === 'TITLE_UPDATED') {
+            const newTitle = typeof data === 'string' ? data : String(data);
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === sessionId ? { ...s, title: newTitle } : s
+              )
+            );
+            setActiveSession((prev) =>
+              prev?.id === sessionId ? { ...prev, title: newTitle } : prev
+            );
+            return;
+          }
+
+          if (st && st !== statusText) {
+            statusText = st;
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== assistantMsgId) return m;
+                const stepEntry = { text: st, data: data || null, timestamp: new Date().toISOString() };
+                return {
+                  ...m,
+                  statusText,
+                  thinkingSteps: payload.type === 'AI_THINKING'
+                    ? [...(m.thinkingSteps || []), stepEntry]
+                    : (m.thinkingSteps || []),
+                };
+              })
+            );
+          }
+
+          if (typeof data === 'string' && data) {
+            setHasContentStarted(true);
+            assistantContent += data;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, content: assistantContent }
+                  : m
+              )
+            );
+          } else if (data && typeof data === 'object') {
+            setHasContentStarted(true);
+            const text = data.content || data.text || JSON.stringify(data);
+            if (text) {
+              assistantContent = text;
+              setMessages((prev) =>
+                prev.map((m) =>
                   m.id === assistantMsgId
                     ? { ...m, content: assistantContent }
                     : m
                 )
               );
-            } else if (data && typeof data === 'object') {
-              // 有时后端会返回完整对象
-              const text = data.content || data.text || JSON.stringify(data);
-              if (text) {
-                assistantContent = text;
-                setMessages((prev) =
-                  prev.map((m) =
-                    m.id === assistantMsgId
-                      ? { ...m, content: assistantContent }
-                      : m
-                  )
-                );
-              }
             }
+          }
 
-            if (done || completed) {
-              setIsLoading(false);
-              if (abortRef.current) {
-                abortRef.current();
-                abortRef.current = null;
-              }
-            }
-          },
-          onError: (err) => {
+          if (done || completed) {
             setIsLoading(false);
-            setError('流式响应出错');
-            setMessages((prev) =
-              prev.map((m) =
-                m.id === assistantMsgId
-                  ? {
-                      ...m,
-                      content: m.content || '响应异常，请重试。',
-                    }
-                  : m
-              )
-            );
             if (abortRef.current) {
               abortRef.current();
               abortRef.current = null;
             }
-          },
-          onComplete: () => {
-            setIsLoading(false);
-            if (abortRef.current) {
-              abortRef.current = null;
-            }
-          },
-        }
-      );
-
-      // 触发 AI 响应
-      try {
-        await messagesApi.chat(sessionId, content);
-      } catch (e) {
-        setIsLoading(false);
-        setError('触发聊天失败: ' + e.message);
-        setMessages((prev) =
-          prev.map((m) =
-            m.id === assistantMsgId
-              ? { ...m, content: '服务暂时不可用，请重试。' }
-              : m
-          )
-        );
-        if (abortRef.current) {
-          abortRef.current();
-          abortRef.current = null;
-        }
-      }
+          }
+        },
+        onError: (err) => {
+          setIsLoading(false);
+          setError('流式响应出错: ' + (err?.message || ''));
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? {
+                    ...m,
+                    content: m.content || '响应异常，请重试。',
+                  }
+                : m
+            )
+          );
+          if (abortRef.current) {
+            abortRef.current();
+            abortRef.current = null;
+          }
+        },
+        onComplete: () => {
+          setIsLoading(false);
+          if (abortRef.current) {
+            abortRef.current = null;
+          }
+        },
+      });
     },
     [activeSession, isLoading]
   );
@@ -314,6 +336,7 @@ function App() {
           onSend={handleSend}
           onSuggestionClick={handleSuggestionClick}
           isLoading={isLoading}
+          hasContentStarted={hasContentStarted}
           loadingMessages={loadingMessages}
           isSessionLoading={isSessionLoading}
         />

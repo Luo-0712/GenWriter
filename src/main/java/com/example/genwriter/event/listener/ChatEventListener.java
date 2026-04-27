@@ -4,6 +4,7 @@ import com.example.genwriter.agent.AgentEngine;
 import com.example.genwriter.agent.AgentEngineFactory;
 import com.example.genwriter.agent.graph.runner.StateGraphRunner;
 import com.example.genwriter.event.ChatEvent;
+import com.example.genwriter.service.TitleGenerationService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,13 +22,17 @@ public class ChatEventListener {
 
     private final AgentEngineFactory agentEngineFactory;
     private final StateGraphRunner stateGraphRunner;
+    private final TitleGenerationService titleGenerationService;
 
     @Value("${genwriter.graph.enabled:false}")
     private boolean graphEnabled;
 
-    public ChatEventListener(AgentEngineFactory agentEngineFactory, StateGraphRunner stateGraphRunner) {
+    public ChatEventListener(AgentEngineFactory agentEngineFactory,
+                             StateGraphRunner stateGraphRunner,
+                             TitleGenerationService titleGenerationService) {
         this.agentEngineFactory = agentEngineFactory;
         this.stateGraphRunner = stateGraphRunner;
+        this.titleGenerationService = titleGenerationService;
     }
 
     /**
@@ -39,6 +44,8 @@ public class ChatEventListener {
     public void handle(ChatEvent event) {
         log.info("接收到聊天事件：sessionId={}, type={}, documentId={}, graphEnabled={}",
                 event.getSessionId(), event.getType(), event.getDocumentId(), graphEnabled);
+
+        titleGenerationService.generateAndSetTitle(event.getSessionId(), event.getUserInput());
 
         if (graphEnabled) {
             handleWithStateGraph(event);

@@ -473,6 +473,132 @@
   animation-delay: 0.4s;
 }
 
+/* 思考过程面板 */
+.thinking-process {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.thinking-process-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.thinking-process-header:hover {
+  background: var(--bg-hover);
+}
+
+.thinking-process-arrow {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.thinking-process-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.thinking-process-latest {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thinking-process-list {
+  margin: 0;
+  padding: 4px 12px 12px 28px;
+  list-style: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.thinking-process-item {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.thinking-process-step-num {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 20px;
+}
+
+.thinking-process-step-text {
+  color: var(--text-secondary);
+}
+
+.thinking-process-step-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.thinking-process-detail-text {
+  margin: 6px 0 2px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.thinking-process-detail-kv {
+  margin: 6px 0 2px;
+  padding: 6px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.thinking-process-kv-row {
+  display: flex;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.thinking-process-kv-row dt {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 56px;
+  font-weight: 500;
+}
+
+.thinking-process-kv-row dt::after {
+  content: ':';
+}
+
+.thinking-process-kv-row dd {
+  color: var(--text-primary);
+  margin: 0;
+  word-break: break-all;
+}
+
 @keyframes thinking-bounce {
   0%, 60%, 100% {
     transform: translateY(0);

@@ -1,5 +1,6 @@
 package com.example.genwriter.config;
 
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -8,6 +9,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Scope;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
 /**
  * ChatModel 配置类
@@ -20,6 +24,21 @@ import org.springframework.context.annotation.Primary;
 public class ChatModelConfig {
 
     private final LLMConfig llmConfig;
+
+    /**
+     * 自定义 RestClient.Builder，设置 15 分钟读取超时
+     * 覆盖 Spring Boot 默认配置，供 Spring AI Alibaba 使用
+     */
+    @Bean
+    @Scope("prototype")
+    public RestClient.Builder restClientBuilder() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(30_000);
+        factory.setReadTimeout((int) llmConfig.getTimeout().toMillis());
+        log.info("RestClient 超时配置: connectTimeout=30s, readTimeout={}s",
+                llmConfig.getTimeout().getSeconds());
+        return RestClient.builder().requestFactory(factory);
+    }
 
     /**
      * 创建动态 ChatModel
@@ -43,9 +62,15 @@ public class ChatModelConfig {
 
     /**
      * 创建默认 ChatClient，供 Graph 节点直接注入使用
+     * 应用 LLMConfig 中的 temperature 和 maxTokens 默认配置
      */
     @Bean
     public ChatClient chatClient(DynamicChatModel dynamicChatModel) {
-        return ChatClient.builder(dynamicChatModel).build();
+        return ChatClient.builder(dynamicChatModel)
+                .defaultOptions(DashScopeChatOptions.builder()
+                        .withMaxToken(llmConfig.getDefaultMaxTokens())
+                        .withTemperature(llmConfig.getDefaultTemperature())
+                        .build())
+                .build();
     }
 }

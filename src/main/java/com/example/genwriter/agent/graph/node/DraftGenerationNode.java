@@ -2,61 +2,89 @@ package com.example.genwriter.agent.graph.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.skill.DraftSkill;
+import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.service.SseService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
 /**
  * 正文写作节点
- * 根据大纲生成文章正文
+ * 根据大纲生成文章正文，使用流式输出实时反馈给前端
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DraftGenerationNode implements NodeAction {
+    private static final double TEMPERATURE = 0.7;
 
-    private final ChatClient chatClient;
+    private final ChatClientFactory chatClientFactory;
+    private final DraftSkill skill;
+    private final SseService sseService;
+
+    private ChatClient chatClient;
+
+    @PostConstruct
+    void initChatClient() {
+        this.chatClient = chatClientFactory.create(TEMPERATURE);
+    }
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
+        String sessionId = state.value("sessionId", String.class).orElse("");
         String outline = state.value("outline", String.class).orElse("");
         String context = state.value("context", String.class).orElse("");
         String userInput = state.value("userInput", String.class).orElse("");
         String reviewFeedback = state.value("reviewFeedback", String.class).orElse("");
 
         log.debug("正文写作: outlineLength={}, hasFeedback={}", outline.length(), !reviewFeedback.isBlank());
+        publishStatus(sessionId, "【正文写作】正在根据大纲撰写文章正文...");
 
-        String prompt = buildPrompt(outline, context, userInput, reviewFeedback);
-        String response = chatClient.prompt()
-                .system("你是一位资深作家，擅长根据大纲撰写高质量、流畅的文章。请确保内容连贯、逻辑清晰、表达生动。")
-                .user(prompt)
-                .call()
-                .content();
+        String userPrompt = skill.buildUserPrompt(Map.of(
+                "outline", outline,
+                "context", context,
+                "userInput", userInput,
+                "reviewFeedback", reviewFeedback
+        ));
 
-        log.debug("正文写作完成: draftLength={}", response.length());
+        StringBuilder contentBuilder = new StringBuilder();
+        chatClient.prompt()
+                .system(skill.systemPrompt())
+                .user(userPrompt)
+                .stream()
+                .content()
+                .doOnNext(contentBuilder::append)
+                .then(Mono.just(contentBuilder.toString()))
+                .block();
+
+        String fullResponse = contentBuilder.toString();
+        log.debug("正文写作完成: draftLength={}", fullResponse.length());
+        publishStatus(sessionId, "【正文写作】完成，长度=" + fullResponse.length() + " 字符");
 
         return Map.of(
-                "draft", response,
+                "draft", fullResponse,
                 "currentNode", "DraftGenerationNode"
         );
     }
 
-    private String buildPrompt(String outline, String context, String userInput, String reviewFeedback) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("请根据以下大纲撰写完整的文章正文：\n\n");
-        sb.append("大纲：\n").append(outline).append("\n\n");
-        if (context != null && !context.isBlank()) {
-            sb.append("参考信息：\n").append(context).append("\n\n");
+    private void publishStatus(String sessionId, String statusText) {
+        if (sessionId.isBlank()) return;
+        try {
+            sseService.publish(sessionId, SseMessage.builder()
+                    .type(SseMessage.Type.AI_EXECUTING)
+                    .payload(SseMessage.Payload.builder()
+                            .statusText(statusText)
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.debug("SSE 状态推送失败: {}", e.getMessage());
         }
-        sb.append("原始需求：").append(userInput).append("\n\n");
-        if (reviewFeedback != null && !reviewFeedback.isBlank()) {
-            sb.append("【重要：上一轮评审反馈，请务必在本次写作中改进】\n");
-            sb.append(reviewFeedback).append("\n\n");
-        }
-        sb.append("请直接输出文章正文，不需要额外的解释。");
-        return sb.toString();
     }
 }
