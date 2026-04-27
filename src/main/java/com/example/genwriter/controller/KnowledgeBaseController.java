@@ -27,21 +27,21 @@ public class KnowledgeBaseController {
 
     @PostMapping
     public ApiResponse<KnowledgeBaseVO> createKnowledgeBase(@Valid @RequestBody CreateKnowledgeBaseRequest request) {
-        log.info("创建知识库请求: {}", request.getName());
+        log.debug("创建知识库请求: {}", request.getName());
         KnowledgeBaseDTO dto = knowledgeBaseService.createKnowledgeBase(request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<KnowledgeBaseVO> getKnowledgeBase(@PathVariable String id) {
-        log.info("查询知识库: {}", id);
+        log.debug("查询知识库: {}", id);
         KnowledgeBaseDTO dto = knowledgeBaseService.getKnowledgeBaseById(id);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping
     public ApiResponse<List<KnowledgeBaseVO>> getAllKnowledgeBases() {
-        log.info("查询所有知识库");
+        log.debug("查询所有知识库");
         List<KnowledgeBaseDTO> dtos = knowledgeBaseService.getAllKnowledgeBases();
         List<KnowledgeBaseVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -51,7 +51,7 @@ public class KnowledgeBaseController {
 
     @GetMapping("/type/{type}")
     public ApiResponse<List<KnowledgeBaseVO>> getKnowledgeBasesByType(@PathVariable String type) {
-        log.info("根据类型查询知识库: {}", type);
+        log.debug("根据类型查询知识库: {}", type);
         List<KnowledgeBaseDTO> dtos = knowledgeBaseService.getKnowledgeBasesByType(type);
         List<KnowledgeBaseVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -61,7 +61,7 @@ public class KnowledgeBaseController {
 
     @GetMapping("/search")
     public ApiResponse<List<KnowledgeBaseVO>> searchKnowledgeBases(@RequestParam String name) {
-        log.info("搜索知识库: {}", name);
+        log.debug("搜索知识库: {}", name);
         List<KnowledgeBaseDTO> dtos = knowledgeBaseService.searchKnowledgeBasesByName(name);
         List<KnowledgeBaseVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -73,21 +73,21 @@ public class KnowledgeBaseController {
     public ApiResponse<KnowledgeBaseVO> updateKnowledgeBase(
             @PathVariable String id,
             @Valid @RequestBody UpdateKnowledgeBaseRequest request) {
-        log.info("更新知识库: {}", id);
+        log.debug("更新知识库: {}", id);
         KnowledgeBaseDTO dto = knowledgeBaseService.updateKnowledgeBase(id, request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteKnowledgeBase(@PathVariable String id) {
-        log.info("删除知识库: {}", id);
+        log.debug("删除知识库: {}", id);
         knowledgeBaseService.deleteKnowledgeBase(id);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping
     public ApiResponse<Void> deleteKnowledgeBases(@RequestBody List<String> ids) {
-        log.info("批量删除知识库: {}", ids);
+        log.debug("批量删除知识库: {}", ids);
         knowledgeBaseService.deleteKnowledgeBases(ids);
         return ApiResponse.success(null);
     }

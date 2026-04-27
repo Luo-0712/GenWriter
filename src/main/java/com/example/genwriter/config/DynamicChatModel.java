@@ -37,7 +37,6 @@ public class DynamicChatModel implements ChatModel {
     public DynamicChatModel(String defaultModelName) {
         this.defaultModelName = defaultModelName;
         this.activeModel.set(defaultModelName);
-        log.info("DynamicChatModel 初始化，默认模型: {}", defaultModelName);
     }
 
     /**
@@ -47,7 +46,7 @@ public class DynamicChatModel implements ChatModel {
      */
     public void registerModel(String name, ChatModel chatModel) {
         modelRegistry.put(name, chatModel);
-        log.info("注册模型: {}", name);
+        log.debug("注册模型: {}", name);
     }
 
     /**

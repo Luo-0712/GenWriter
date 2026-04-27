@@ -1,12 +1,30 @@
+import { useState, useEffect } from 'react';
 import '../styles/global.css';
 
+const greetings = [
+  '你好，我是 GenWriter',
+  '嗨，我是你的 AI 写作助手',
+  '你好，我是 GenWriter',
+  '嗨，我是 GenWriter',
+  '你好，很高兴见到你',
+];
+
+const subtitles = [
+  '你的 AI 写作助手。',
+  '随时为你效劳。',
+  '我们马上开始吧。',
+  '专注创作，其余交给我。',
+];
+
 const WelcomeScreen = ({ onSuggestionClick }) => {
-  const suggestions = [
-    { icon: '✍️', text: '帮我写一篇文章' },
-    { icon: '📝', text: '帮我修改一段文字' },
-    { icon: '💡', text: '帮我构思一个故事' },
-    { icon: '📚', text: '帮我整理一份笔记' },
-  ];
+  const [greeting, setGreeting] = useState('');
+  const [subtitle, setSubtitle] = useState('');
+
+  useEffect(() => {
+    const index = Math.floor(Math.random() * greetings.length);
+    setGreeting(greetings[index]);
+    setSubtitle(subtitles[index]);
+  }, []);
 
   return (
     <div className="welcome-screen">
@@ -18,21 +36,9 @@ const WelcomeScreen = ({ onSuggestionClick }) => {
             <path d="M2 12l10 5 10-5"></path>
           </svg>
         </div>
-        <h1 className="welcome-title">你好，我是 GenWriter</h1>
-        <p className="welcome-subtitle">你的 AI 写作助手</p>
-        
-        <div className="suggestions-grid">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              className="suggestion-card"
-              onClick={() => onSuggestionClick(suggestion.text)}
-            >
-              <span className="suggestion-icon">{suggestion.icon}</span>
-              <span className="suggestion-text">{suggestion.text}</span>
-            </button>
-          ))}
-        </div>
+        <h1 className="welcome-title">{greeting}</h1>
+        <p className="welcome-subtitle">{subtitle}</p>
+
       </div>
     </div>
   );

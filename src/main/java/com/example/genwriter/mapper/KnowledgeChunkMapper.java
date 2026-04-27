@@ -36,7 +36,7 @@ public interface KnowledgeChunkMapper {
      */
     @Select("SELECT id, kb_id AS kbId, source_id AS sourceId, content, " +
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_chunk WHERE id = CAST(#{id} AS uuid)")
     @Results({
             @Result(property = "embedding", column = "embedding", 
@@ -52,7 +52,7 @@ public interface KnowledgeChunkMapper {
      */
     @Select("SELECT id, kb_id AS kbId, source_id AS sourceId, content, " +
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_chunk WHERE kb_id = CAST(#{kbId} AS uuid) " +
             "ORDER BY created_at DESC")
     @Results({
@@ -69,7 +69,7 @@ public interface KnowledgeChunkMapper {
      */
     @Select("SELECT id, kb_id AS kbId, source_id AS sourceId, content, " +
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_chunk WHERE source_id = CAST(#{sourceId} AS uuid) " +
             "ORDER BY created_at ASC")
     @Results({
@@ -89,7 +89,7 @@ public interface KnowledgeChunkMapper {
      */
     @Select("SELECT id, kb_id AS kbId, source_id AS sourceId, content, " +
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_chunk WHERE kb_id = CAST(#{kbId} AS uuid) " +
             "ORDER BY embedding <-> CAST(#{vectorLiteral} AS vector) " +
             "LIMIT #{limit}")
@@ -112,7 +112,7 @@ public interface KnowledgeChunkMapper {
      */
     @Select("SELECT id, kb_id AS kbId, source_id AS sourceId, content, " +
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt, " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt, " +
             "embedding <-> CAST(#{vectorLiteral} AS vector) AS distance " +
             "FROM knowledge_chunk WHERE kb_id = CAST(#{kbId} AS uuid) " +
             "AND embedding <-> CAST(#{vectorLiteral} AS vector) < #{threshold} " +

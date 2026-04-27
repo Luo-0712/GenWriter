@@ -27,21 +27,21 @@ public class DocumentController {
 
     @PostMapping
     public ApiResponse<DocumentVO> createDocument(@Valid @RequestBody CreateDocumentRequest request) {
-        log.info("创建文档请求: {}", request.getTitle());
+        log.debug("创建文档请求: {}", request.getTitle());
         DocumentDTO dto = documentService.createDocument(request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<DocumentVO> getDocument(@PathVariable String id) {
-        log.info("查询文档: {}", id);
+        log.debug("查询文档: {}", id);
         DocumentDTO dto = documentService.getDocumentById(id);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping("/session/{sessionId}")
     public ApiResponse<List<DocumentVO>> getDocumentsBySessionId(@PathVariable String sessionId) {
-        log.info("查询会话文档: {}", sessionId);
+        log.debug("查询会话文档: {}", sessionId);
         List<DocumentDTO> dtos = documentService.getDocumentsBySessionId(sessionId);
         List<DocumentVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -51,7 +51,7 @@ public class DocumentController {
 
     @GetMapping("/session/{sessionId}/latest")
     public ApiResponse<DocumentVO> getLatestDocumentBySessionId(@PathVariable String sessionId) {
-        log.info("查询会话最新文档: {}", sessionId);
+        log.debug("查询会话最新文档: {}", sessionId);
         DocumentDTO dto = documentService.getLatestDocumentBySessionId(sessionId);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -60,7 +60,7 @@ public class DocumentController {
     public ApiResponse<DocumentVO> createNewVersion(
             @PathVariable String sessionId,
             @Valid @RequestBody CreateDocumentRequest request) {
-        log.info("创建文档新版本: {}", sessionId);
+        log.debug("创建文档新版本: {}", sessionId);
         DocumentDTO dto = documentService.createNewVersion(sessionId, request);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -69,21 +69,21 @@ public class DocumentController {
     public ApiResponse<DocumentVO> updateDocument(
             @PathVariable String id,
             @Valid @RequestBody UpdateDocumentRequest request) {
-        log.info("更新文档: {}", id);
+        log.debug("更新文档: {}", id);
         DocumentDTO dto = documentService.updateDocument(id, request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteDocument(@PathVariable String id) {
-        log.info("删除文档: {}", id);
+        log.debug("删除文档: {}", id);
         documentService.deleteDocument(id);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/status/{status}")
     public ApiResponse<List<DocumentVO>> getDocumentsByStatus(@PathVariable String status) {
-        log.info("根据状态查询文档: {}", status);
+        log.debug("根据状态查询文档: {}", status);
         List<DocumentDTO> dtos = documentService.getDocumentsByStatus(status);
         List<DocumentVO> vos = dtos.stream()
                 .map(this::convertToVO)

@@ -32,7 +32,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public KnowledgeBaseDTO createKnowledgeBase(CreateKnowledgeBaseRequest request) {
-        log.info("创建知识库: {}", request.getName());
+        log.debug("创建知识库: {}", request.getName());
 
         KnowledgeBase kb = KnowledgeBase.builder()
                 .name(request.getName())
@@ -91,7 +91,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public KnowledgeBaseDTO updateKnowledgeBase(String id, UpdateKnowledgeBaseRequest request) {
-        log.info("更新知识库: {}", id);
+        log.debug("更新知识库: {}", id);
 
         KnowledgeBase existing = knowledgeBaseMapper.selectById(id);
         if (existing == null) {
@@ -118,7 +118,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public void deleteKnowledgeBase(String id) {
-        log.info("删除知识库: {}", id);
+        log.debug("删除知识库: {}", id);
 
         KnowledgeBase existing = knowledgeBaseMapper.selectById(id);
         if (existing == null) {
@@ -134,14 +134,14 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public void deleteKnowledgeBases(List<String> ids) {
-        log.info("批量删除知识库: {}", ids);
+        log.debug("批量删除知识库: {}", ids);
 
         if (ids == null || ids.isEmpty()) {
             return;
         }
 
         int result = knowledgeBaseMapper.deleteByIds(ids);
-        log.info("成功删除 {} 个知识库", result);
+        log.debug("成功删除 {} 个知识库", result);
     }
 
     private KnowledgeBaseDTO convertToDTO(KnowledgeBase kb) {

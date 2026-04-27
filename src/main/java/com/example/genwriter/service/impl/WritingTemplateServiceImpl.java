@@ -30,7 +30,7 @@ public class WritingTemplateServiceImpl implements WritingTemplateService {
     @Override
     @Transactional
     public WritingTemplateDTO createTemplate(CreateWritingTemplateRequest request) {
-        log.info("创建写作模板: {}", request.getName());
+        log.debug("创建写作模板: {}", request.getName());
 
         WritingTemplate template = WritingTemplate.builder()
                 .name(request.getName())
@@ -113,7 +113,7 @@ public class WritingTemplateServiceImpl implements WritingTemplateService {
     @Override
     @Transactional
     public WritingTemplateDTO updateTemplate(String id, UpdateWritingTemplateRequest request) {
-        log.info("更新写作模板: {}", id);
+        log.debug("更新写作模板: {}", id);
 
         WritingTemplate existing = writingTemplateMapper.selectById(id);
         if (existing == null) {
@@ -145,7 +145,7 @@ public class WritingTemplateServiceImpl implements WritingTemplateService {
     @Override
     @Transactional
     public void deleteTemplate(String id) {
-        log.info("删除写作模板: {}", id);
+        log.debug("删除写作模板: {}", id);
 
         WritingTemplate existing = writingTemplateMapper.selectById(id);
         if (existing == null) {
@@ -161,7 +161,7 @@ public class WritingTemplateServiceImpl implements WritingTemplateService {
     @Override
     @Transactional
     public WritingTemplateDTO useTemplate(String id) {
-        log.info("使用模板: {}", id);
+        log.debug("使用模板: {}", id);
 
         WritingTemplate existing = writingTemplateMapper.selectById(id);
         if (existing == null) {

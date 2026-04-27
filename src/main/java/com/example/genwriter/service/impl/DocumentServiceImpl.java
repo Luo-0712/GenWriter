@@ -33,7 +33,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional
     public DocumentDTO createDocument(CreateDocumentRequest request) {
-        log.info("创建文档: sessionId={}, title={}", request.getSessionId(), request.getTitle());
+        log.debug("创建文档: sessionId={}, title={}", request.getSessionId(), request.getTitle());
 
         TaskSession session = taskSessionMapper.selectById(request.getSessionId());
         if (session == null) {
@@ -93,7 +93,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional
     public DocumentDTO createNewVersion(String sessionId, CreateDocumentRequest request) {
-        log.info("创建文档新版本: sessionId={}", sessionId);
+        log.debug("创建文档新版本: sessionId={}", sessionId);
 
         int maxVersion = documentMapper.getMaxVersionBySessionId(sessionId);
 
@@ -121,7 +121,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional
     public DocumentDTO updateDocument(String id, UpdateDocumentRequest request) {
-        log.info("更新文档: {}", id);
+        log.debug("更新文档: {}", id);
 
         Document existing = documentMapper.selectById(id);
         if (existing == null) {
@@ -150,7 +150,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional
     public void deleteDocument(String id) {
-        log.info("删除文档: {}", id);
+        log.debug("删除文档: {}", id);
 
         Document existing = documentMapper.selectById(id);
         if (existing == null) {

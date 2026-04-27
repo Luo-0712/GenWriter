@@ -62,7 +62,7 @@ public class SseServiceImpl implements SseService {
                         .data(json));
             }
 
-            log.info("SSE 订阅成功：sessionId={}, afterSeq={}, historyCount={}",
+            log.debug("SSE 订阅成功：sessionId={}, afterSeq={}, historyCount={}",
                     sessionId, afterSequenceId, history.size());
 
         } catch (IOException e) {
@@ -96,7 +96,7 @@ public class SseServiceImpl implements SseService {
             channel.complete();
             // 频道完成后可以延迟清理，给前端时间重连获取最终状态
             // 这里暂时保留频道，实际清理可以由定时任务处理
-            log.info("频道已标记完成：sessionId={}", sessionId);
+            log.debug("频道已标记完成：sessionId={}", sessionId);
         }
     }
 
@@ -109,7 +109,7 @@ public class SseServiceImpl implements SseService {
             // 如果频道已完成且无订阅者，可以清理
             if (channel.isCompleted() && channel.getSubscriberCount() == 0) {
                 channels.remove(sessionId);
-                log.info("频道已清理：sessionId={}", sessionId);
+                log.debug("频道已清理：sessionId={}", sessionId);
             }
         }
     }
@@ -145,7 +145,7 @@ public class SseServiceImpl implements SseService {
         channels.entrySet().removeIf(entry -> {
             SseMessageChannel channel = entry.getValue();
             if (channel.isCompleted() && channel.getSubscriberCount() == 0) {
-                log.info("清理已完成频道：sessionId={}", entry.getKey());
+                log.debug("清理已完成频道：sessionId={}", entry.getKey());
                 return true;
             }
             return false;

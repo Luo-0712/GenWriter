@@ -3,8 +3,6 @@ package com.example.genwriter.agent.graph;
 import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
 import com.alibaba.cloud.ai.graph.StateGraph;
-import com.alibaba.cloud.ai.graph.action.AsyncEdgeAction;
-import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
 import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import com.example.genwriter.agent.graph.node.*;
@@ -18,8 +16,8 @@ import static com.alibaba.cloud.ai.graph.action.AsyncEdgeAction.edge_async;
 import static com.alibaba.cloud.ai.graph.action.AsyncNodeAction.node_async;
 
 /**
- * StateGraph 工作流配置（扁平化结构）
- * 所有节点直接注册在同一个意图路由图中，避免子图嵌套导致的编译问题
+ * StateGraph 工作流配置
+ * 主图负责意图路由和粗粒度编排，写作流水线抽取为子图
  */
 @Slf4j
 @Configuration
@@ -56,7 +54,7 @@ public class GraphConfig {
 
     /**
      * 统一的意图路由工作流图
-     * 
+     * 主图骨架：意图识别 → 粗粒度分支 → 子图/节点 → 发布
      */
     @Bean
     public StateGraph intentRouterGraph(
@@ -66,20 +64,18 @@ public class GraphConfig {
             DirectAnswerNode directAnswerNode,
             PolishNode polishNode,
             OutlineGenerationNode outlineGenerationNode,
-            DraftGenerationNode draftGenerationNode,
             SsePublishNode ssePublishNode,
-            ReviewNode reviewNode) throws Exception {
+            WritingSubGraph writingSubGraph) throws Exception {
 
         return new StateGraph("IntentRouterGraph", keyStrategyFactory)
-                // 注册所有节点
+                // 注册主图节点（子图作为复合节点注册）
                 .addNode("intent_recognition", node_async(intentRecognitionNode))
                 .addNode("knowledge_retrieval", node_async(knowledgeRetrievalNode))
                 .addNode("direct_answer", node_async(directAnswerNode))
                 .addNode("polish", node_async(polishNode))
                 .addNode("outline", node_async(outlineGenerationNode))
-                .addNode("draft", node_async(draftGenerationNode))
                 .addNode("sse_publish", node_async(ssePublishNode))
-                .addNode("review", node_async(reviewNode))
+                .addNode("writing_subgraph", writingSubGraph.subGraph())
 
                 // 起始边：从 START 到意图识别
                 .addEdge(StateGraph.START, "intent_recognition")
@@ -110,21 +106,12 @@ public class GraphConfig {
                 .addConditionalEdges("direct_answer", edge_async((EdgeAction) state -> "sse_publish"),
                         Map.of("sse_publish", "sse_publish"))
 
-                // 完整写作路径的边（含评审循环）
-                .addEdge("outline", "draft")
-                .addEdge("draft", "polish")
-                .addEdge("polish", "review")
+                // 写作任务路径：大纲生成后进入写作子图（内部含 draft→polish→review 循环）
+                .addEdge("outline", "writing_subgraph")
+                .addEdge("writing_subgraph", "sse_publish")
 
-                // 条件边3：评审后的路由决策（通过则发布，不通过则回退打磨）
-                .addConditionalEdges("review", edge_async((EdgeAction) state -> {
-                    String reviewResult = state.value("reviewResult", String.class).orElse("PASS");
-                    log.debug("评审路由: reviewResult={}", reviewResult);
-                    return reviewResult;
-                }), Map.of(
-                        "PASS", "sse_publish",
-                        "REVISE_DRAFT", "draft",
-                        "REVISE_POLISH", "polish"
-                ))
+                // 润色任务路径（独立快速润色，不经过子图评审）
+                .addEdge("polish", "sse_publish")
 
                 // 最终发布节点到 END
                 .addEdge("sse_publish", StateGraph.END);

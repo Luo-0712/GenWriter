@@ -30,7 +30,7 @@ public interface KnowledgeBaseMapper {
      * @return 知识库实体
      */
     @Select("SELECT id, name, description, type, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_base WHERE id = CAST(#{id} AS uuid)")
     KnowledgeBase selectById(String id);
 
@@ -40,7 +40,7 @@ public interface KnowledgeBaseMapper {
      * @return 知识库列表
      */
     @Select("SELECT id, name, description, type, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_base ORDER BY updated_at DESC")
     List<KnowledgeBase> selectAll();
 
@@ -51,7 +51,7 @@ public interface KnowledgeBaseMapper {
      * @return 知识库列表
      */
     @Select("SELECT id, name, description, type, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_base WHERE type = #{type} ORDER BY updated_at DESC")
     List<KnowledgeBase> selectByType(String type);
 
@@ -63,7 +63,7 @@ public interface KnowledgeBaseMapper {
      */
     @Select("<script>" +
             "SELECT id, name, description, type, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_base WHERE id IN " +
             "<foreach item='id' collection='ids' separator=',' open='(' close=')'>" +
             "CAST(#{id} AS uuid)" +
@@ -120,7 +120,7 @@ public interface KnowledgeBaseMapper {
      * @return 知识库列表
      */
     @Select("SELECT id, name, description, type, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_base WHERE name LIKE CONCAT('%', #{name}, '%') " +
             "ORDER BY updated_at DESC")
     List<KnowledgeBase> selectByNameLike(String name);

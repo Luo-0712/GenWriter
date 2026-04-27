@@ -27,13 +27,13 @@ public class DocumentChunkingServiceImpl implements DocumentChunkingService {
 
     @Override
     public List<DocumentChunk> chunkText(String text, String strategy, ChunkingConfig config) {
-        log.info("Chunking text with strategy: {}, config: chunkSize={}, overlap={}", 
+        log.debug("Chunking text with strategy: {}, config: chunkSize={}, overlap={}",
                 strategy, config.getChunkSize(), config.getChunkOverlap());
 
         DocumentChunkStrategy chunkStrategy = strategyFactory.getStrategy(strategy);
         List<DocumentChunk> chunks = chunkStrategy.chunk(text, config);
 
-        log.info("Text chunked into {} chunks", chunks.size());
+        log.debug("Text chunked into {} chunks", chunks.size());
         return chunks;
     }
 
@@ -48,7 +48,7 @@ public class DocumentChunkingServiceImpl implements DocumentChunkingService {
 
     @Override
     public List<DocumentChunk> chunkDocument(String filePath, String strategy, ChunkingConfig config) {
-        log.info("Loading and chunking document: {} with strategy: {}", filePath, strategy);
+        log.debug("Loading and chunking document: {} with strategy: {}", filePath, strategy);
 
         try {
             String content = documentLoader.loadDocument(filePath);

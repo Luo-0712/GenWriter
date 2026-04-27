@@ -42,21 +42,6 @@ public class OperationLogAspect {
         String operation = operationLog.value().isEmpty() ? methodName : operationLog.value();
 
         LocalDateTime startTime = LocalDateTime.now();
-        log.info("[{}] 开始执行: {}.{}, 时间: {}",
-                operation, className, methodName, startTime);
-
-        // 记录请求参数
-        if (operationLog.logParams()) {
-            Object[] args = joinPoint.getArgs();
-            if (args.length > 0) {
-                try {
-                    String params = objectMapper.writeValueAsString(args);
-                    log.info("[{}] 请求参数: {}", operation, params);
-                } catch (Exception e) {
-                    log.warn("[{}] 请求参数序列化失败: {}", operation, e.getMessage());
-                }
-            }
-        }
 
         try {
             Object result = joinPoint.proceed();

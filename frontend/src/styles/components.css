@@ -427,6 +427,19 @@
   }
 }
 
+.message-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.status-text {
+  font-weight: 400;
+}
+
 .thinking-status {
   display: flex;
   align-items: center;
@@ -469,4 +482,145 @@
     transform: translateY(-4px);
     opacity: 0.8;
   }
+}
+
+/* Markdown 内容样式 */
+.message-text {
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.message-text p {
+  margin-bottom: 1em;
+  line-height: 1.8;
+}
+
+.message-text h1,
+.message-text h2,
+.message-text h3,
+.message-text h4,
+.message-text h5,
+.message-text h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.message-text h1 {
+  font-size: 1.8em;
+}
+
+.message-text h2 {
+  font-size: 1.5em;
+}
+
+.message-text h3 {
+  font-size: 1.3em;
+}
+
+.message-text h4 {
+  font-size: 1.1em;
+}
+
+.message-text h5,
+.message-text h6 {
+  font-size: 1em;
+}
+
+.message-text pre {
+  margin: 1em 0;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-text code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.message-text pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 0.8em 0;
+  padding-left: 1.5em;
+  line-height: 1.8;
+}
+
+.message-text li {
+  margin-bottom: 0.5em;
+}
+
+.message-text blockquote {
+  margin: 1em 0;
+  padding: 8px 16px;
+  border-left: 4px solid var(--accent-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.message-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-text th,
+.message-text td {
+  border: 1px solid var(--border-color);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.message-text th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.message-text a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+
+.message-text a:hover {
+  text-decoration: underline;
+}
+
+.message-text hr {
+  margin: 2em 0;
+  border: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.message-text img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  border-radius: var(--radius-sm);
+}
+
+.message-text strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.message-text em {
+  font-style: italic;
 }

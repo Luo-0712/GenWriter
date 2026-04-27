@@ -33,7 +33,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public MessageDTO createMessage(CreateMessageRequest request) {
-        log.info("创建消息: sessionId={}, role={}", request.getSessionId(), request.getRole());
+        log.debug("创建消息: sessionId={}, role={}", request.getSessionId(), request.getRole());
 
         // 验证会话存在
         TaskSession session = taskSessionMapper.selectById(request.getSessionId());
@@ -109,7 +109,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public MessageDTO updateMessage(String id, UpdateMessageRequest request) {
-        log.info("更新消息: {}", id);
+        log.debug("更新消息: {}", id);
 
         Message existing = messageMapper.selectById(id);
         if (existing == null) {
@@ -137,7 +137,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public void deleteMessage(String id) {
-        log.info("删除消息: {}", id);
+        log.debug("删除消息: {}", id);
 
         Message existing = messageMapper.selectById(id);
         if (existing == null) {
@@ -153,10 +153,10 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public void deleteMessagesBySessionId(String sessionId) {
-        log.info("删除会话的所有消息: {}", sessionId);
+        log.debug("删除会话的所有消息: {}", sessionId);
 
         int result = messageMapper.deleteBySessionId(sessionId);
-        log.info("成功删除 {} 条消息", result);
+        log.debug("成功删除 {} 条消息", result);
     }
 
     @Override
@@ -168,7 +168,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public void createMessage(String sessionId, String role, String content) {
-        log.debug("创建消息: sessionId={}, role={}", sessionId, role);
+        log.trace("创建消息: sessionId={}, role={}", sessionId, role);
 
         Integer sequence = messageMapper.getMaxSequenceBySessionId(sessionId) + 1;
 

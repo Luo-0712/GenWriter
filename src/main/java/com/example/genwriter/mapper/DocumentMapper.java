@@ -31,7 +31,7 @@ public interface DocumentMapper {
      * @return 文档实体
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE id = CAST(#{id} AS uuid)")
     Document selectById(String id);
 
@@ -42,7 +42,7 @@ public interface DocumentMapper {
      * @return 文档列表
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) ORDER BY version DESC, updated_at DESC")
     List<Document> selectBySessionId(String sessionId);
 
@@ -54,7 +54,7 @@ public interface DocumentMapper {
      * @return 文档列表
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) AND type = #{type} " +
             "ORDER BY version DESC")
     List<Document> selectBySessionIdAndType(@Param("sessionId") String sessionId, @Param("type") String type);
@@ -66,7 +66,7 @@ public interface DocumentMapper {
      * @return 文档实体
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) " +
             "ORDER BY version DESC LIMIT 1")
     Document selectLatestBySessionId(String sessionId);
@@ -126,7 +126,7 @@ public interface DocumentMapper {
      * @return 文档列表
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document ORDER BY updated_at DESC")
     List<Document> selectAll();
 
@@ -137,7 +137,7 @@ public interface DocumentMapper {
      * @return 文档列表
      */
     @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
-            "metadata::text AS metadata, created_at AS createdAt, updated_at AS updatedAt " +
+            "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE status = #{status} ORDER BY updated_at DESC")
     List<Document> selectByStatus(String status);
 

@@ -31,7 +31,7 @@ public interface TaskSessionMapper {
      * @return 会话实体
      */
     @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE id = CAST(#{id} AS uuid)")
     TaskSession selectById(String id);
 
@@ -41,7 +41,7 @@ public interface TaskSessionMapper {
      * @return 会话列表
      */
     @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session ORDER BY updated_at DESC")
     List<TaskSession> selectAll();
 
@@ -52,7 +52,7 @@ public interface TaskSessionMapper {
      * @return 会话列表
      */
     @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE status = #{status} ORDER BY updated_at DESC")
     List<TaskSession> selectByStatus(String status);
 
@@ -63,7 +63,7 @@ public interface TaskSessionMapper {
      * @return 会话列表
      */
     @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE type = #{type} ORDER BY updated_at DESC")
     List<TaskSession> selectByType(String type);
 

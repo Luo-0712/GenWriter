@@ -30,7 +30,7 @@ public class TaskSessionController {
      */
     @PostMapping
     public ApiResponse<TaskSessionVO> createSession(@Valid @RequestBody CreateTaskSessionRequest request) {
-        log.info("创建会话请求: {}", request.getTitle());
+        log.debug("创建会话请求: {}", request.getTitle());
         TaskSessionDTO dto = taskSessionService.createSession(request);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -40,7 +40,7 @@ public class TaskSessionController {
      */
     @GetMapping("/{id}")
     public ApiResponse<TaskSessionVO> getSession(@PathVariable String id) {
-        log.info("查询会话: {}", id);
+        log.debug("查询会话: {}", id);
         TaskSessionDTO dto = taskSessionService.getSessionById(id);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -50,7 +50,7 @@ public class TaskSessionController {
      */
     @GetMapping
     public ApiResponse<List<TaskSessionVO>> getAllSessions() {
-        log.info("查询所有会话");
+        log.debug("查询所有会话");
         List<TaskSessionDTO> dtos = taskSessionService.getAllSessions();
         List<TaskSessionVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -63,7 +63,7 @@ public class TaskSessionController {
      */
     @GetMapping("/status/{status}")
     public ApiResponse<List<TaskSessionVO>> getSessionsByStatus(@PathVariable String status) {
-        log.info("根据状态查询会话: {}", status);
+        log.debug("根据状态查询会话: {}", status);
         List<TaskSessionDTO> dtos = taskSessionService.getSessionsByStatus(status);
         List<TaskSessionVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -76,7 +76,7 @@ public class TaskSessionController {
      */
     @GetMapping("/type/{type}")
     public ApiResponse<List<TaskSessionVO>> getSessionsByType(@PathVariable String type) {
-        log.info("根据类型查询会话: {}", type);
+        log.debug("根据类型查询会话: {}", type);
         List<TaskSessionDTO> dtos = taskSessionService.getSessionsByType(type);
         List<TaskSessionVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -91,7 +91,7 @@ public class TaskSessionController {
     public ApiResponse<TaskSessionVO> updateSession(
             @PathVariable String id,
             @Valid @RequestBody UpdateTaskSessionRequest request) {
-        log.info("更新会话: {}", id);
+        log.debug("更新会话: {}", id);
         TaskSessionDTO dto = taskSessionService.updateSession(id, request);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -101,7 +101,7 @@ public class TaskSessionController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteSession(@PathVariable String id) {
-        log.info("删除会话: {}", id);
+        log.debug("删除会话: {}", id);
         taskSessionService.deleteSession(id);
         return ApiResponse.success(null);
     }
@@ -111,7 +111,7 @@ public class TaskSessionController {
      */
     @DeleteMapping
     public ApiResponse<Void> deleteSessions(@RequestBody List<String> ids) {
-        log.info("批量删除会话: {}", ids);
+        log.debug("批量删除会话: {}", ids);
         taskSessionService.deleteSessions(ids);
         return ApiResponse.success(null);
     }
@@ -123,7 +123,7 @@ public class TaskSessionController {
     public ApiResponse<TaskSessionVO> updateSessionStatus(
             @PathVariable String id,
             @RequestParam String status) {
-        log.info("更新会话状态: {} -> {}", id, status);
+        log.debug("更新会话状态: {} -> {}", id, status);
         TaskSessionDTO dto = taskSessionService.updateSessionStatus(id, status);
         return ApiResponse.success(convertToVO(dto));
     }

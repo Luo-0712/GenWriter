@@ -14,9 +14,19 @@ const MessageBubble = ({ message }) => {
         <div className="message-role">
           {isUser ? '你' : 'GenWriter'}
         </div>
+        {message.statusText && !message.content && (
+          <div className="message-status">
+            <span className="status-text">{message.statusText}</span>
+            <div className="thinking-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        )}
         <div className="message-text">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
+            {message.content || ''}
           </ReactMarkdown>
         </div>
       </div>

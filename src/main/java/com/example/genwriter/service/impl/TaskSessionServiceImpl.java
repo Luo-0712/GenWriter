@@ -34,7 +34,7 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     @Override
     @Transactional
     public TaskSessionDTO createSession(CreateTaskSessionRequest request) {
-        log.info("创建任务会话: {}", request.getTitle());
+        log.debug("创建任务会话: {}", request.getTitle());
 
         TaskSession session = TaskSession.builder()
                 .title(request.getTitle())
@@ -95,7 +95,7 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     @Override
     @Transactional
     public TaskSessionDTO updateSession(String id, UpdateTaskSessionRequest request) {
-        log.info("更新任务会话: {}", id);
+        log.debug("更新任务会话: {}", id);
 
         TaskSession existing = taskSessionMapper.selectById(id);
         if (existing == null) {
@@ -124,7 +124,7 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     @Override
     @Transactional
     public void deleteSession(String id) {
-        log.info("删除任务会话: {}", id);
+        log.debug("删除任务会话: {}", id);
 
         TaskSession existing = taskSessionMapper.selectById(id);
         if (existing == null) {
@@ -140,20 +140,20 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     @Override
     @Transactional
     public void deleteSessions(List<String> ids) {
-        log.info("批量删除任务会话: {}", ids);
+        log.debug("批量删除任务会话: {}", ids);
 
         if (ids == null || ids.isEmpty()) {
             return;
         }
 
         int result = taskSessionMapper.deleteByIds(ids);
-        log.info("成功删除 {} 个会话", result);
+        log.debug("成功删除 {} 个会话", result);
     }
 
     @Override
     @Transactional
     public TaskSessionDTO updateSessionStatus(String id, String status) {
-        log.info("更新会话状态: {} -> {}", id, status);
+        log.debug("更新会话状态: {} -> {}", id, status);
 
         TaskSession existing = taskSessionMapper.selectById(id);
         if (existing == null) {

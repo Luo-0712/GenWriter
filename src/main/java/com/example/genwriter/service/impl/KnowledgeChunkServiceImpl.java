@@ -39,7 +39,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     @Override
     @Transactional
     public KnowledgeChunkDTO createChunk(CreateKnowledgeChunkRequest request) {
-        log.info("创建知识片段: kbId={}", request.getKbId());
+        log.debug("创建知识片段: kbId={}", request.getKbId());
 
         // 验证知识库存在
         KnowledgeBase kb = knowledgeBaseMapper.selectById(request.getKbId());
@@ -76,7 +76,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     @Override
     @Transactional
     public List<KnowledgeChunkDTO> createChunks(List<CreateKnowledgeChunkRequest> requests) {
-        log.info("批量创建知识片段: {} 个", requests.size());
+        log.debug("批量创建知识片段: {} 个", requests.size());
 
         // 分离已有嵌入和需要生成的请求
         List<float[]> embeddings = IntStream.range(0, requests.size())
@@ -154,7 +154,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     @Override
     @Transactional(readOnly = true)
     public List<KnowledgeChunkDTO> searchSimilarChunks(SearchKnowledgeChunkRequest request) {
-        log.info("相似度搜索: kbId={}, query={}", request.getKbId(), request.getQuery());
+        log.debug("相似度搜索: kbId={}, query={}", request.getKbId(), request.getQuery());
 
         // 1. 将查询转换为嵌入向量
         float[] queryEmbedding = embeddingService.embed(request.getQuery());
@@ -196,7 +196,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     @Override
     @Transactional
     public void deleteChunk(String id) {
-        log.info("删除知识片段: {}", id);
+        log.debug("删除知识片段: {}", id);
 
         KnowledgeChunk existing = knowledgeChunkMapper.selectById(id);
         if (existing == null) {
@@ -212,19 +212,19 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     @Override
     @Transactional
     public void deleteChunksByKbId(String kbId) {
-        log.info("删除知识库的所有片段: {}", kbId);
+        log.debug("删除知识库的所有片段: {}", kbId);
 
         int result = knowledgeChunkMapper.deleteByKbId(kbId);
-        log.info("成功删除 {} 个片段", result);
+        log.debug("成功删除 {} 个片段", result);
     }
 
     @Override
     @Transactional
     public void deleteChunksBySourceId(String sourceId) {
-        log.info("删除源文档的所有片段: {}", sourceId);
+        log.debug("删除源文档的所有片段: {}", sourceId);
 
         int result = knowledgeChunkMapper.deleteBySourceId(sourceId);
-        log.info("成功删除 {} 个片段", result);
+        log.debug("成功删除 {} 个片段", result);
     }
 
     /**

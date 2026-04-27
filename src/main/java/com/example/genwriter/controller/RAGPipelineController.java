@@ -39,7 +39,7 @@ public class RAGPipelineController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("kbId") String kbId,
             @RequestParam(value = "strategy", required = false) String strategy) {
-        log.info("Uploading document: {} -> kb:{}", file.getOriginalFilename(), kbId);
+        log.debug("Uploading document: {} -> kb:{}", file.getOriginalFilename(), kbId);
 
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
@@ -72,7 +72,7 @@ public class RAGPipelineController {
 
     @PostMapping("/process/document")
     public ApiResponse<List<KnowledgeChunkDTO>> processDocument(@Validated @RequestBody ProcessDocumentRequest request) {
-        log.info("Processing document into RAG pipeline: {} -> kb:{}", request.getFilePath(), request.getKbId());
+        log.debug("Processing document into RAG pipeline: {} -> kb:{}", request.getFilePath(), request.getKbId());
 
         String strategy = request.getStrategy() != null ? request.getStrategy() : "recursive";
         List<KnowledgeChunkDTO> chunks = ragPipelineService.processDocument(
@@ -83,7 +83,7 @@ public class RAGPipelineController {
 
     @PostMapping("/process/text")
     public ApiResponse<List<KnowledgeChunkDTO>> processText(@Validated @RequestBody ProcessTextRequest request) {
-        log.info("Processing text into RAG pipeline: kb:{}", request.getKbId());
+        log.debug("Processing text into RAG pipeline: kb:{}", request.getKbId());
 
         String strategy = request.getStrategy() != null ? request.getStrategy() : "recursive";
         List<KnowledgeChunkDTO> chunks = ragPipelineService.processText(
@@ -94,7 +94,7 @@ public class RAGPipelineController {
 
     @PostMapping("/search")
     public ApiResponse<List<KnowledgeChunkDTO>> search(@Validated @RequestBody SearchRequest request) {
-        log.info("RAG search: kb:{}, query:{}", request.getKbId(), request.getQuery());
+        log.debug("RAG search: kb:{}, query:{}", request.getKbId(), request.getQuery());
 
         int topK = request.getTopK() != null ? request.getTopK() : 5;
         List<KnowledgeChunkDTO> results = ragPipelineService.searchAndRetrieve(
@@ -105,7 +105,7 @@ public class RAGPipelineController {
 
     @PostMapping("/generate")
     public ApiResponse<String> generateWithContext(@Validated @RequestBody GenerateRequest request) {
-        log.info("RAG generate with context: kb:{}, query:{}", request.getKbId(), request.getQuery());
+        log.debug("RAG generate with context: kb:{}, query:{}", request.getKbId(), request.getQuery());
 
         String response = ragPipelineService.generateResponseWithContext(
                 request.getQuery(), request.getKbId());

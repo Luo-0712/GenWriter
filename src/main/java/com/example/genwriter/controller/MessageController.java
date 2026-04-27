@@ -33,7 +33,7 @@ public class MessageController {
      */
     @PostMapping
     public ApiResponse<MessageVO> createMessage(@Valid @RequestBody CreateMessageRequest request) {
-        log.info("创建消息请求：sessionId={}", request.getSessionId());
+        log.debug("创建消息请求：sessionId={}", request.getSessionId());
         MessageDTO dto = messageService.createMessage(request);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -48,7 +48,7 @@ public class MessageController {
             @PathVariable String sessionId,
             @RequestParam(defaultValue = "CREATE") ChatEvent.WritingType type,
             @RequestBody(required = false) String userInput) {
-        log.info("聊天请求：sessionId={}, type={}", sessionId, type);
+        log.debug("聊天请求：sessionId={}, type={}", sessionId, type);
         // 发布聊天事件，由 @EventListener 异步处理并通过 SSE 推送结果
         chatService.submitChatTask(sessionId, userInput, type);
         return ApiResponse.success(null);
@@ -59,7 +59,7 @@ public class MessageController {
      */
     @GetMapping("/{id}")
     public ApiResponse<MessageVO> getMessage(@PathVariable String id) {
-        log.info("查询消息：{}", id);
+        log.debug("查询消息：{}", id);
         MessageDTO dto = messageService.getMessageById(id);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -69,7 +69,7 @@ public class MessageController {
      */
     @GetMapping("/session/{sessionId}")
     public ApiResponse<List<MessageVO>> getMessagesBySessionId(@PathVariable String sessionId) {
-        log.info("查询会话消息：{}", sessionId);
+        log.debug("查询会话消息：{}", sessionId);
         List<MessageDTO> dtos = messageService.getMessagesBySessionId(sessionId);
         List<MessageVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -84,7 +84,7 @@ public class MessageController {
     public ApiResponse<List<MessageVO>> getRecentMessages(
             @PathVariable String sessionId,
             @RequestParam(defaultValue = "10") int limit) {
-        log.info("查询会话最近消息：{}, limit={}", sessionId, limit);
+        log.debug("查询会话最近消息：{}, limit={}", sessionId, limit);
         List<MessageDTO> dtos = messageService.getRecentMessages(sessionId, limit);
         List<MessageVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -99,7 +99,7 @@ public class MessageController {
     public ApiResponse<List<MessageVO>> getMessagesByRole(
             @PathVariable String sessionId,
             @PathVariable String role) {
-        log.info("查询会话角色消息：{}, role={}", sessionId, role);
+        log.debug("查询会话角色消息：{}, role={}", sessionId, role);
         List<MessageDTO> dtos = messageService.getMessagesByRole(sessionId, role);
         List<MessageVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -114,7 +114,7 @@ public class MessageController {
     public ApiResponse<MessageVO> updateMessage(
             @PathVariable String id,
             @Valid @RequestBody UpdateMessageRequest request) {
-        log.info("更新消息：{}", id);
+        log.debug("更新消息：{}", id);
         MessageDTO dto = messageService.updateMessage(id, request);
         return ApiResponse.success(convertToVO(dto));
     }
@@ -124,7 +124,7 @@ public class MessageController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteMessage(@PathVariable String id) {
-        log.info("删除消息：{}", id);
+        log.debug("删除消息：{}", id);
         messageService.deleteMessage(id);
         return ApiResponse.success(null);
     }
@@ -134,7 +134,7 @@ public class MessageController {
      */
     @DeleteMapping("/session/{sessionId}")
     public ApiResponse<Void> deleteMessagesBySessionId(@PathVariable String sessionId) {
-        log.info("删除会话的所有消息：{}", sessionId);
+        log.debug("删除会话的所有消息：{}", sessionId);
         messageService.deleteMessagesBySessionId(sessionId);
         return ApiResponse.success(null);
     }
@@ -144,7 +144,7 @@ public class MessageController {
      */
     @GetMapping("/session/{sessionId}/count")
     public ApiResponse<Long> countMessagesBySessionId(@PathVariable String sessionId) {
-        log.info("统计会话消息数量：{}", sessionId);
+        log.debug("统计会话消息数量：{}", sessionId);
         long count = messageService.countMessagesBySessionId(sessionId);
         return ApiResponse.success(count);
     }

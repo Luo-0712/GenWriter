@@ -24,7 +24,7 @@ public class DocumentChunkingController {
 
     @PostMapping("/text")
     public ApiResponse<List<DocumentChunk>> chunkText(@Validated @RequestBody ChunkTextRequest request) {
-        log.info("Chunking text with strategy: {}", request.getStrategy());
+        log.debug("Chunking text with strategy: {}", request.getStrategy());
 
         ChunkingConfig config = ChunkingConfig.builder()
                 .chunkSize(request.getChunkSize() != null ? request.getChunkSize() : 1000)
@@ -41,7 +41,7 @@ public class DocumentChunkingController {
 
     @PostMapping("/document")
     public ApiResponse<List<DocumentChunk>> chunkDocument(@Validated @RequestBody ChunkDocumentRequest request) {
-        log.info("Chunking document: {} with strategy: {}", request.getFilePath(), request.getStrategy());
+        log.debug("Chunking document: {} with strategy: {}", request.getFilePath(), request.getStrategy());
 
         ChunkingConfig config = ChunkingConfig.builder()
                 .chunkSize(request.getChunkSize() != null ? request.getChunkSize() : 1000)

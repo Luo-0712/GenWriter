@@ -38,8 +38,6 @@ public class ChatModelConfig {
         dynamicModel.registerModel("dashscope", dashScopeChatModel);
         dynamicModel.registerModel(llmConfig.getDefaultModel(), dashScopeChatModel);
 
-        log.info("已注册 DashScope ChatModel，默认模型: {}", llmConfig.getDefaultModel());
-
         return dynamicModel;
     }
 

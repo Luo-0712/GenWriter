@@ -31,7 +31,6 @@ public class ChatClientRegistry {
     public ChatClientRegistry() {
         this.clientsByName = new ConcurrentHashMap<>();
         this.clientsByType = new ConcurrentHashMap<>();
-        log.info("ChatClientRegistry 初始化完成");
     }
 
     /**
@@ -41,7 +40,7 @@ public class ChatClientRegistry {
      */
     public void register(String name, ChatClient client) {
         clientsByName.put(name, client);
-        log.info("ChatClient 已注册: {}", name);
+        log.debug("ChatClient 已注册: {}", name);
     }
 
     /**
@@ -51,7 +50,7 @@ public class ChatClientRegistry {
      */
     public void register(AgentType agentType, ChatClient client) {
         clientsByType.put(agentType, client);
-        log.info("ChatClient 已注册 (类型: {})", agentType);
+        log.debug("ChatClient 已注册 (类型: {})", agentType);
     }
 
     /**
@@ -104,6 +103,6 @@ public class ChatClientRegistry {
     public void clear() {
         clientsByName.clear();
         clientsByType.clear();
-        log.info("所有 ChatClient 已注销");
+        log.debug("所有 ChatClient 已注销");
     }
 }

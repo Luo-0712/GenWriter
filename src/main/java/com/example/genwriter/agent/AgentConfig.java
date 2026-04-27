@@ -35,7 +35,6 @@ public class AgentConfig {
         );
         chatClientRegistry.register(AgentType.WRITING, agent.getChatClient());
         chatClientRegistry.register("writing", agent.getChatClient());
-        log.info("WritingAgent 初始化完成");
         return agent;
     }
 
@@ -48,7 +47,6 @@ public class AgentConfig {
         );
         chatClientRegistry.register(AgentType.OUTLINE, agent.getChatClient());
         chatClientRegistry.register("outline", agent.getChatClient());
-        log.info("OutlineAgent 初始化完成");
         return agent;
     }
 
@@ -61,7 +59,6 @@ public class AgentConfig {
         );
         chatClientRegistry.register(AgentType.POLISH, agent.getChatClient());
         chatClientRegistry.register("polish", agent.getChatClient());
-        log.info("PolishAgent 初始化完成");
         return agent;
     }
 
@@ -75,7 +72,6 @@ public class AgentConfig {
         );
         chatClientRegistry.register(AgentType.KNOWLEDGE, agent.getChatClient());
         chatClientRegistry.register("knowledge", agent.getChatClient());
-        log.info("KnowledgeAgent 初始化完成");
         return agent;
     }
 }

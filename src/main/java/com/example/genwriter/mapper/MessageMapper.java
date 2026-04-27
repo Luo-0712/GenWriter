@@ -32,7 +32,7 @@ public interface MessageMapper {
      * @return 消息实体
      */
     @Select("SELECT id, session_id AS sessionId, role, type, content, metadata::text AS metadata, " +
-            "parent_id AS parentId, sequence, created_at AS createdAt, updated_at AS updatedAt " +
+            "parent_id AS parentId, sequence, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM message WHERE id = CAST(#{id} AS uuid)")
     Message selectById(String id);
 
@@ -43,7 +43,7 @@ public interface MessageMapper {
      * @return 消息列表
      */
     @Select("SELECT id, session_id AS sessionId, role, type, content, metadata::text AS metadata, " +
-            "parent_id AS parentId, sequence, created_at AS createdAt, updated_at AS updatedAt " +
+            "parent_id AS parentId, sequence, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM message WHERE session_id = CAST(#{sessionId} AS uuid) ORDER BY sequence ASC, created_at ASC")
     List<Message> selectBySessionId(String sessionId);
 
@@ -55,7 +55,7 @@ public interface MessageMapper {
      * @return 消息列表
      */
     @Select("SELECT id, session_id AS sessionId, role, type, content, metadata::text AS metadata, " +
-            "parent_id AS parentId, sequence, created_at AS createdAt, updated_at AS updatedAt " +
+            "parent_id AS parentId, sequence, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM message WHERE session_id = CAST(#{sessionId} AS uuid) " +
             "ORDER BY sequence DESC, created_at DESC LIMIT #{limit}")
     List<Message> selectBySessionIdRecently(@Param("sessionId") String sessionId, @Param("limit") int limit);
@@ -68,7 +68,7 @@ public interface MessageMapper {
      * @return 消息列表
      */
     @Select("SELECT id, session_id AS sessionId, role, type, content, metadata::text AS metadata, " +
-            "parent_id AS parentId, sequence, created_at AS createdAt, updated_at AS updatedAt " +
+            "parent_id AS parentId, sequence, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM message WHERE session_id = CAST(#{sessionId} AS uuid) AND role = #{role} " +
             "ORDER BY sequence ASC")
     List<Message> selectBySessionIdAndRole(@Param("sessionId") String sessionId, @Param("role") String role);
@@ -137,7 +137,7 @@ public interface MessageMapper {
      * @return 消息列表
      */
     @Select("SELECT id, session_id AS sessionId, role, type, content, metadata::text AS metadata, " +
-            "parent_id AS parentId, sequence, created_at AS createdAt, updated_at AS updatedAt " +
+            "parent_id AS parentId, sequence, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM message WHERE parent_id = CAST(#{parentId} AS uuid) ORDER BY sequence ASC")
     List<Message> selectByParentId(String parentId);
 }

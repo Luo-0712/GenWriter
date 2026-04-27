@@ -38,7 +38,7 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
     @Override
     @Transactional
     public List<KnowledgeChunkDTO> processDocument(String filePath, String kbId, String strategy) {
-        log.info("Processing document: {} into knowledge base: {} with strategy: {}", filePath, kbId, strategy);
+        log.debug("Processing document: {} into knowledge base: {} with strategy: {}", filePath, kbId, strategy);
 
         ChunkingConfig config = ChunkingConfig.builder()
                 .chunkSize(chunkingConfig.getDefaultChunkSize())
@@ -60,7 +60,7 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
     @Override
     @Transactional
     public List<KnowledgeChunkDTO> processText(String text, String kbId, String sourceId, String strategy) {
-        log.info("Processing text into knowledge base: {} with strategy: {}", kbId, strategy);
+        log.debug("Processing text into knowledge base: {} with strategy: {}", kbId, strategy);
 
         ChunkingConfig config = ChunkingConfig.builder()
                 .chunkSize(chunkingConfig.getDefaultChunkSize())
@@ -81,7 +81,7 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
 
     @Override
     public List<KnowledgeChunkDTO> searchAndRetrieve(String query, String kbId, int topK) {
-        log.info("Searching knowledge base: {} with query: {}, topK: {}", kbId, query, topK);
+        log.debug("Searching knowledge base: {} with query: {}, topK: {}", kbId, query, topK);
 
         SearchKnowledgeChunkRequest request = SearchKnowledgeChunkRequest.builder()
                 .kbId(kbId)
@@ -135,7 +135,7 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
 
         List<KnowledgeChunkDTO> savedChunks = chunkService.createChunks(requests);
 
-        log.info("Successfully saved {} chunks to knowledge base: {}", savedChunks.size(), kbId);
+        log.debug("Successfully saved {} chunks to knowledge base: {}", savedChunks.size(), kbId);
         return savedChunks;
     }
 }

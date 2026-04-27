@@ -37,7 +37,7 @@ public class MemoryController {
      */
     @GetMapping("/{sessionId}")
     public ApiResponse<List<MemoryMessageVO>> getMemoryMessages(@PathVariable String sessionId) {
-        log.info("查询会话记忆: sessionId={}", sessionId);
+        log.debug("查询会话记忆: sessionId={}", sessionId);
         List<Message> messages = redisChatMemory.getAllMessages(sessionId);
         List<MemoryMessageVO> vos = messages.stream()
                 .map(this::convertToVO)
@@ -50,7 +50,7 @@ public class MemoryController {
      */
     @GetMapping("/{sessionId}/stats")
     public ApiResponse<Map<String, Object>> getMemoryStats(@PathVariable String sessionId) {
-        log.info("查询会话记忆统计: sessionId={}", sessionId);
+        log.debug("查询会话记忆统计: sessionId={}", sessionId);
         long count = redisChatMemory.countMessages(sessionId);
         long ttl = redisChatMemory.getTtl(sessionId);
 
@@ -72,7 +72,7 @@ public class MemoryController {
     @PostMapping("/{sessionId}")
     public ApiResponse<Void> addMemoryMessage(@PathVariable String sessionId,
                                               @Valid @RequestBody CreateMemoryMessageRequest request) {
-        log.info("手动添加记忆消息: sessionId={}, role={}", sessionId, request.getRole());
+        log.debug("手动添加记忆消息: sessionId={}, role={}", sessionId, request.getRole());
 
         Message message = switch (request.getRole().toLowerCase()) {
             case "user" -> new UserMessage(request.getContent());
@@ -90,7 +90,7 @@ public class MemoryController {
      */
     @DeleteMapping("/{sessionId}")
     public ApiResponse<Void> clearMemory(@PathVariable String sessionId) {
-        log.info("清除会话记忆: sessionId={}", sessionId);
+        log.debug("清除会话记忆: sessionId={}", sessionId);
         redisChatMemory.clear(sessionId);
         return ApiResponse.success("记忆已清除", null);
     }

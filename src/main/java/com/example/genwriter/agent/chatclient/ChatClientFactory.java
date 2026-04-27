@@ -18,7 +18,6 @@ public class ChatClientFactory {
 
     public ChatClientFactory(DynamicChatModel dynamicChatModel) {
         this.dynamicChatModel = dynamicChatModel;
-        log.info("ChatClientFactory 初始化完成，当前模型: {}", dynamicChatModel.getActiveModel());
     }
 
     /**

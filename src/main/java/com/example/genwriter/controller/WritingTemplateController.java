@@ -27,21 +27,21 @@ public class WritingTemplateController {
 
     @PostMapping
     public ApiResponse<WritingTemplateVO> createTemplate(@Valid @RequestBody CreateWritingTemplateRequest request) {
-        log.info("创建模板请求: {}", request.getName());
+        log.debug("创建模板请求: {}", request.getName());
         WritingTemplateDTO dto = writingTemplateService.createTemplate(request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<WritingTemplateVO> getTemplate(@PathVariable String id) {
-        log.info("查询模板: {}", id);
+        log.debug("查询模板: {}", id);
         WritingTemplateDTO dto = writingTemplateService.getTemplateById(id);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @GetMapping
     public ApiResponse<List<WritingTemplateVO>> getAllTemplates() {
-        log.info("查询所有模板");
+        log.debug("查询所有模板");
         List<WritingTemplateDTO> dtos = writingTemplateService.getAllTemplates();
         List<WritingTemplateVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -51,7 +51,7 @@ public class WritingTemplateController {
 
     @GetMapping("/type/{type}")
     public ApiResponse<List<WritingTemplateVO>> getTemplatesByType(@PathVariable String type) {
-        log.info("根据类型查询模板: {}", type);
+        log.debug("根据类型查询模板: {}", type);
         List<WritingTemplateDTO> dtos = writingTemplateService.getTemplatesByType(type);
         List<WritingTemplateVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -61,7 +61,7 @@ public class WritingTemplateController {
 
     @GetMapping("/category/{category}")
     public ApiResponse<List<WritingTemplateVO>> getTemplatesByCategory(@PathVariable String category) {
-        log.info("根据分类查询模板: {}", category);
+        log.debug("根据分类查询模板: {}", category);
         List<WritingTemplateDTO> dtos = writingTemplateService.getTemplatesByCategory(category);
         List<WritingTemplateVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -71,7 +71,7 @@ public class WritingTemplateController {
 
     @GetMapping("/system")
     public ApiResponse<List<WritingTemplateVO>> getSystemTemplates() {
-        log.info("查询系统模板");
+        log.debug("查询系统模板");
         List<WritingTemplateDTO> dtos = writingTemplateService.getSystemTemplates();
         List<WritingTemplateVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -81,7 +81,7 @@ public class WritingTemplateController {
 
     @GetMapping("/search")
     public ApiResponse<List<WritingTemplateVO>> searchTemplates(@RequestParam String name) {
-        log.info("搜索模板: {}", name);
+        log.debug("搜索模板: {}", name);
         List<WritingTemplateDTO> dtos = writingTemplateService.searchTemplatesByName(name);
         List<WritingTemplateVO> vos = dtos.stream()
                 .map(this::convertToVO)
@@ -93,21 +93,21 @@ public class WritingTemplateController {
     public ApiResponse<WritingTemplateVO> updateTemplate(
             @PathVariable String id,
             @Valid @RequestBody UpdateWritingTemplateRequest request) {
-        log.info("更新模板: {}", id);
+        log.debug("更新模板: {}", id);
         WritingTemplateDTO dto = writingTemplateService.updateTemplate(id, request);
         return ApiResponse.success(convertToVO(dto));
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteTemplate(@PathVariable String id) {
-        log.info("删除模板: {}", id);
+        log.debug("删除模板: {}", id);
         writingTemplateService.deleteTemplate(id);
         return ApiResponse.success(null);
     }
 
     @PostMapping("/{id}/use")
     public ApiResponse<WritingTemplateVO> useTemplate(@PathVariable String id) {
-        log.info("使用模板: {}", id);
+        log.debug("使用模板: {}", id);
         WritingTemplateDTO dto = writingTemplateService.useTemplate(id);
         return ApiResponse.success(convertToVO(dto));
     }

@@ -33,7 +33,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template WHERE id = CAST(#{id} AS uuid)")
     WritingTemplate selectById(String id);
 
@@ -44,7 +44,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template ORDER BY usage_count DESC, updated_at DESC")
     List<WritingTemplate> selectAll();
 
@@ -56,7 +56,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template WHERE type = #{type} ORDER BY usage_count DESC")
     List<WritingTemplate> selectByType(String type);
 
@@ -68,7 +68,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template WHERE category = #{category} ORDER BY usage_count DESC")
     List<WritingTemplate> selectByCategory(String category);
 
@@ -79,7 +79,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template WHERE is_system = true ORDER BY usage_count DESC")
     List<WritingTemplate> selectSystemTemplates();
 
@@ -135,7 +135,7 @@ public interface WritingTemplateMapper {
      */
     @Select("SELECT id, name, description, type, category, content, variables::text AS variables, " +
             "example, is_system AS isSystem, usage_count AS usageCount, metadata::text AS metadata, " +
-            "created_at AS createdAt, updated_at AS updatedAt " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM writing_template WHERE name LIKE CONCAT('%', #{name}, '%') " +
             "ORDER BY usage_count DESC")
     List<WritingTemplate> selectByNameLike(String name);
