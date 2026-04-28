@@ -120,13 +120,13 @@ genwriter:
   supervisor:
     enabled: true
     max-iterations: 12
+    max-replan-count: 2
     temperature: 0.2
     max-history-items: 20
     fallback-worker: direct_answer
   researcher:
     max-search-queries: 5
     max-search-results-per-query: 5
-    max-verification-loops: 2
     enabled: true
   websearch:
     api-key: ${TAVILY_API_KEY:}

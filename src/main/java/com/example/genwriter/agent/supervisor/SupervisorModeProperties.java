@@ -11,6 +11,7 @@ public class SupervisorModeProperties {
 
     private boolean enabled = false;
     private int maxIterations = 12;
+    private int maxReplanCount = 2;
     private double temperature = 0.2;
     private int maxHistoryItems = 20;
     private String fallbackWorker = "direct_answer";

@@ -10,10 +10,6 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 研究调研节点（Graph 模式）
- * 封装 ResearcherWorker，适配 NodeAction 接口
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -34,7 +30,6 @@ public class ResearcherNode implements NodeAction {
 
         Map<String, Object> result = researcherWorker.execute(stateMap);
 
-        // Merge result back into a new map for graph state update
         Map<String, Object> update = new HashMap<>(result);
         update.put("currentNode", "ResearcherNode");
         return update;

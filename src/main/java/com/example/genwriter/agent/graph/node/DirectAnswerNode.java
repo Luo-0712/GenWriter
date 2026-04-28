@@ -3,22 +3,28 @@ package com.example.genwriter.agent.graph.node;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
+import com.example.genwriter.agent.tool.KnowledgeBaseTool;
+import com.example.genwriter.agent.tool.KnowledgeBaseToolCallback;
+import com.example.genwriter.agent.tool.WebSearchTool;
+import com.example.genwriter.agent.tool.WebSearchToolCallback;
+import com.example.genwriter.config.ResearcherProperties;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
-/**
- * 通用问答节点
- * 直接调用 LLM 回答用户问题，使用流式输出实时反馈给前端
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -27,13 +33,34 @@ public class DirectAnswerNode implements NodeAction {
 
     private final ChatClientFactory chatClientFactory;
     private final DirectAnswerSkill skill;
+    private final WebSearchTool webSearchTool;
+    private final KnowledgeBaseTool knowledgeBaseTool;
+    private final RedisChatMemory chatMemory;
     private final SseService sseService;
+    private final ResearcherProperties properties;
 
     private ChatClient chatClient;
 
     @PostConstruct
     void initChatClient() {
-        this.chatClient = chatClientFactory.create(TEMPERATURE);
+        ToolCallback webSearchCallback = FunctionToolCallback
+                .builder("web_search", (java.util.function.Function<WebSearchToolCallback.WebSearchInput, String>)
+                        new WebSearchToolCallback(webSearchTool, properties, sseService))
+                .description("Search the web for information.")
+                .inputType(WebSearchToolCallback.WebSearchInput.class)
+                .build();
+
+        ToolCallback kbSearchCallback = FunctionToolCallback
+                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseToolCallback.KnowledgeSearchInput, String>)
+                        new KnowledgeBaseToolCallback(knowledgeBaseTool))
+                .description("Search the knowledge base for relevant content.")
+                .inputType(KnowledgeBaseToolCallback.KnowledgeSearchInput.class)
+                .build();
+
+        this.chatClient = chatClientFactory.create(TEMPERATURE)
+                .mutate()
+                .defaultTools(webSearchCallback, kbSearchCallback)
+                .build();
     }
 
     @Override
@@ -41,19 +68,27 @@ public class DirectAnswerNode implements NodeAction {
         String sessionId = state.value("sessionId", String.class).orElse("");
         String userInput = state.value("userInput", String.class).orElse("");
         String context = state.value("context", String.class).orElse("");
+        String kbId = state.value("kbId", String.class).orElse("");
 
         log.debug("通用问答: userInput={}, contextLength={}", userInput, context.length());
         publishStatus(sessionId, "【直接回答】正在生成回答...");
 
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "userInput", userInput,
-                "context", context
+                "context", context,
+                "kbId", kbId
         ));
+
+        String conversationId = sessionId + ":direct";
 
         StringBuilder contentBuilder = new StringBuilder();
         chatClient.prompt()
                 .system(skill.systemPrompt())
                 .user(userPrompt)
+                .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                .advisors(a -> a.param(
+                        AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                        conversationId))
                 .stream()
                 .content()
                 .doOnNext(chunk -> {
@@ -74,7 +109,7 @@ public class DirectAnswerNode implements NodeAction {
     }
 
     private void publishContentChunk(String sessionId, String chunk) {
-        if (sessionId.isBlank()) return;
+        if (sessionId == null || sessionId.isBlank()) return;
         try {
             sseService.publish(sessionId, SseMessage.builder()
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
@@ -89,7 +124,7 @@ public class DirectAnswerNode implements NodeAction {
     }
 
     private void publishStatus(String sessionId, String statusText) {
-        if (sessionId.isBlank()) return;
+        if (sessionId == null || sessionId.isBlank()) return;
         try {
             sseService.publish(sessionId, SseMessage.builder()
                     .type(SseMessage.Type.AI_EXECUTING)
