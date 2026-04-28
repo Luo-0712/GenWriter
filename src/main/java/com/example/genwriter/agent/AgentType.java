@@ -8,7 +8,8 @@ public enum AgentType {
     WRITING("写作助手"),
     OUTLINE("大纲生成"),
     POLISH("文本润色"),
-    KNOWLEDGE("知识库问答");
+    KNOWLEDGE("知识库问答"),
+    RESEARCH("研究调研");
 
     private final String description;
 

@@ -178,6 +178,13 @@ public class SupervisorNode implements NodeAction {
             String ctx = (String) state.get("context");
             sb.append("- context: ").append(ctx != null && !ctx.isBlank() ? ctx.length() + " chars" : "empty").append("\n");
         }
+        if (state.containsKey("researchReport")) {
+            String report = (String) state.get("researchReport");
+            sb.append("- researchReport: ").append(report != null ? report.length() + " chars" : "null").append("\n");
+        }
+        if (state.containsKey("researchSources")) {
+            sb.append("- researchSources: present\n");
+        }
 
         sb.append("\n## 调度历史\n");
         if (historyLog.isBlank()) {

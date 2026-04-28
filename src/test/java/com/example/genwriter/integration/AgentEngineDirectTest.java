@@ -1,6 +1,9 @@
 package com.example.genwriter.integration;
 
 import com.example.genwriter.agent.*;
+import com.example.genwriter.agent.writerflow.KnowledgeAgent;
+import com.example.genwriter.agent.writerflow.PolishAgent;
+import com.example.genwriter.agent.writerflow.WritingAgent;
 import com.example.genwriter.config.RealEnvironmentTestConfig;
 import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.service.SseService;

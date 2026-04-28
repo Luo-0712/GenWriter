@@ -39,7 +39,9 @@ public class SupervisorSystemPromptProvider {
                 {"action": "FINISH", "reasoning": "...", "finalOutput": "<完整回答>"}
 
                 ## 推荐流程
-                - 新写作任务: intent_recognition -> outline -> knowledge_retrieval(如有kbId) -> draft -> polish -> review
+                - 新写作任务(需外部数据): intent_recognition -> researcher -> outline -> knowledge_retrieval(如有kbId) -> draft -> polish -> review
+                - 新写作任务(无需外部数据): intent_recognition -> outline -> knowledge_retrieval(如有kbId) -> draft -> polish -> review
+                - 纯调研任务: intent_recognition -> researcher -> direct_answer -> FINISH
                 - 评审结果 REVISE_DRAFT: 回到 draft
                 - 评审结果 REVISE_POLISH: 回到 polish
                 - 评审结果 PASS: FINISH，将 polishedContent 作为 finalOutput

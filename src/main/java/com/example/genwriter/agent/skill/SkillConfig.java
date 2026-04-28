@@ -38,4 +38,9 @@ public class SkillConfig {
     public DirectAnswerSkill directAnswerSkill(com.example.genwriter.config.LLMConfig llmConfig) {
         return new DirectAnswerSkill(llmConfig);
     }
+
+    @Bean
+    public ResearcherSkill researcherSkill(com.example.genwriter.config.LLMConfig llmConfig) {
+        return new ResearcherSkill(llmConfig);
+    }
 }

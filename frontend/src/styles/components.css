@@ -440,6 +440,28 @@
   font-weight: 400;
 }
 
+/* ---- 状态阶段标签 ---- */
+.status-stage-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.status-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status-desc {
+  color: var(--text-tertiary);
+}
+
 .thinking-status {
   display: flex;
   align-items: center;

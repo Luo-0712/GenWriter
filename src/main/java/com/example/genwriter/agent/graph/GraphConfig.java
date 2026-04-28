@@ -49,6 +49,9 @@ public class GraphConfig {
             strategies.put("reviewResult", new ReplaceStrategy());
             strategies.put("reviewFeedback", new ReplaceStrategy());
             strategies.put("reviewCount", new ReplaceStrategy());
+            strategies.put("researchReport", new ReplaceStrategy());
+            strategies.put("researchSources", new ReplaceStrategy());
+            strategies.put("keyFindings", new ReplaceStrategy());
             return strategies;
         };
     }
@@ -67,7 +70,8 @@ public class GraphConfig {
             PolishNode polishNode,
             OutlineGenerationNode outlineGenerationNode,
             SsePublishNode ssePublishNode,
-            WritingSubGraph writingSubGraph) throws Exception {
+            WritingSubGraph writingSubGraph,
+            ResearcherNode researcherNode) throws Exception {
 
         return new StateGraph("IntentRouterGraph", keyStrategyFactory)
                 // 注册主图节点（子图作为复合节点注册）
@@ -78,6 +82,7 @@ public class GraphConfig {
                 .addNode("outline", node_async(outlineGenerationNode))
                 .addNode("sse_publish", node_async(ssePublishNode))
                 .addNode("writing_subgraph", writingSubGraph.subGraph())
+                .addNode("researcher", node_async(researcherNode))
 
                 // 起始边：从 START 到意图识别
                 .addEdge(StateGraph.START, "intent_recognition")
@@ -92,13 +97,15 @@ public class GraphConfig {
                         case "WRITING_TASK" -> "outline";
                         case "KNOWLEDGE_QA" -> (kbId != null && !kbId.isBlank()) ? "knowledge_retrieval" : "direct_answer";
                         case "POLISH_TASK" -> "polish";
+                        case "RESEARCH_TASK" -> "researcher";
                         default -> "direct_answer";
                     };
                 }), Map.of(
                         "outline", "outline",
                         "knowledge_retrieval", "knowledge_retrieval",
                         "direct_answer", "direct_answer",
-                        "polish", "polish"
+                        "polish", "polish",
+                        "researcher", "researcher"
                 ))
 
                 // 快速执行路径的边
@@ -114,6 +121,9 @@ public class GraphConfig {
 
                 // 润色任务路径（独立快速润色，不经过子图评审）
                 .addEdge("polish", "sse_publish")
+
+                // 调研任务路径：researcher 后直接回答
+                .addEdge("researcher", "direct_answer")
 
                 // 最终发布节点到 END
                 .addEdge("sse_publish", StateGraph.END);

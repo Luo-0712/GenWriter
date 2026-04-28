@@ -1,5 +1,7 @@
-package com.example.genwriter.agent;
+package com.example.genwriter.agent.core;
 
+import com.example.genwriter.agent.AgentState;
+import com.example.genwriter.agent.AgentType;
 import com.example.genwriter.config.LLMConfig;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;

@@ -1,5 +1,8 @@
-package com.example.genwriter.agent;
+package com.example.genwriter.agent.writerflow;
 
+import com.example.genwriter.agent.core.AgentExecutionContext;
+import com.example.genwriter.agent.AgentType;
+import com.example.genwriter.agent.core.BaseAgent;
 import com.example.genwriter.config.LLMConfig;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;

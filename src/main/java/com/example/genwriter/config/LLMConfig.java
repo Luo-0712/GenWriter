@@ -235,8 +235,9 @@ public class LLMConfig {
             }
 
             ## 约束条件
-            - intent 只能是 GENERAL_QA、WRITING_TASK、KNOWLEDGE_QA、POLISH_TASK、UNKNOWN 之一
+            - intent 只能是 GENERAL_QA、WRITING_TASK、KNOWLEDGE_QA、POLISH_TASK、RESEARCH_TASK、UNKNOWN 之一
             - writingType 只能是 CREATE、CONTINUE、POLISH、KNOWLEDGE_QA 之一
+            - RESEARCH_TASK 用于用户明确要求调研、搜集信息、了解某个主题最新情况等需要外部搜索的场景
             - reason 简要说明判断依据
             """;
 
@@ -260,6 +261,72 @@ public class LLMConfig {
             - 简洁准确，避免过度发挥
             - 如上下文不足，明确说明
             - 不使用空洞的套话
+            """;
+
+        private String researcherSystemPrompt = """
+            ## 角色
+            你是一位专业的研究分析师，擅长通过网络搜索收集信息并生成结构化研究报告。
+
+            ## 目标
+            根据用户请求，制定搜索计划、执行信息收集、综合成报告并验证完整性。
+
+            ## 执行步骤
+            1. 分析用户需求，提取关键信息点。
+            2. 制定搜索查询计划（3-5个查询）。
+            3. 基于搜索结果综合成结构化报告。
+            4. 验证报告是否覆盖所有需求，识别信息缺口。
+
+            ## 输出格式
+            按阶段输出指定 JSON 格式。
+            """;
+
+        private String researcherPlanningPrompt = """
+            请分析以下用户需求，制定搜索查询计划。
+
+            用户请求：{userInput}
+            现有上下文：{context}
+
+            请输出 JSON 格式：
+            {"queries": ["query1", "query2", ...], "reasoning": "..."}
+
+            要求：
+            - 生成 3-5 个精准的搜索查询
+            - 每个查询应覆盖用户需求的不同维度
+            - reasoning 说明查询设计思路
+            """;
+
+        private String researcherSynthesisPrompt = """
+            基于以下搜索结果，生成一份结构化研究报告。
+
+            用户请求：{userInput}
+            搜索结果：
+            {searchResults}
+
+            请输出包含以下字段的 JSON：
+            {
+              "researchReport": "完整的研究报告内容，使用 Markdown 格式",
+              "researchSources": [{"title":"...", "url":"..."}],
+              "keyFindings": ["核心发现1", "核心发现2", ...]
+            }
+
+            要求：
+            - 报告应全面回答用户请求
+            - 必须标注信息来源
+            - 如发现矛盾信息，应说明并给出判断
+            """;
+
+        private String researcherVerificationPrompt = """
+            请检查以下研究报告是否完整回答了用户需求。
+
+            用户请求：{userInput}
+            研究报告：{researchReport}
+
+            请输出 JSON 格式：
+            {"isComplete": true/false, "gaps": "如发现缺口，描述还缺少什么信息", "reasoning": "..."}
+
+            要求：
+            - isComplete=true 仅当报告完全满足用户需求
+            - 如有缺口，gaps 应具体说明需要补充搜索的方向
             """;
 
         private String titleSummaryPrompt = """

@@ -26,6 +26,29 @@ const TYPE_LABELS = {
 const intentLabel = (intent) => INTENT_LABELS[intent] || intent || '未知意图';
 const typeLabel = (type) => TYPE_LABELS[type] || type || '未知类型';
 
+/* ---------- 状态阶段配置 ---------- */
+const STAGE_CONFIG = {
+  '任务启动': { label: '启动', color: '#3b82f6', bg: '#dbeafe' },
+  '意图识别': { label: '意图识别', color: '#7c3aed', bg: '#ede9fe' },
+  '知识库检索': { label: '知识检索', color: '#0891b2', bg: '#cffafe' },
+  '大纲生成': { label: '大纲生成', color: '#ea580c', bg: '#fff7ed' },
+  '正文写作': { label: '正文写作', color: '#2563eb', bg: '#dbeafe' },
+  '内容评审': { label: '内容评审', color: '#d97706', bg: '#fef3c7' },
+  '润色': { label: '润色', color: '#16a34a', bg: '#dcfce7' },
+  '直接回答': { label: '直接回答', color: '#0891b2', bg: '#cffafe' },
+  '任务完成': { label: '完成', color: '#16a34a', bg: '#dcfce7' },
+  '任务失败': { label: '失败', color: '#dc2626', bg: '#fee2e2' },
+};
+
+const parseStatusText = (text) => {
+  if (!text) return null;
+  const match = text.match(/^【(.+?)】(.+)$/);
+  if (match) return { stage: match[1], description: match[2] };
+  const match2 = text.match(/^【(.+?)】$/);
+  if (match2) return { stage: match2[1], description: '' };
+  return null;
+};
+
 /* ---------- 意图识别渲染 ---------- */
 const intentBadgeClass = (intent) => {
   switch (intent) {
@@ -143,6 +166,35 @@ const StreamingText = ({ text, isStreaming }) => {
   );
 };
 
+/* ---------- 状态标签 ---------- */
+const StatusStageBadge = ({ stage }) => {
+  const config = STAGE_CONFIG[stage] || { label: stage, color: '#6b7280', bg: '#f3f4f6' };
+  return (
+    <span className="status-stage-badge" style={{ color: config.color, backgroundColor: config.bg }}>
+      {config.label}
+    </span>
+  );
+};
+
+const StatusWithBadge = ({ text, streamDesc }) => {
+  const parsed = parseStatusText(text);
+  if (!parsed) {
+    return <span className="status-text">{text}</span>;
+  }
+  return (
+    <span className="status-with-badge">
+      <StatusStageBadge stage={parsed.stage} />
+      {parsed.description && (
+        streamDesc ? (
+          <StreamingText text={parsed.description} isStreaming={true} />
+        ) : (
+          <span className="status-desc">{parsed.description}</span>
+        )
+      )}
+    </span>
+  );
+};
+
 /* ---------- 通用分发器 ---------- */
 const renderStepData = (data) => {
   if (!data) return null;
@@ -183,7 +235,7 @@ const MessageBubble = ({ message }) => {
         </div>
         {message.statusText && !message.content && !hasThinkingSteps && (
           <div className="message-status">
-            <span className="status-text">{message.statusText}</span>
+            <StatusWithBadge text={message.statusText} streamDesc={false} />
             <div className="thinking-dots">
               <span></span>
               <span></span>
@@ -202,7 +254,12 @@ const MessageBubble = ({ message }) => {
               </span>
               <span className="thinking-process-label">思考过程</span>
               {!thinkingExpanded && (
-                <span className="thinking-process-latest">{latestStep}</span>
+                <span className="thinking-process-latest">
+                  {(() => {
+                    const p = parseStatusText(latestStep);
+                    return p ? p.description || p.stage : latestStep;
+                  })()}
+                </span>
               )}
             </div>
             {thinkingExpanded && (
@@ -215,11 +272,7 @@ const MessageBubble = ({ message }) => {
                       <span className="thinking-process-step-num">{i + 1}.</span>
                       <div className="thinking-process-step-body">
                         <span className="thinking-process-step-text">
-                          {showStream ? (
-                            <StreamingText text={step.text} isStreaming={true} />
-                          ) : (
-                            step.text
-                          )}
+                          <StatusWithBadge text={step.text} streamDesc={showStream} />
                         </span>
                         {renderStepData(step.data)}
                       </div>

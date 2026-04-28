@@ -112,17 +112,25 @@ genwriter:
     window-size: 20
     max-messages: 50
   graph:
-    enabled: true
+    enabled: false
     checkpoint:
       enabled: true
       key-prefix: "genwriter:graph:checkpoint:"
       ttl-hours: 24
   supervisor:
-    enabled: false
+    enabled: true
     max-iterations: 12
     temperature: 0.2
     max-history-items: 20
     fallback-worker: direct_answer
+  researcher:
+    max-search-queries: 5
+    max-search-results-per-query: 5
+    max-verification-loops: 2
+    enabled: true
+  websearch:
+    api-key: ${TAVILY_API_KEY:}
+    timeout-seconds: 30
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。

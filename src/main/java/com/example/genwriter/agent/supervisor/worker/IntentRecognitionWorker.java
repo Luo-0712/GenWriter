@@ -40,7 +40,7 @@ public class IntentRecognitionWorker implements WorkerAgent {
 
     @Override
     public String description() {
-        return "分析用户输入，判断意图和写作类型（WRITING_TASK/KNOWLEDGE_QA/POLISH_TASK/GENERAL_QA）";
+        return "分析用户输入，判断意图和写作类型（WRITING_TASK/KNOWLEDGE_QA/POLISH_TASK/RESEARCH_TASK/GENERAL_QA）";
     }
 
     @Override
