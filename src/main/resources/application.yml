@@ -114,6 +114,7 @@ genwriter:
   graph:
     enabled: true
     checkpoint:
+      enabled: true
       key-prefix: "genwriter:graph:checkpoint:"
       ttl-hours: 24
   prompts:

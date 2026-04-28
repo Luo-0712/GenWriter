@@ -18,6 +18,11 @@ public class GraphCheckpointProperties {
     private String keyPrefix = "genwriter:graph:checkpoint:";
 
     /**
+     * 是否启用 Checkpoint 持久化
+     */
+    private boolean enabled = true;
+
+    /**
      * Checkpoint 过期时间（小时）
      */
     private long ttlHours = 24;

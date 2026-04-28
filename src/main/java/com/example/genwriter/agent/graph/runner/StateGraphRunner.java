@@ -1,15 +1,25 @@
 package com.example.genwriter.agent.graph.runner;
 
+import com.alibaba.cloud.ai.graph.CompileConfig;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.StateGraph;
+import com.alibaba.cloud.ai.graph.checkpoint.config.SaverConfig;
+import com.example.genwriter.agent.graph.checkpoint.GraphCheckpointProperties;
+import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
+import com.example.genwriter.agent.memory.MemoryProperties;
+import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,12 +30,56 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class StateGraphRunner {
 
     private final StateGraph intentRouterGraph;
     private final SseService sseService;
     private final MessageService messageService;
+    private final RedisCheckpointSaver checkpointSaver;
+    private final GraphCheckpointProperties checkpointProperties;
+    private final RedisChatMemory chatMemory;
+    private final MemoryProperties memoryProperties;
+
+    private volatile CompiledGraph compiledGraph;
+
+    public StateGraphRunner(StateGraph intentRouterGraph,
+                            SseService sseService,
+                            MessageService messageService,
+                            RedisCheckpointSaver checkpointSaver,
+                            GraphCheckpointProperties checkpointProperties,
+                            RedisChatMemory chatMemory,
+                            MemoryProperties memoryProperties) {
+        this.intentRouterGraph = intentRouterGraph;
+        this.sseService = sseService;
+        this.messageService = messageService;
+        this.checkpointSaver = checkpointSaver;
+        this.checkpointProperties = checkpointProperties;
+        this.chatMemory = chatMemory;
+        this.memoryProperties = memoryProperties;
+    }
+
+    private CompiledGraph getCompiledGraph() throws Exception {
+        if (compiledGraph == null) {
+            synchronized (this) {
+                if (compiledGraph == null) {
+                    if (checkpointProperties.isEnabled()) {
+                        SaverConfig saverConfig = SaverConfig.builder()
+                                .register("redis", checkpointSaver)
+                                .build();
+                        CompileConfig compileConfig = CompileConfig.builder()
+                                .saverConfig(saverConfig)
+                                .build();
+                        compiledGraph = intentRouterGraph.compile(compileConfig);
+                        log.info("CompiledGraph 已初始化（含 checkpoint saver）");
+                    } else {
+                        compiledGraph = intentRouterGraph.compile();
+                        log.info("CompiledGraph 已初始化（无 checkpoint）");
+                    }
+                }
+            }
+        }
+        return compiledGraph;
+    }
 
     /**
      * 执行 StateGraph
@@ -43,33 +97,35 @@ public class StateGraphRunner {
         try {
             messageService.createMessage(sessionId, "user", userInput);
 
-            CompiledGraph compiledGraph = intentRouterGraph.compile();
+            String context = buildContextFromMemory(sessionId);
 
             Map<String, Object> inputs = Map.of(
                     "sessionId", sessionId,
                     "documentId", documentId != null ? documentId : "",
                     "userInput", userInput,
                     "kbId", kbId != null ? kbId : "",
-                    "writingType", writingType != null ? writingType : "CREATE"
+                    "writingType", writingType != null ? writingType : "CREATE",
+                    "context", context
             );
 
-            Optional<OverAllState> result = compiledGraph.call(inputs);
+            RunnableConfig config = RunnableConfig.builder()
+                    .threadId(sessionId)
+                    .build();
+
+            CompiledGraph graph = getCompiledGraph();
+            Optional<OverAllState> result = graph.call(inputs, config);
 
             if (result.isPresent()) {
                 OverAllState state = result.get();
                 String finalOutput = state.value("finalOutput", String.class).orElse(null);
-                String currentNode = state.value("currentNode", String.class).orElse("UNKNOWN");
 
-                log.info("StateGraph 执行完成: sessionId={}, finalNode={}",
-                        sessionId, currentNode);
-                publishStatus(sessionId, "【任务完成】最终节点: " + currentNode);
+                publishStatus(sessionId, "【任务完成】");
 
                 if (finalOutput != null && !finalOutput.isBlank()) {
                     messageService.createMessage(sessionId, "assistant", finalOutput);
-                    log.debug("AI 响应消息已持久化: sessionId={}", sessionId);
+                    saveToMemory(sessionId, userInput, finalOutput);
                 }
             } else {
-                log.warn("StateGraph 执行返回空结果: sessionId={}", sessionId);
                 publishStatus(sessionId, "【任务完成】未产生输出");
             }
 
@@ -77,6 +133,39 @@ public class StateGraphRunner {
             log.error("StateGraph 执行失败: sessionId={}, error={}", sessionId, e.getMessage(), e);
             publishStatus(sessionId, "【任务失败】" + e.getMessage());
             sendErrorMessage(sessionId, "处理失败：" + e.getMessage());
+        }
+    }
+
+    private String buildContextFromMemory(String sessionId) {
+        try {
+            List<Message> history = chatMemory.getAllMessages(sessionId);
+            if (history.isEmpty()) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            sb.append("以下为本次会话的历史对话记录：\n");
+            for (Message msg : history) {
+                String role = msg.getMessageType().getValue();
+                sb.append("[").append(role).append("]: ")
+                        .append(msg.getText()).append("\n");
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("加载对话历史失败: sessionId={}", sessionId, e);
+            return "";
+        }
+    }
+
+    private void saveToMemory(String sessionId, String userInput, String assistantOutput) {
+        try {
+            List<Message> messages = List.of(
+                    new UserMessage(userInput),
+                    new AssistantMessage(assistantOutput)
+            );
+            chatMemory.add(sessionId, messages);
+            log.debug("对话记忆已保存: sessionId={}", sessionId);
+        } catch (Exception e) {
+            log.warn("保存对话记忆失败: sessionId={}", sessionId, e);
         }
     }
 
