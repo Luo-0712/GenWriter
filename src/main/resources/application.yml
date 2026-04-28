@@ -117,6 +117,12 @@ genwriter:
       enabled: true
       key-prefix: "genwriter:graph:checkpoint:"
       ttl-hours: 24
+  supervisor:
+    enabled: false
+    max-iterations: 12
+    temperature: 0.2
+    max-history-items: 20
+    fallback-worker: direct_answer
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。

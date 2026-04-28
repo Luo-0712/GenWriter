@@ -7,6 +7,7 @@ import com.alibaba.cloud.ai.graph.action.EdgeAction;
 import com.alibaba.cloud.ai.graph.state.strategy.ReplaceStrategy;
 import com.example.genwriter.agent.graph.node.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -57,6 +58,7 @@ public class GraphConfig {
      * 主图骨架：意图识别 → 粗粒度分支 → 子图/节点 → 发布
      */
     @Bean
+    @Qualifier("intentRouterGraph")
     public StateGraph intentRouterGraph(
             KeyStrategyFactory keyStrategyFactory,
             IntentRecognitionNode intentRecognitionNode,

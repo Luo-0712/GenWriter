@@ -10,6 +10,7 @@ import com.example.genwriter.agent.graph.checkpoint.GraphCheckpointProperties;
 import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
 import com.example.genwriter.agent.memory.MemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
+import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -33,6 +35,8 @@ import java.util.Optional;
 public class StateGraphRunner {
 
     private final StateGraph intentRouterGraph;
+    private final StateGraph supervisorGraph;
+    private final SupervisorModeProperties supervisorProperties;
     private final SseService sseService;
     private final MessageService messageService;
     private final RedisCheckpointSaver checkpointSaver;
@@ -41,8 +45,11 @@ public class StateGraphRunner {
     private final MemoryProperties memoryProperties;
 
     private volatile CompiledGraph compiledGraph;
+    private volatile CompiledGraph compiledSupervisorGraph;
 
-    public StateGraphRunner(StateGraph intentRouterGraph,
+    public StateGraphRunner(@Qualifier("intentRouterGraph") StateGraph intentRouterGraph,
+                            @Qualifier("supervisorGraph") StateGraph supervisorGraph,
+                            SupervisorModeProperties supervisorProperties,
                             SseService sseService,
                             MessageService messageService,
                             RedisCheckpointSaver checkpointSaver,
@@ -50,6 +57,8 @@ public class StateGraphRunner {
                             RedisChatMemory chatMemory,
                             MemoryProperties memoryProperties) {
         this.intentRouterGraph = intentRouterGraph;
+        this.supervisorGraph = supervisorGraph;
+        this.supervisorProperties = supervisorProperties;
         this.sseService = sseService;
         this.messageService = messageService;
         this.checkpointSaver = checkpointSaver;
@@ -58,10 +67,18 @@ public class StateGraphRunner {
         this.memoryProperties = memoryProperties;
     }
 
+    private StateGraph activeGraph() {
+        return supervisorProperties.isEnabled() ? supervisorGraph : intentRouterGraph;
+    }
+
     private CompiledGraph getCompiledGraph() throws Exception {
-        if (compiledGraph == null) {
+        CompiledGraph target = activeGraph() == supervisorGraph ? compiledSupervisorGraph : compiledGraph;
+        StateGraph source = activeGraph();
+
+        if (target == null) {
             synchronized (this) {
-                if (compiledGraph == null) {
+                target = activeGraph() == supervisorGraph ? compiledSupervisorGraph : compiledGraph;
+                if (target == null) {
                     if (checkpointProperties.isEnabled()) {
                         SaverConfig saverConfig = SaverConfig.builder()
                                 .register("redis", checkpointSaver)
@@ -69,16 +86,23 @@ public class StateGraphRunner {
                         CompileConfig compileConfig = CompileConfig.builder()
                                 .saverConfig(saverConfig)
                                 .build();
-                        compiledGraph = intentRouterGraph.compile(compileConfig);
-                        log.info("CompiledGraph 已初始化（含 checkpoint saver）");
+                        target = source.compile(compileConfig);
                     } else {
-                        compiledGraph = intentRouterGraph.compile();
-                        log.info("CompiledGraph 已初始化（无 checkpoint）");
+                        target = source.compile();
                     }
+
+                    if (activeGraph() == supervisorGraph) {
+                        compiledSupervisorGraph = target;
+                    } else {
+                        compiledGraph = target;
+                    }
+                    log.info("CompiledGraph 已初始化: mode={}, checkpoint={}",
+                            activeGraph() == supervisorGraph ? "supervisor" : "workflow",
+                            checkpointProperties.isEnabled());
                 }
             }
         }
-        return compiledGraph;
+        return target;
     }
 
     /**

@@ -27,6 +27,9 @@ public class ChatEventListener {
     @Value("${genwriter.graph.enabled:false}")
     private boolean graphEnabled;
 
+    @Value("${genwriter.supervisor.enabled:false}")
+    private boolean supervisorEnabled;
+
     public ChatEventListener(AgentEngineFactory agentEngineFactory,
                              StateGraphRunner stateGraphRunner,
                              TitleGenerationService titleGenerationService) {
@@ -37,17 +40,20 @@ public class ChatEventListener {
 
     /**
      * 异步处理聊天事件
+     * 优先级：supervisor > graph > legacy AgentEngine
      * @param event 聊天事件
      */
     @Async("taskExecutor")
     @EventListener
     public void handle(ChatEvent event) {
-        log.info("接收到聊天事件：sessionId={}, type={}, documentId={}, graphEnabled={}",
-                event.getSessionId(), event.getType(), event.getDocumentId(), graphEnabled);
+        log.info("接收到聊天事件：sessionId={}, type={}, documentId={}, supervisor={}, graph={}",
+                event.getSessionId(), event.getType(), event.getDocumentId(), supervisorEnabled, graphEnabled);
 
         titleGenerationService.generateAndSetTitle(event.getSessionId(), event.getUserInput());
 
-        if (graphEnabled) {
+        if (supervisorEnabled) {
+            handleWithStateGraph(event);
+        } else if (graphEnabled) {
             handleWithStateGraph(event);
         } else {
             handleWithAgentEngine(event);

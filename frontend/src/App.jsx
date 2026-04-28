@@ -129,6 +129,7 @@ function App() {
           content: '',
           statusText: '',
           thinkingSteps: [],
+          isStreaming: true,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -195,21 +196,10 @@ function App() {
             );
           }
 
-          if (typeof data === 'string' && data) {
-            setHasContentStarted(true);
-            assistantContent += data;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: assistantContent }
-                  : m
-              )
-            );
-          } else if (data && typeof data === 'object') {
-            setHasContentStarted(true);
-            const text = data.content || data.text || JSON.stringify(data);
-            if (text) {
-              assistantContent = text;
+          if (payload.type === 'AI_GENERATED_CONTENT') {
+            if (typeof data === 'string' && data) {
+              setHasContentStarted(true);
+              assistantContent += data;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId
@@ -217,11 +207,29 @@ function App() {
                     : m
                 )
               );
+            } else if (data && typeof data === 'object') {
+              setHasContentStarted(true);
+              const text = data.content || data.text || JSON.stringify(data);
+              if (text) {
+                assistantContent = text;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: assistantContent }
+                      : m
+                  )
+                );
+              }
             }
           }
 
           if (done || completed) {
             setIsLoading(false);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+              )
+            );
             if (abortRef.current) {
               abortRef.current();
               abortRef.current = null;
@@ -237,6 +245,7 @@ function App() {
                 ? {
                     ...m,
                     content: m.content || '响应异常，请重试。',
+                    isStreaming: false,
                   }
                 : m
             )
@@ -248,6 +257,11 @@ function App() {
         },
         onComplete: () => {
           setIsLoading(false);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+            )
+          );
           if (abortRef.current) {
             abortRef.current = null;
           }

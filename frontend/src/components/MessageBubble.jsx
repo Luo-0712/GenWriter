@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import '../styles/global.css';
@@ -9,6 +9,22 @@ const renderOutlineDetail = (data) => (
     <ReactMarkdown remarkPlugins={[remarkGfm]}>{data}</ReactMarkdown>
   </div>
 );
+
+/* ---------- 中文映射 ---------- */
+const INTENT_LABELS = {
+  WRITING_TASK: '写作任务',
+  KNOWLEDGE_QA: '知识问答',
+  POLISH_TASK:  '润色任务',
+};
+
+const TYPE_LABELS = {
+  CREATE:   '创作',
+  CONTINUE: '续写',
+  POLISH:   '润色',
+};
+
+const intentLabel = (intent) => INTENT_LABELS[intent] || intent || '未知意图';
+const typeLabel = (type) => TYPE_LABELS[type] || type || '未知类型';
 
 /* ---------- 意图识别渲染 ---------- */
 const intentBadgeClass = (intent) => {
@@ -32,8 +48,8 @@ const typeBadgeClass = (type) => {
 const renderIntentDetail = (data) => (
   <div className="tp-intent-card">
     <div className="tp-intent-badges">
-      <span className={`tp-badge ${intentBadgeClass(data['意图'])}`}>{data['意图']}</span>
-      <span className={`tp-badge ${typeBadgeClass(data['写作类型'])}`}>{data['写作类型']}</span>
+      <span className={`tp-badge ${intentBadgeClass(data['意图'])}`}>{intentLabel(data['意图'])}</span>
+      <span className={`tp-badge ${typeBadgeClass(data['写作类型'])}`}>{typeLabel(data['写作类型'])}</span>
     </div>
     {data['分析'] && (
       <blockquote className="tp-feedback-quote">{data['分析']}</blockquote>
@@ -96,6 +112,34 @@ const renderReviewDetail = (data) => {
         <blockquote className="tp-feedback-quote">{data['反馈意见']}</blockquote>
       )}
     </div>
+  );
+};
+
+/* ---------- 流式文字组件 ---------- */
+const StreamingText = ({ text, isStreaming }) => {
+  const [displayed, setDisplayed] = useState('');
+
+  useEffect(() => {
+    if (!isStreaming) {
+      setDisplayed(text);
+      return;
+    }
+    let i = 0;
+    setDisplayed('');
+    const timer = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(timer);
+      }
+    }, 25);
+    return () => clearInterval(timer);
+  }, [text, isStreaming]);
+
+  return (
+    <span className={isStreaming ? 'streaming-text' : ''}>
+      {displayed}
+    </span>
   );
 };
 
@@ -163,15 +207,25 @@ const MessageBubble = ({ message }) => {
             </div>
             {thinkingExpanded && (
               <ol className="thinking-process-list">
-                {thinkingSteps.map((step, i) => (
-                  <li key={i} className="thinking-process-item">
-                    <span className="thinking-process-step-num">{i + 1}.</span>
-                    <div className="thinking-process-step-body">
-                      <span className="thinking-process-step-text">{step.text}</span>
-                      {renderStepData(step.data)}
-                    </div>
-                  </li>
-                ))}
+                {thinkingSteps.map((step, i) => {
+                  const isLast = i === thinkingSteps.length - 1;
+                  const showStream = isLast && message.isStreaming;
+                  return (
+                    <li key={i} className={`thinking-process-item ${isLast ? 'is-latest' : ''}`}>
+                      <span className="thinking-process-step-num">{i + 1}.</span>
+                      <div className="thinking-process-step-body">
+                        <span className="thinking-process-step-text">
+                          {showStream ? (
+                            <StreamingText text={step.text} isStreaming={true} />
+                          ) : (
+                            step.text
+                          )}
+                        </span>
+                        {renderStepData(step.data)}
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </div>

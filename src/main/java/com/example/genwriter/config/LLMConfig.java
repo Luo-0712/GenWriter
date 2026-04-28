@@ -273,5 +273,11 @@ public class LLMConfig {
 
             用户消息：{userMessage}
             """;
+
+        /**
+         * Supervisor 监督者系统提示词（可覆盖）
+         * 留空时使用 SupervisorSystemPromptProvider 动态构建的默认提示词
+         */
+        private String supervisorSystemPrompt = "";
     }
 }
