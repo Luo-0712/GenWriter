@@ -15,7 +15,7 @@ public class WorkerRegistry {
 
     public void register(WorkerAgent worker) {
         workers.put(worker.name(), worker);
-        log.info("Worker 已注册: name={}, description={}", worker.name(), worker.description());
+        // log.info("Worker 已注册: name={}, description={}", worker.name(), worker.description());
     }
 
     public WorkerAgent get(String name) {

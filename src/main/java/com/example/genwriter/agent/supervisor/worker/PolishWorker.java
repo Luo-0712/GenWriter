@@ -84,7 +84,7 @@ public class PolishWorker implements WorkerAgent {
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
                     .payload(SseMessage.Payload.builder()
                             .data(chunk)
-                            .statusText("【润色】优化中...")
+                            .statusText("正在润色优化...")
                             .build())
                     .build());
         } catch (Exception e) {

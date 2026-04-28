@@ -78,7 +78,7 @@ public class DirectAnswerWorker implements WorkerAgent {
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
                     .payload(SseMessage.Payload.builder()
                             .data(chunk)
-                            .statusText("【直接回答】生成中...")
+                            .statusText("正在生成回答...")
                             .build())
                     .build());
         } catch (Exception e) {

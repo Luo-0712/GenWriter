@@ -55,7 +55,7 @@ public class SupervisorNode implements NodeAction {
 
         StringBuilder historyLog = new StringBuilder();
 
-        publishStatus(sessionId, "【监督者】分析任务，开始调度 Worker...");
+        publishStatus(sessionId, "正在分析需求，准备开始工作...");
 
         for (int iteration = 1; iteration <= properties.getMaxIterations(); iteration++) {
             log.info("Supervisor 迭代 {}/{}: sessionId={}", iteration, properties.getMaxIterations(), sessionId);
@@ -84,7 +84,7 @@ public class SupervisorNode implements NodeAction {
 
             if (SupervisorDecision.FINISH.equals(decision.action())) {
                 log.info("Supervisor 决定完成: reasoning={}", decision.reasoning());
-                publishStatus(sessionId, "【监督者】任务完成 — " + decision.reasoning());
+                publishStatus(sessionId, "任务完成 — " + decision.reasoning());
 
                 String finalOutput = decision.finalOutput();
                 if (finalOutput == null || finalOutput.isBlank()) {
@@ -102,7 +102,7 @@ public class SupervisorNode implements NodeAction {
             if (SupervisorDecision.CALL_WORKER.equals(decision.action())) {
                 String workerName = decision.workerName();
                 log.info("Supervisor 调用 Worker: name={}, reasoning={}", workerName, decision.reasoning());
-                publishStatus(sessionId, "【监督者】调用 " + workerName + " — " + decision.reasoning());
+                publishStatus(sessionId, "正在调用 " + workerName + " — " + decision.reasoning());
 
                 WorkerAgent worker = workerRegistry.get(workerName);
                 if (worker == null) {
@@ -121,12 +121,12 @@ public class SupervisorNode implements NodeAction {
                             .append(" -> ")
                             .append(result.keySet())
                             .append("\n");
-                    publishStatus(sessionId, "【监督者】" + workerName + " 完成");
+                    publishStatus(sessionId, "工作完成");
                 } catch (Exception e) {
                     log.error("Worker 执行失败: name={}, error={}", workerName, e.getMessage(), e);
                     historyLog.append("[").append(iteration).append("] CALL ").append(workerName)
                             .append(" -> ERROR: ").append(e.getMessage()).append("\n");
-                    publishStatus(sessionId, "【监督者】" + workerName + " 执行超时，跳过");
+                    publishStatus(sessionId, "当前步骤超时，继续下一步");
 
                     if (iteration >= properties.getMaxIterations()) {
                         return finishWithDirectAnswer(accumulated);
@@ -139,7 +139,7 @@ public class SupervisorNode implements NodeAction {
         }
 
         log.warn("Supervisor 达到最大迭代次数({})，强制结束", properties.getMaxIterations());
-        publishStatus(sessionId, "【监督者】任务结束（超过最大轮次）");
+        publishStatus(sessionId, "任务处理中，请稍候...");
         return finishWithDirectAnswer(accumulated);
     }
 

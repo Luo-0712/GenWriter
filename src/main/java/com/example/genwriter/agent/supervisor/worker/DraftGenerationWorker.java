@@ -85,7 +85,7 @@ public class DraftGenerationWorker implements WorkerAgent {
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
                     .payload(SseMessage.Payload.builder()
                             .data(chunk)
-                            .statusText("【正文写作】生成中...")
+                            .statusText("正在生成正文...")
                             .build())
                     .build());
         } catch (Exception e) {
