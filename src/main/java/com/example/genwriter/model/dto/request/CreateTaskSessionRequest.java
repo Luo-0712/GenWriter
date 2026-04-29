@@ -16,6 +16,8 @@ public class CreateTaskSessionRequest {
     @Size(max = 255, message = "标题长度不能超过255个字符")
     private String title;
 
+    private String projectId;
+
     private String type;
 
     private String topic;

@@ -6,22 +6,18 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 任务会话数据传输对象
+ * 项目数据传输对象
  */
 @Data
 @Builder
-public class TaskSessionDTO {
+public class ProjectDTO {
 
     private String id;
-    private String projectId;
-    private String title;
-    private String type;
+    private String name;
+    private String description;
     private String status;
-    private String topic;
-    private String style;
     private String metadata;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Long messageCount;
-    private Long documentCount;
+    private Long sessionCount;
 }

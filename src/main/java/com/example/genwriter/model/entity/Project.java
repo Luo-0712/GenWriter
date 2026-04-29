@@ -6,52 +6,37 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 任务会话实体
- * 用于管理写作任务的生命周期和上下文
+ * 项目实体
+ * 用于组织和管理多个写作任务会话
  *
- * @TableName task_session
+ * @TableName project
  */
 @Data
 @Builder
-public class TaskSession {
+public class Project {
 
     /**
-     * 会话唯一标识符(UUID)
+     * 项目唯一标识符(UUID)
      */
     private String id;
 
     /**
-     * 所属项目ID
+     * 项目名称
      */
-    private String projectId;
+    private String name;
 
     /**
-     * 会话标题
+     * 项目描述
      */
-    private String title;
+    private String description;
 
     /**
-     * 会话类型: writing(写作), editing(编辑), brainstorming(头脑风暴)等
-     */
-    private String type;
-
-    /**
-     * 会话状态: active(活跃), paused(暂停), completed(完成), archived(归档)
+     * 项目状态: active(活跃), archived(归档)
      */
     private String status;
 
     /**
-     * 写作主题/目标描述
-     */
-    private String topic;
-
-    /**
-     * 写作风格: formal(正式), casual(随意), academic(学术), creative(创意)等
-     */
-    private String style;
-
-    /**
-     * 元数据(JSON格式),存储额外配置如字数限制、语言偏好等
+     * 元数据(JSON格式),存储额外配置
      */
     private String metadata;
 
@@ -76,14 +61,11 @@ public class TaskSession {
         if (getClass() != that.getClass()) {
             return false;
         }
-        TaskSession other = (TaskSession) that;
+        Project other = (Project) that;
         return (this.getId() == null ? other.getId() == null : this.getId().equals(other.getId()))
-                && (this.getProjectId() == null ? other.getProjectId() == null : this.getProjectId().equals(other.getProjectId()))
-                && (this.getTitle() == null ? other.getTitle() == null : this.getTitle().equals(other.getTitle()))
-                && (this.getType() == null ? other.getType() == null : this.getType().equals(other.getType()))
+                && (this.getName() == null ? other.getName() == null : this.getName().equals(other.getName()))
+                && (this.getDescription() == null ? other.getDescription() == null : this.getDescription().equals(other.getDescription()))
                 && (this.getStatus() == null ? other.getStatus() == null : this.getStatus().equals(other.getStatus()))
-                && (this.getTopic() == null ? other.getTopic() == null : this.getTopic().equals(other.getTopic()))
-                && (this.getStyle() == null ? other.getStyle() == null : this.getStyle().equals(other.getStyle()))
                 && (this.getMetadata() == null ? other.getMetadata() == null : this.getMetadata().equals(other.getMetadata()))
                 && (this.getCreatedAt() == null ? other.getCreatedAt() == null : this.getCreatedAt().equals(other.getCreatedAt()))
                 && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()));
@@ -94,12 +76,9 @@ public class TaskSession {
         final int prime = 31;
         int result = 1;
         result = prime * result + ((getId() == null) ? 0 : getId().hashCode());
-        result = prime * result + ((getProjectId() == null) ? 0 : getProjectId().hashCode());
-        result = prime * result + ((getTitle() == null) ? 0 : getTitle().hashCode());
-        result = prime * result + ((getType() == null) ? 0 : getType().hashCode());
+        result = prime * result + ((getName() == null) ? 0 : getName().hashCode());
+        result = prime * result + ((getDescription() == null) ? 0 : getDescription().hashCode());
         result = prime * result + ((getStatus() == null) ? 0 : getStatus().hashCode());
-        result = prime * result + ((getTopic() == null) ? 0 : getTopic().hashCode());
-        result = prime * result + ((getStyle() == null) ? 0 : getStyle().hashCode());
         result = prime * result + ((getMetadata() == null) ? 0 : getMetadata().hashCode());
         result = prime * result + ((getCreatedAt() == null) ? 0 : getCreatedAt().hashCode());
         result = prime * result + ((getUpdatedAt() == null) ? 0 : getUpdatedAt().hashCode());
@@ -112,12 +91,9 @@ public class TaskSession {
                 " [" +
                 "Hash = " + hashCode() +
                 ", id=" + id +
-                ", projectId=" + projectId +
-                ", title=" + title +
-                ", type=" + type +
+                ", name=" + name +
+                ", description=" + description +
                 ", status=" + status +
-                ", topic=" + topic +
-                ", style=" + style +
                 ", metadata=" + metadata +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +

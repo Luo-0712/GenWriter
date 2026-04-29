@@ -17,10 +17,12 @@ public interface TaskSessionMapper {
      * @param taskSession 会话实体
      * @return 影响行数
      */
-    @Insert("INSERT INTO task_session " +
-            "(title, type, status, topic, style, metadata, created_at, updated_at) " +
-            "VALUES (#{title}, #{type}, #{status}, #{topic}, #{style}, " +
-            "CAST(#{metadata} AS jsonb), #{createdAt}, #{updatedAt})")
+    @Insert("<script>" +
+            "INSERT INTO task_session " +
+            "(<if test='projectId != null'>project_id,</if> title, type, status, topic, style, metadata, created_at, updated_at) " +
+            "VALUES (<if test='projectId != null'>CAST(#{projectId} AS uuid),</if> #{title}, #{type}, #{status}, #{topic}, #{style}, " +
+            "CAST(#{metadata} AS jsonb), #{createdAt}, #{updatedAt})" +
+            "</script>")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insert(TaskSession taskSession);
 
@@ -30,7 +32,7 @@ public interface TaskSessionMapper {
      * @param id 会话ID
      * @return 会话实体
      */
-    @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
+    @Select("SELECT id, project_id::text AS projectId, title, type, status, topic, style, metadata::text AS metadata, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE id = CAST(#{id} AS uuid)")
     TaskSession selectById(String id);
@@ -40,7 +42,7 @@ public interface TaskSessionMapper {
      *
      * @return 会话列表
      */
-    @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
+    @Select("SELECT id, project_id::text AS projectId, title, type, status, topic, style, metadata::text AS metadata, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session ORDER BY updated_at DESC")
     List<TaskSession> selectAll();
@@ -51,7 +53,7 @@ public interface TaskSessionMapper {
      * @param status 会话状态
      * @return 会话列表
      */
-    @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
+    @Select("SELECT id, project_id::text AS projectId, title, type, status, topic, style, metadata::text AS metadata, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE status = #{status} ORDER BY updated_at DESC")
     List<TaskSession> selectByStatus(String status);
@@ -62,7 +64,7 @@ public interface TaskSessionMapper {
      * @param type 会话类型
      * @return 会话列表
      */
-    @Select("SELECT id, title, type, status, topic, style, metadata::text AS metadata, " +
+    @Select("SELECT id, project_id::text AS projectId, title, type, status, topic, style, metadata::text AS metadata, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM task_session WHERE type = #{type} ORDER BY updated_at DESC")
     List<TaskSession> selectByType(String type);
@@ -85,6 +87,7 @@ public interface TaskSessionMapper {
     @Update("<script>" +
             "UPDATE task_session " +
             "<set>" +
+            "<if test='projectId != null'>project_id = CAST(#{projectId} AS uuid),</if>" +
             "<if test='title != null'>title = #{title},</if>" +
             "<if test='type != null'>type = #{type},</if>" +
             "<if test='status != null'>status = #{status},</if>" +
@@ -127,4 +130,24 @@ public interface TaskSessionMapper {
      */
     @Select("SELECT COUNT(*) FROM task_session WHERE status = #{status}")
     long countByStatus(String status);
+
+    /**
+     * 根据项目ID查询会话
+     *
+     * @param projectId 项目ID
+     * @return 会话列表
+     */
+    @Select("SELECT id, project_id::text AS projectId, title, type, status, topic, style, metadata::text AS metadata, " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
+            "FROM task_session WHERE project_id = CAST(#{projectId} AS uuid) ORDER BY updated_at DESC")
+    List<TaskSession> selectByProjectId(String projectId);
+
+    /**
+     * 根据项目ID统计会话数量
+     *
+     * @param projectId 项目ID
+     * @return 会话数量
+     */
+    @Select("SELECT COUNT(*) FROM task_session WHERE project_id = CAST(#{projectId} AS uuid)")
+    long countByProjectId(String projectId);
 }

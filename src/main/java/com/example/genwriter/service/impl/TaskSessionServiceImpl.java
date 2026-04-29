@@ -37,6 +37,7 @@ public class TaskSessionServiceImpl implements TaskSessionService {
         log.debug("创建任务会话: {}", request.getTitle());
 
         TaskSession session = TaskSession.builder()
+                .projectId(request.getProjectId())
                 .title(request.getTitle())
                 .type(StringUtils.hasText(request.getType()) ? request.getType() : "writing")
                 .status("active")
@@ -151,6 +152,15 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<TaskSessionDTO> getSessionsByProjectId(String projectId) {
+        List<TaskSession> sessions = taskSessionMapper.selectByProjectId(projectId);
+        return sessions.stream()
+                .map(this::convertToDTOWithStats)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public TaskSessionDTO updateSessionStatus(String id, String status) {
         log.debug("更新会话状态: {} -> {}", id, status);
@@ -180,6 +190,7 @@ public class TaskSessionServiceImpl implements TaskSessionService {
     private TaskSessionDTO convertToDTO(TaskSession session) {
         return TaskSessionDTO.builder()
                 .id(session.getId())
+                .projectId(session.getProjectId())
                 .title(session.getTitle())
                 .type(session.getType())
                 .status(session.getStatus())

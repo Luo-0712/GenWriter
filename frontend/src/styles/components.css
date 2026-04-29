@@ -87,6 +87,132 @@
   padding: 8px;
 }
 
+.project-section {
+  padding: 0;
+}
+
+.project-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 6px;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-action-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.section-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project-item {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+
+.project-item:hover {
+  background: var(--bg-hover);
+}
+
+.project-item.active {
+  background: var(--bg-hover);
+}
+
+.project-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.project-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.project-session-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 16px;
+  text-align: center;
+}
+
+.project-delete-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.project-item:hover .project-delete-btn {
+  opacity: 0.7;
+}
+
+.project-delete-btn:hover {
+  background: var(--bg-primary);
+  color: #e74c3c;
+  opacity: 1;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 8px 12px;
+}
+
+.session-section {
+  padding: 0;
+}
+
+.session-section-header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px 6px;
+}
+
 .session-list {
   display: flex;
   flex-direction: column;

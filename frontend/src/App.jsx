@@ -3,10 +3,13 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
+import * as projectsApi from './api/projects';
 import { connectSSE } from './api/sse';
 import './styles/global.css';
 
 function App() {
+  const [projects, setProjects] = useState([]);
+  const [activeProject, setActiveProject] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -17,21 +20,34 @@ function App() {
   const [hasContentStarted, setHasContentStarted] = useState(false);
 
   const abortRef = useRef(null);
-  const msgBufferRef = useRef({});
 
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
-        const list = await sessionsApi.getAllSessions();
+        let projectList = await projectsApi.getAllProjects();
         if (cancelled) return;
-        setSessions(list || []);
-        if (list && list.length > 0) {
-          setActiveSession(list[0]);
+        if (!projectList || projectList.length === 0) {
+          const defaultProject = await projectsApi.createProject({
+            name: '默认项目',
+            description: '系统默认项目,用于组织您的写作会话',
+          });
+          projectList = [defaultProject];
+        }
+        setProjects(projectList);
+        const currentProject = projectList[0];
+        setActiveProject(currentProject);
+
+        const sessionList = await sessionsApi.getSessionsByProjectId(currentProject.id);
+        if (cancelled) return;
+        setSessions(sessionList || []);
+        if (sessionList && sessionList.length > 0) {
+          setActiveSession(sessionList[0]);
         } else {
           const created = await sessionsApi.createSession({
             title: '新对话',
             type: 'CHAT',
+            projectId: currentProject.id,
           });
           if (!cancelled) {
             setSessions([created]);
@@ -134,7 +150,6 @@ function App() {
         },
       ]);
 
-      // 发送 chat 请求，在 SSE onOpen 回调中触发，确保连接就绪
       const doChat = async () => {
         try {
           await messagesApi.chat(sessionId, content);
@@ -271,6 +286,27 @@ function App() {
     [activeSession, isLoading]
   );
 
+  const handleSelectProject = useCallback(async (project) => {
+    setActiveProject(project);
+    try {
+      const sessionList = await sessionsApi.getSessionsByProjectId(project.id);
+      setSessions(sessionList || []);
+      if (sessionList && sessionList.length > 0) {
+        setActiveSession(sessionList[0]);
+      } else {
+        const created = await sessionsApi.createSession({
+          title: '新对话',
+          type: 'CHAT',
+          projectId: project.id,
+        });
+        setSessions([created]);
+        setActiveSession(created);
+      }
+    } catch (e) {
+      setError('加载项目会话失败: ' + e.message);
+    }
+  }, []);
+
   const handleSelectSession = useCallback((session) => {
     if (abortRef.current) {
       abortRef.current();
@@ -280,18 +316,64 @@ function App() {
     setActiveSession(session);
   }, []);
 
+  const handleNewProject = useCallback(async () => {
+    try {
+      const created = await projectsApi.createProject({ name: '新项目' });
+      setProjects((prev) => [created, ...prev]);
+      setActiveProject(created);
+      setSessions([]);
+      setActiveSession(null);
+      setMessages([]);
+    } catch (e) {
+      setError('创建项目失败: ' + e.message);
+    }
+  }, []);
+
+  const handleDeleteProject = useCallback(
+    async (project) => {
+      try {
+        await projectsApi.deleteProject(project.id);
+        setProjects((prev) => {
+          const remaining = prev.filter((p) => p.id !== project.id);
+          if (activeProject?.id === project.id) {
+            if (remaining.length > 0) {
+              setActiveProject(remaining[0]);
+              sessionsApi.getSessionsByProjectId(remaining[0].id).then((list) => {
+                setSessions(list || []);
+                setActiveSession(list?.[0] || null);
+              });
+            } else {
+              projectsApi.createProject({ name: '默认项目' }).then((p) => {
+                setProjects([p]);
+                setActiveProject(p);
+                setSessions([]);
+                setActiveSession(null);
+              });
+            }
+          }
+          return remaining;
+        });
+      } catch (e) {
+        setError('删除项目失败: ' + e.message);
+      }
+    },
+    [activeProject]
+  );
+
   const handleNewChat = useCallback(async () => {
+    if (!activeProject?.id) return;
     try {
       const created = await sessionsApi.createSession({
         title: '新对话',
         type: 'CHAT',
+        projectId: activeProject.id,
       });
       setSessions((prev) => [created, ...prev]);
       setActiveSession(created);
     } catch (e) {
       setError('创建会话失败: ' + e.message);
     }
-  }, []);
+  }, [activeProject]);
 
   const handleDeleteSession = useCallback(
     async (session) => {
@@ -304,7 +386,7 @@ function App() {
               setActiveSession(remaining[0]);
             } else {
               sessionsApi
-                .createSession({ title: '新对话', type: 'CHAT' })
+                .createSession({ title: '新对话', type: 'CHAT', projectId: activeProject?.id })
                 .then((created) => {
                   setSessions([created]);
                   setActiveSession(created);
@@ -318,7 +400,7 @@ function App() {
         setError('删除会话失败: ' + e.message);
       }
     },
-    [activeSession]
+    [activeSession, activeProject]
   );
 
   const handleSuggestionClick = useCallback(
@@ -338,8 +420,13 @@ function App() {
         </div>
       )}
       <Sidebar
+        projects={projects}
+        activeProject={activeProject}
         sessions={sessions}
         activeSession={activeSession}
+        onSelectProject={handleSelectProject}
+        onNewProject={handleNewProject}
+        onDeleteProject={handleDeleteProject}
         onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}

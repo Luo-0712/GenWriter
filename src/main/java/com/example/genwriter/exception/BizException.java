@@ -63,6 +63,7 @@ public class BizException extends RuntimeException {
         KNOWLEDGE_BASE_NOT_FOUND("1005", "知识库不存在"),
         KNOWLEDGE_CHUNK_NOT_FOUND("1006", "知识片段不存在"),
         TEMPLATE_NOT_FOUND("1007", "模板不存在"),
+        PROJECT_NOT_FOUND("1008", "项目不存在"),
         
         // 数据操作错误
         DB_INSERT_ERROR("2001", "数据插入失败"),

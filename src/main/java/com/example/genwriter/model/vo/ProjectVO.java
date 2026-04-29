@@ -6,22 +6,18 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 任务会话视图对象
+ * 项目视图对象
  */
 @Data
 @Builder
-public class TaskSessionVO {
+public class ProjectVO {
 
     private String id;
-    private String projectId;
-    private String title;
-    private String type;
+    private String name;
+    private String description;
     private String status;
-    private String topic;
-    private String style;
     private Object metadata;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Long messageCount;
-    private Long documentCount;
+    private Long sessionCount;
 }

@@ -117,6 +117,19 @@ public class TaskSessionController {
     }
 
     /**
+     * 根据项目ID查询会话
+     */
+    @GetMapping("/project/{projectId}")
+    public ApiResponse<List<TaskSessionVO>> getSessionsByProjectId(@PathVariable String projectId) {
+        log.debug("根据项目查询会话: {}", projectId);
+        List<TaskSessionDTO> dtos = taskSessionService.getSessionsByProjectId(projectId);
+        List<TaskSessionVO> vos = dtos.stream()
+                .map(this::convertToVO)
+                .collect(Collectors.toList());
+        return ApiResponse.success(vos);
+    }
+
+    /**
      * 更新会话状态
      */
     @PatchMapping("/{id}/status")
@@ -134,6 +147,7 @@ public class TaskSessionController {
     private TaskSessionVO convertToVO(TaskSessionDTO dto) {
         return TaskSessionVO.builder()
                 .id(dto.getId())
+                .projectId(dto.getProjectId())
                 .title(dto.getTitle())
                 .type(dto.getType())
                 .status(dto.getStatus())

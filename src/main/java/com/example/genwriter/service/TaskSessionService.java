@@ -74,6 +74,14 @@ public interface TaskSessionService {
     void deleteSessions(List<String> ids);
 
     /**
+     * 根据项目ID查询会话
+     *
+     * @param projectId 项目ID
+     * @return 会话列表
+     */
+    List<TaskSessionDTO> getSessionsByProjectId(String projectId);
+
+    /**
      * 更新会话状态
      *
      * @param id 会话ID
