@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
@@ -11,6 +12,7 @@ import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
 import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -27,7 +29,6 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +50,7 @@ public class ResearcherWorker implements WorkerAgent {
     private final ResearcherProperties properties;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -85,6 +87,10 @@ public class ResearcherWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
 
+        String nodeId = chainPublisher.publishStart(sessionId, "网络调研",
+                ChainNode.Type.TOOL_CALL, null,
+                Map.of("userInput", truncate(userInput, 200)));
+
         publishStatus(sessionId, SseMessage.Type.AI_PLANNING, "【调研】正在分析需求并制定搜索策略...");
 
         String systemPrompt = skill.systemPrompt();
@@ -116,6 +122,10 @@ public class ResearcherWorker implements WorkerAgent {
             final var finalPromptSpec = promptSpec;
             response = CompletableFuture.supplyAsync(() -> finalPromptSpec.call().content())
                     .get(5, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            SessionContextHolder.clear();
+            throw e;
         } finally {
             SessionContextHolder.clear();
         }
@@ -131,6 +141,10 @@ public class ResearcherWorker implements WorkerAgent {
 
         publishStatus(sessionId, SseMessage.Type.AI_EXECUTING,
                 "【调研】调研完成，共执行 " + searchCount + " 次搜索");
+
+        chainPublisher.publishComplete(sessionId, nodeId,
+                Map.of("searchRounds", searchCount, "reportLength", output.report().length(),
+                        "sourcesCount", output.sources().size()));
 
         log.info("[ResearcherWorker] 调研完成: searchRounds={}, reportLength={}, sources={}",
                 searchCount, output.report().length(), output.sources().size());
@@ -211,6 +225,11 @@ public class ResearcherWorker implements WorkerAgent {
         } catch (Exception e) {
             log.debug("SSE 状态推送失败: {}", e.getMessage());
         }
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
     private record ResearchOutput(String report, List<Map<String, String>> sources) {}

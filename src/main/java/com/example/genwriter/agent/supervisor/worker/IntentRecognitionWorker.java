@@ -1,9 +1,11 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.skill.IntentRecognitionSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.message.ChainNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class IntentRecognitionWorker implements WorkerAgent {
     private final ObjectMapper objectMapper;
     private final IntentRecognitionSkill skill;
     private final WorkerRegistry registry;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -45,22 +48,38 @@ public class IntentRecognitionWorker implements WorkerAgent {
 
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
+        String sessionId = (String) state.getOrDefault("sessionId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
 
+        String nodeId = chainPublisher.publishStart(sessionId, "意图识别",
+                ChainNode.Type.THINKING, null,
+                Map.of("userInput", truncate(userInput, 200)));
+
         String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput));
-        String response = chatClient.prompt()
-                .system(skill.systemPrompt())
-                .user(userPrompt)
-                .call()
-                .content();
+        String response;
+        try {
+            response = chatClient.prompt()
+                    .system(skill.systemPrompt())
+                    .user(userPrompt)
+                    .call()
+                    .content();
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            throw e;
+        }
 
         try {
             String json = stripMarkdownCodeBlock(response);
             IntentResult result = objectMapper.readValue(json, IntentResult.class);
             log.info("意图识别: intent={}, writingType={}", result.intent(), result.writingType());
+            chainPublisher.publishComplete(sessionId, nodeId,
+                    Map.of("intent", result.intent(), "writingType", result.writingType(),
+                            "reason", result.reason()));
             return Map.of("intent", result.intent(), "writingType", result.writingType());
         } catch (Exception e) {
             log.warn("意图解析失败，降级 UNKNOWN: response={}", response, e);
+            chainPublisher.publishComplete(sessionId, nodeId,
+                    Map.of("intent", "UNKNOWN", "writingType", "CREATE", "fallback", true));
             return Map.of("intent", "UNKNOWN", "writingType", "CREATE");
         }
     }
@@ -72,6 +91,11 @@ public class IntentRecognitionWorker implements WorkerAgent {
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
         }
         return cleaned;
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
     public record IntentResult(String intent, String writingType, String reason) {}

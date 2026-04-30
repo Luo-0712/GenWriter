@@ -129,7 +129,7 @@ genwriter:
     max-search-results-per-query: 5
     enabled: true
   websearch:
-    api-key: ${TAVILY_API_KEY:}
+    api-key: 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
     timeout-seconds: 30
   long-term-memory:
     enabled: true

@@ -4,6 +4,7 @@ import com.example.genwriter.model.dto.response.MemoryVO;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.client.advisor.api.AdvisedRequest;
 import org.springframework.ai.chat.client.advisor.api.AdvisedResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAroundAdvisor;
@@ -12,7 +13,6 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class LongTermMemoryAdvisor implements CallAroundAdvisor {
@@ -32,16 +32,22 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
         this.documentId = documentId;
     }
 
+    @NotNull
     @Override
     public String getName() {
         return "LongTermMemoryAdvisor";
     }
 
     @Override
+    public int getOrder() {
+        return 0;
+    }
+
+    @Override
     public AdvisedResponse aroundCall(AdvisedRequest request, CallAroundAdvisorChain chain) {
         String query = extractUserText(request);
         if (query == null || query.isBlank()) {
-            return chain.nextCall(request);
+            return chain.nextAroundCall(request);
         }
 
         try {
@@ -49,7 +55,7 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                     query, memoryTypes, sessionId, documentId);
 
             if (memories.isEmpty()) {
-                return chain.nextCall(request);
+                return chain.nextAroundCall(request);
             }
 
             String memoryContext = formatMemories(memories);
@@ -57,10 +63,10 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                     .systemText(request.systemText() + "\n\n" + memoryContext)
                     .build();
 
-            return chain.nextCall(enhancedRequest);
+            return chain.nextAroundCall(enhancedRequest);
         } catch (Exception e) {
             log.warn("长期记忆检索失败，跳过注入: {}", e.getMessage());
-            return chain.nextCall(request);
+            return chain.nextAroundCall(request);
         }
     }
 

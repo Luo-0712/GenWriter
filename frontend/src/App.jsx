@@ -145,6 +145,7 @@ function App() {
           content: '',
           statusText: '',
           thinkingSteps: [],
+          chainNodes: [],
           isStreaming: true,
           timestamp: new Date().toISOString(),
         },
@@ -191,6 +192,33 @@ function App() {
             setActiveSession((prev) =>
               prev?.id === sessionId ? { ...prev, title: newTitle } : prev
             );
+            return;
+          }
+
+          if (payload.type === 'AI_CHAIN_EVENT') {
+            if (data && typeof data === 'object') {
+              const chainNode = data;
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id !== assistantMsgId) return m;
+                  const existingNodes = m.chainNodes || [];
+                  const existingIndex = existingNodes.findIndex(
+                    (n) => n.nodeId === chainNode.nodeId
+                  );
+                  let newNodes;
+                  if (existingIndex >= 0) {
+                    newNodes = [...existingNodes];
+                    newNodes[existingIndex] = {
+                      ...newNodes[existingIndex],
+                      ...chainNode,
+                    };
+                  } else {
+                    newNodes = [...existingNodes, chainNode];
+                  }
+                  return { ...m, chainNodes: newNodes };
+                })
+              );
+            }
             return;
           }
 

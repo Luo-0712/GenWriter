@@ -87,9 +87,8 @@ public class SseMessage {
          */
         AI_EXECUTING,
 
-        /**
-         * AI 响应全部完成的终结信号
-         */
+        AI_CHAIN_EVENT,
+
         AI_DONE,
 
         /**

@@ -1092,3 +1092,427 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+/* ========== 思维链面板 ========== */
+.thinking-panel {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.thinking-panel-collapsed {
+  border-radius: var(--radius-sm);
+}
+
+.thinking-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+  gap: 8px;
+}
+
+.thinking-panel-header:hover {
+  background: var(--bg-hover);
+}
+
+.thinking-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.thinking-panel-arrow {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.thinking-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.thinking-panel-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.thinking-panel-live-dot {
+  width: 6px;
+  height: 6px;
+  background: #16a34a;
+  border-radius: 50%;
+  animation: chain-pulse-anim 1.5s ease-in-out infinite;
+}
+
+@keyframes chain-pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.thinking-panel-stats {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.thinking-panel-collapsed-summary {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.thinking-panel-toggle-btn {
+  font-size: 11px;
+  color: var(--accent-color);
+  background: none;
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.thinking-panel-toggle-btn:hover {
+  background: var(--accent-color);
+  color: white;
+}
+
+.thinking-panel-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 8px 14px 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.thinking-panel-content-compact .chain-node-details {
+  display: none;
+}
+
+.thinking-panel-loading {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.thinking-panel-loading-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.thinking-panel-loading-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--text-tertiary);
+  border-radius: 50%;
+  animation: thinking-bounce 1.4s infinite;
+}
+
+.thinking-panel-loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-panel-loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ========== 思维链节点 ========== */
+.chain-node-item {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  min-height: 36px;
+}
+
+.chain-node-item.chain-node-running {
+  animation: thinking-step-in 0.3s ease-out;
+}
+
+.chain-node-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 24px;
+}
+
+.chain-node-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  background: var(--bg-primary);
+  transition: all 0.2s;
+}
+
+.chain-node-dot-started {
+  border-color: #3b82f6;
+  background: #dbeafe;
+}
+
+.chain-node-dot-running {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  animation: chain-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes chain-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); }
+}
+
+.chain-node-dot-completed {
+  border-color: #16a34a;
+  background: #dcfce7;
+}
+
+.chain-node-dot-error {
+  border-color: #dc2626;
+  background: #fee2e2;
+}
+
+.chain-node-line {
+  width: 2px;
+  flex: 1;
+  min-height: 8px;
+  background: var(--border-color);
+  margin: 2px 0;
+}
+
+.chain-node-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.chain-node-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.chain-node-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chain-node-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chain-node-type-badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.chain-node-running-indicator {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.chain-pulse {
+  width: 6px;
+  height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+  animation: chain-pulse-anim 1.5s ease-in-out infinite;
+}
+
+.chain-node-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chain-node-duration {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.chain-node-expand-icon {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s;
+}
+
+/* ========== 节点详情 ========== */
+.chain-node-details {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  animation: chain-details-in 0.2s ease-out;
+}
+
+@keyframes chain-details-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.chain-node-error-section {
+  margin-bottom: 8px;
+}
+
+.chain-node-error-text {
+  font-size: 12px;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.chain-node-detail-section {
+  margin-bottom: 6px;
+}
+
+.chain-node-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.chain-node-detail-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.chain-node-detail-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.chain-node-detail-kv {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.chain-node-detail-key {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.chain-node-detail-key::after {
+  content: ':';
+}
+
+.chain-node-detail-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  .thinking-panel-header {
+    padding: 8px 10px;
+  }
+
+  .thinking-panel-content {
+    padding: 6px 10px 10px;
+    max-height: 300px;
+  }
+
+  .chain-node-dot {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+  }
+
+  .chain-node-timeline {
+    width: 20px;
+  }
+
+  .chain-node-name {
+    font-size: 12px;
+  }
+
+  .chain-node-type-badge {
+    font-size: 9px;
+    padding: 0 5px;
+  }
+
+  .thinking-panel-collapsed-summary {
+    max-width: 120px;
+  }
+
+  .chain-node-details {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .thinking-panel-content {
+    max-height: 250px;
+  }
+
+  .chain-node-duration {
+    display: none;
+  }
+
+  .thinking-panel-toggle-btn {
+    display: none;
+  }
+}

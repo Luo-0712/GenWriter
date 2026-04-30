@@ -1,11 +1,13 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.OutlineSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import jakarta.annotation.PostConstruct;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -28,6 +31,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -54,6 +58,10 @@ public class OutlineGenerationWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
 
+        String nodeId = chainPublisher.publishStart(sessionId, "大纲生成",
+                ChainNode.Type.THINKING, null,
+                Map.of("userInput", truncate(userInput, 200), "hasContext", !context.isBlank()));
+
         String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput, "context", context));
 
         var promptSpec = chatClient.prompt()
@@ -68,9 +76,22 @@ public class OutlineGenerationWorker implements WorkerAgent {
                     sessionId, documentId));
         }
 
-        String response = promptSpec.call().content();
+        String response;
+        try {
+            response = promptSpec.call().content();
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            throw e;
+        }
 
         log.info("大纲生成完成: length={}", response.length());
+        chainPublisher.publishComplete(sessionId, nodeId,
+                Map.of("length", response.length()));
         return Map.of("outline", response);
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 }

@@ -1,11 +1,13 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.DraftSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -17,6 +19,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -32,6 +35,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final SseService sseService;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -60,6 +64,11 @@ public class DraftGenerationWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String reviewFeedback = (String) state.getOrDefault("reviewFeedback", "");
 
+        String nodeId = chainPublisher.publishStart(sessionId, "正文写作",
+                ChainNode.Type.EXECUTION, null,
+                Map.of("hasOutline", !outline.isBlank(), "hasContext", !context.isBlank(),
+                        "hasReviewFeedback", !reviewFeedback.isBlank()));
+
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "outline", outline,
                 "context", context,
@@ -80,17 +89,24 @@ public class DraftGenerationWorker implements WorkerAgent {
                     sessionId, documentId));
         }
 
-        promptSpec.stream()
-                .content()
-                .doOnNext(chunk -> {
-                    contentBuilder.append(chunk);
-                    publishContentChunk(sessionId, chunk);
-                })
-                .then(Mono.just(contentBuilder.toString()))
-                .block();
+        try {
+            promptSpec.stream()
+                    .content()
+                    .doOnNext(chunk -> {
+                        contentBuilder.append(chunk);
+                        publishContentChunk(sessionId, chunk);
+                    })
+                    .then(Mono.just(contentBuilder.toString()))
+                    .block();
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            throw e;
+        }
 
         String fullResponse = contentBuilder.toString();
         log.info("正文写作完成: length={}", fullResponse.length());
+        chainPublisher.publishComplete(sessionId, nodeId,
+                Map.of("length", fullResponse.length()));
         return Map.of("draft", fullResponse);
     }
 

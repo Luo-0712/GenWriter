@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import ThinkingPanel from './ThinkingPanel';
 import '../styles/global.css';
 
-/* ---------- 大纲渲染 ---------- */
 const renderOutlineDetail = (data) => (
   <div className="tp-outline-preview">
     <ReactMarkdown remarkPlugins={[remarkGfm]}>{data}</ReactMarkdown>
   </div>
 );
 
-/* ---------- 中文映射 ---------- */
 const INTENT_LABELS = {
   WRITING_TASK: '写作任务',
   KNOWLEDGE_QA: '知识问答',
@@ -26,7 +25,6 @@ const TYPE_LABELS = {
 const intentLabel = (intent) => INTENT_LABELS[intent] || intent || '未知意图';
 const typeLabel = (type) => TYPE_LABELS[type] || type || '未知类型';
 
-/* ---------- 状态阶段配置 ---------- */
 const STAGE_CONFIG = {
   '任务启动': { label: '启动', color: '#3b82f6', bg: '#dbeafe' },
   '意图识别': { label: '意图识别', color: '#7c3aed', bg: '#ede9fe' },
@@ -49,7 +47,6 @@ const parseStatusText = (text) => {
   return null;
 };
 
-/* ---------- 意图识别渲染 ---------- */
 const intentBadgeClass = (intent) => {
   switch (intent) {
     case 'WRITING_TASK': return 'tp-badge-intent-writing';
@@ -80,7 +77,6 @@ const renderIntentDetail = (data) => (
   </div>
 );
 
-/* ---------- 评审结果渲染 ---------- */
 const scoreColor = (score) => {
   if (score >= 9) return '#27ae60';
   if (score >= 7) return '#2ecc71';
@@ -138,7 +134,6 @@ const renderReviewDetail = (data) => {
   );
 };
 
-/* ---------- 流式文字组件 ---------- */
 const StreamingText = ({ text, isStreaming }) => {
   const [displayed, setDisplayed] = useState('');
 
@@ -166,7 +161,6 @@ const StreamingText = ({ text, isStreaming }) => {
   );
 };
 
-/* ---------- 状态标签 ---------- */
 const StatusStageBadge = ({ stage }) => {
   const config = STAGE_CONFIG[stage] || { label: stage, color: '#6b7280', bg: '#f3f4f6' };
   return (
@@ -195,7 +189,6 @@ const StatusWithBadge = ({ text, streamDesc }) => {
   );
 };
 
-/* ---------- 通用分发器 ---------- */
 const renderStepData = (data) => {
   if (!data) return null;
   if (typeof data === 'string') return renderOutlineDetail(data);
@@ -216,12 +209,14 @@ const renderStepData = (data) => {
   return <span className="thinking-process-detail-text">{String(data)}</span>;
 };
 
-/* ---------- 主组件 ---------- */
 const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
   const thinkingSteps = message.thinkingSteps || [];
+  const chainNodes = message.chainNodes || [];
+  const hasChainNodes = chainNodes.length > 0;
   const hasThinkingSteps = thinkingSteps.length > 0;
+  const hasThinking = hasChainNodes || hasThinkingSteps;
   const latestStep = hasThinkingSteps ? thinkingSteps[thinkingSteps.length - 1].text : '';
 
   return (
@@ -233,7 +228,7 @@ const MessageBubble = ({ message }) => {
         <div className="message-role">
           {isUser ? '你' : 'GenWriter'}
         </div>
-        {message.statusText && !message.content && !hasThinkingSteps && (
+        {message.statusText && !message.content && !hasThinking && (
           <div className="message-status">
             <StatusWithBadge text={message.statusText} streamDesc={false} />
             <div className="thinking-dots">
@@ -243,7 +238,13 @@ const MessageBubble = ({ message }) => {
             </div>
           </div>
         )}
-        {hasThinkingSteps && (
+        {hasChainNodes && (
+          <ThinkingPanel
+            chainNodes={chainNodes}
+            isStreaming={message.isStreaming}
+          />
+        )}
+        {!hasChainNodes && hasThinkingSteps && (
           <div className="thinking-process">
             <div
               className="thinking-process-header"

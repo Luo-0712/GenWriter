@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
@@ -13,6 +14,7 @@ import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
 import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -29,6 +31,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -48,6 +51,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final ResearcherProperties properties;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -92,6 +96,10 @@ public class DirectAnswerWorker implements WorkerAgent {
         String context = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
 
+        String nodeId = chainPublisher.publishStart(sessionId, "直接回答",
+                ChainNode.Type.EXECUTION, null,
+                Map.of("userInput", truncate(userInput, 200), "hasKbId", !kbId.isBlank()));
+
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "userInput", userInput,
                 "context", context,
@@ -126,12 +134,18 @@ public class DirectAnswerWorker implements WorkerAgent {
                     })
                     .then(Mono.just(contentBuilder.toString()))
                     .block(Duration.ofMinutes(5));
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            SessionContextHolder.clear();
+            throw e;
         } finally {
             SessionContextHolder.clear();
         }
 
         String fullResponse = contentBuilder.toString();
         log.info("[DirectAnswerWorker] 回答完成: length={}", fullResponse.length());
+        chainPublisher.publishComplete(sessionId, nodeId,
+                Map.of("length", fullResponse.length()));
         return Map.of("finalOutput", fullResponse);
     }
 
@@ -148,5 +162,10 @@ public class DirectAnswerWorker implements WorkerAgent {
         } catch (Exception e) {
             log.debug("SSE content chunk failed: {}", e.getMessage());
         }
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 }

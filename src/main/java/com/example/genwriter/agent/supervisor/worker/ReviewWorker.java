@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.supervisor.worker;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.graph.dto.ReviewResult;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
@@ -12,6 +13,7 @@ import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
 import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
@@ -26,6 +28,7 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +51,7 @@ public class ReviewWorker implements WorkerAgent {
     private final ResearcherProperties properties;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ThoughtChainPublisher chainPublisher;
 
     private ChatClient chatClient;
 
@@ -95,6 +99,10 @@ public class ReviewWorker implements WorkerAgent {
             );
         }
 
+        String nodeId = chainPublisher.publishStart(sessionId, "内容评审",
+                ChainNode.Type.THINKING, null,
+                Map.of("reviewRound", reviewCount + 1, "contentLength", polishedContent.length()));
+
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "polishedContent", polishedContent,
                 "outline", outline,
@@ -125,6 +133,10 @@ public class ReviewWorker implements WorkerAgent {
             final var finalPromptSpec = promptSpec;
             response = CompletableFuture.supplyAsync(() -> finalPromptSpec.call().content())
                     .get(5, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            SessionContextHolder.clear();
+            throw e;
         } finally {
             SessionContextHolder.clear();
         }
@@ -132,6 +144,10 @@ public class ReviewWorker implements WorkerAgent {
         ReviewResult result = parseReviewResult(response);
         String verdict = resolveVerdict(result);
         String feedback = result.feedback() != null ? result.feedback() : "请根据评审意见进行修改";
+
+        chainPublisher.publishComplete(sessionId, nodeId,
+                Map.of("score", result.score(), "verdict", verdict,
+                        "feedback", truncate(feedback, 200)));
 
         log.info("[ReviewWorker] 评审结果: score={}, verdict={}, reviewCount={}", result.score(), verdict, reviewCount + 1);
         return Map.of(
@@ -190,6 +206,11 @@ public class ReviewWorker implements WorkerAgent {
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
         }
         return cleaned;
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
     private int getInt(Map<String, Object> state, String key, int defaultValue) {
