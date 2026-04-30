@@ -1,6 +1,8 @@
 package com.example.genwriter.agent.supervisor.worker;
 
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ResearcherSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -10,6 +12,8 @@ import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
 import com.example.genwriter.config.ResearcherProperties;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,6 +47,8 @@ public class ResearcherWorker implements WorkerAgent {
     private final SseService sseService;
     private final ObjectMapper objectMapper;
     private final ResearcherProperties properties;
+    private final LongTermMemoryService memoryService;
+    private final LongTermMemoryProperties longTermMemoryProperties;
 
     private ChatClient chatClient;
 
@@ -75,6 +81,7 @@ public class ResearcherWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
+        String documentId = (String) state.getOrDefault("documentId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
 
@@ -91,15 +98,23 @@ public class ResearcherWorker implements WorkerAgent {
         SessionContextHolder.set(sessionId);
         String response;
         try {
-            response = CompletableFuture.supplyAsync(() -> chatClient.prompt()
-                            .system(systemPrompt)
-                            .user(userPrompt)
-                            .advisors(new MessageChatMemoryAdvisor(chatMemory))
-                            .advisors(a -> a.param(
-                                    AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                                    conversationId))
-                            .call()
-                            .content())
+            var promptSpec = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .advisors(a -> a.param(
+                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                            conversationId));
+
+            if (longTermMemoryProperties.isEnabled()) {
+                promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                        memoryService,
+                        List.of(MemoryType.DOMAIN_KNOWLEDGE),
+                        sessionId, documentId));
+            }
+
+            final var finalPromptSpec = promptSpec;
+            response = CompletableFuture.supplyAsync(() -> finalPromptSpec.call().content())
                     .get(5, TimeUnit.MINUTES);
         } finally {
             SessionContextHolder.clear();

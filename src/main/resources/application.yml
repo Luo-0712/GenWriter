@@ -131,6 +131,17 @@ genwriter:
   websearch:
     api-key: ${TAVILY_API_KEY:}
     timeout-seconds: 30
+  long-term-memory:
+    enabled: true
+    retrieval:
+      max-results: 5
+      similarity-threshold: 0.65
+      dedup-threshold: 0.85
+    extraction:
+      enabled: true
+      async: true
+      max-memories-per-turn: 5
+      temperature: 0.1
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。

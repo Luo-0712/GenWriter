@@ -1,10 +1,14 @@
 package com.example.genwriter.agent.supervisor.worker;
 
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.PolishSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,8 @@ public class PolishWorker implements WorkerAgent {
     private final PolishSkill skill;
     private final WorkerRegistry registry;
     private final SseService sseService;
+    private final LongTermMemoryService memoryService;
+    private final LongTermMemoryProperties longTermMemoryProperties;
 
     private ChatClient chatClient;
 
@@ -48,6 +54,7 @@ public class PolishWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
+        String documentId = (String) state.getOrDefault("documentId", "");
         String draft = (String) state.getOrDefault("draft", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String reviewFeedback = (String) state.getOrDefault("reviewFeedback", "");
@@ -60,10 +67,18 @@ public class PolishWorker implements WorkerAgent {
         ));
 
         StringBuilder contentBuilder = new StringBuilder();
-        chatClient.prompt()
+        var promptSpec = chatClient.prompt()
                 .system(skill.systemPrompt())
-                .user(userPrompt)
-                .stream()
+                .user(userPrompt);
+
+        if (longTermMemoryProperties.isEnabled()) {
+            promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                    memoryService,
+                    List.of(MemoryType.WRITING_PREFERENCE),
+                    sessionId, documentId));
+        }
+
+        promptSpec.stream()
                 .content()
                 .doOnNext(chunk -> {
                     contentBuilder.append(chunk);

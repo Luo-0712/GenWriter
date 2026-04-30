@@ -341,5 +341,7 @@ public class LLMConfig {
          * 留空时使用 SupervisorSystemPromptProvider 动态构建的默认提示词
          */
         private String supervisorSystemPrompt = "";
+
+        private String memoryExtractionPrompt = "";
     }
 }

@@ -3,6 +3,7 @@ package com.example.genwriter.agent.graph.node;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
 import com.example.genwriter.agent.supervisor.SupervisorDecision;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
@@ -10,6 +11,9 @@ import com.example.genwriter.agent.supervisor.SupervisorSystemPromptProvider;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.dto.response.MemoryVO;
+import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +36,8 @@ public class SupervisorNode implements NodeAction {
     private final SupervisorModeProperties properties;
     private final SseService sseService;
     private final ObjectMapper objectMapper;
+    private final LongTermMemoryService memoryService;
+    private final LongTermMemoryProperties longTermMemoryProperties;
 
     private ChatClient chatClient;
     private String systemPrompt;
@@ -242,6 +248,7 @@ public class SupervisorNode implements NodeAction {
         sb.append("- writingType: ").append(state.getOrDefault("writingType", "CREATE")).append("\n");
 
         appendStateSummary(sb, state);
+        appendMemoryContext(sb, state);
 
         sb.append("\n请根据当前状态制定完整的执行计划，或直接 FINISH。");
         return sb.toString();
@@ -254,6 +261,7 @@ public class SupervisorNode implements NodeAction {
         sb.append("- kbId: ").append(state.getOrDefault("kbId", "")).append("\n");
 
         appendStateSummary(sb, state);
+        appendMemoryContext(sb, state);
 
         if (state.containsKey("reviewResult")) {
             sb.append("- reviewResult: ").append(state.get("reviewResult")).append("\n");
@@ -291,6 +299,27 @@ public class SupervisorNode implements NodeAction {
         if (state.containsKey("researchReport")) {
             String report = (String) state.get("researchReport");
             sb.append("- researchReport: ").append(report != null ? report.length() + " chars" : "null").append("\n");
+        }
+    }
+
+    private void appendMemoryContext(StringBuilder sb, Map<String, Object> state) {
+        if (!longTermMemoryProperties.isEnabled()) return;
+        try {
+            String sessionId = (String) state.getOrDefault("sessionId", "");
+            String userInput = (String) state.getOrDefault("userInput", "");
+            if (userInput == null || userInput.isBlank()) return;
+
+            List<MemoryVO> memories = memoryService.retrieveMemories(
+                    userInput, List.of(MemoryType.WRITING_PREFERENCE), sessionId, null);
+
+            if (!memories.isEmpty()) {
+                sb.append("\n## 用户写作偏好（长期记忆）\n");
+                for (MemoryVO m : memories) {
+                    sb.append("- ").append(m.getContent()).append("\n");
+                }
+            }
+        } catch (Exception e) {
+            log.debug("注入长期记忆到规划prompt失败: {}", e.getMessage());
         }
     }
 

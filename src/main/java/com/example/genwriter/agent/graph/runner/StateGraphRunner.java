@@ -9,9 +9,11 @@ import com.alibaba.cloud.ai.graph.checkpoint.config.SaverConfig;
 import com.example.genwriter.agent.graph.checkpoint.GraphCheckpointProperties;
 import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
 import com.example.genwriter.agent.memory.MemoryProperties;
+import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +45,8 @@ public class StateGraphRunner {
     private final GraphCheckpointProperties checkpointProperties;
     private final RedisChatMemory chatMemory;
     private final MemoryProperties memoryProperties;
+    private final MemoryExtractionService memoryExtractionService;
+    private final LongTermMemoryProperties longTermMemoryProperties;
 
     private volatile CompiledGraph compiledGraph;
     private volatile CompiledGraph compiledSupervisorGraph;
@@ -55,7 +59,9 @@ public class StateGraphRunner {
                             RedisCheckpointSaver checkpointSaver,
                             GraphCheckpointProperties checkpointProperties,
                             RedisChatMemory chatMemory,
-                            MemoryProperties memoryProperties) {
+                            MemoryProperties memoryProperties,
+                            MemoryExtractionService memoryExtractionService,
+                            LongTermMemoryProperties longTermMemoryProperties) {
         this.intentRouterGraph = intentRouterGraph;
         this.supervisorGraph = supervisorGraph;
         this.supervisorProperties = supervisorProperties;
@@ -65,6 +71,8 @@ public class StateGraphRunner {
         this.checkpointProperties = checkpointProperties;
         this.chatMemory = chatMemory;
         this.memoryProperties = memoryProperties;
+        this.memoryExtractionService = memoryExtractionService;
+        this.longTermMemoryProperties = longTermMemoryProperties;
     }
 
     private StateGraph activeGraph() {
@@ -148,6 +156,14 @@ public class StateGraphRunner {
                 if (finalOutput != null && !finalOutput.isBlank()) {
                     messageService.createMessage(sessionId, "assistant", finalOutput);
                     saveToMemory(sessionId, userInput, finalOutput);
+
+                    if (longTermMemoryProperties.isEnabled()) {
+                        try {
+                            memoryExtractionService.extractAsync(sessionId, documentId, userInput, finalOutput);
+                        } catch (Exception e) {
+                            log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
+                        }
+                    }
                 }
             } else {
                 publishStatus(sessionId, "【任务完成】未产生输出");

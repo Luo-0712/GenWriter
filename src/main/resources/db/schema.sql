@@ -215,7 +215,53 @@ CREATE INDEX IF NOT EXISTS idx_chunk_embedding_ivf ON knowledge_chunk
 --     USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 
 -- ========================================================
--- 8. 创建写作模板表
+-- 8. 创建长期记忆表
+-- ========================================================
+CREATE TABLE IF NOT EXISTS long_term_memory (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    content TEXT NOT NULL,
+    memory_type VARCHAR(50) NOT NULL,
+    scope VARCHAR(20) NOT NULL DEFAULT 'GLOBAL',
+    project_id UUID,
+    document_id UUID,
+    session_id UUID,
+    embedding VECTOR(1024),
+    embedding_model VARCHAR(50) DEFAULT 'text-embedding-v1',
+    importance VARCHAR(10) DEFAULT 'MEDIUM',
+    metadata JSONB,
+    access_count INTEGER DEFAULT 0,
+    last_accessed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE long_term_memory IS '长期记忆表,存储从对话中提取的原子事实,支持向量检索';
+COMMENT ON COLUMN long_term_memory.id IS '记忆唯一标识符(UUID)';
+COMMENT ON COLUMN long_term_memory.content IS '记忆内容(原子事实)';
+COMMENT ON COLUMN long_term_memory.memory_type IS '记忆类型: WRITING_PREFERENCE, CORRECTION_PATTERN, WORLD_SETTING, CHARACTER_PROFILE, FORESHADOWING, DOMAIN_KNOWLEDGE';
+COMMENT ON COLUMN long_term_memory.scope IS '作用域: GLOBAL(全局), PROJECT(项目级), DOCUMENT(文档级)';
+COMMENT ON COLUMN long_term_memory.project_id IS '所属项目ID(scope=PROJECT时必填)';
+COMMENT ON COLUMN long_term_memory.document_id IS '所属文档ID(scope=DOCUMENT时必填)';
+COMMENT ON COLUMN long_term_memory.session_id IS '来源会话ID';
+COMMENT ON COLUMN long_term_memory.embedding IS '嵌入向量,用于语义相似度搜索';
+COMMENT ON COLUMN long_term_memory.embedding_model IS '嵌入模型类型标识';
+COMMENT ON COLUMN long_term_memory.importance IS '重要程度: HIGH, MEDIUM, LOW';
+COMMENT ON COLUMN long_term_memory.metadata IS '元数据(JSON格式)';
+COMMENT ON COLUMN long_term_memory.access_count IS '访问次数统计';
+COMMENT ON COLUMN long_term_memory.last_accessed_at IS '最后访问时间';
+
+CREATE INDEX IF NOT EXISTS idx_ltm_memory_type ON long_term_memory(memory_type);
+CREATE INDEX IF NOT EXISTS idx_ltm_scope ON long_term_memory(scope);
+CREATE INDEX IF NOT EXISTS idx_ltm_scope_project ON long_term_memory(scope, project_id);
+CREATE INDEX IF NOT EXISTS idx_ltm_embedding ON long_term_memory USING hnsw (embedding vector_cosine_ops);
+
+CREATE TRIGGER update_long_term_memory_updated_at
+    BEFORE UPDATE ON long_term_memory
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ========================================================
+-- 9. 创建写作模板表
 -- ========================================================
 CREATE TABLE IF NOT EXISTS writing_template (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

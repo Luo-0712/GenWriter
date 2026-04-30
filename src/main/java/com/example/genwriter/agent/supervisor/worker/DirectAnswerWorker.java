@@ -1,6 +1,8 @@
 package com.example.genwriter.agent.supervisor.worker;
 
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -12,6 +14,8 @@ import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
 import com.example.genwriter.config.ResearcherProperties;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +46,8 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final WorkerRegistry registry;
     private final SseService sseService;
     private final ResearcherProperties properties;
+    private final LongTermMemoryService memoryService;
+    private final LongTermMemoryProperties longTermMemoryProperties;
 
     private ChatClient chatClient;
 
@@ -81,6 +87,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
+        String documentId = (String) state.getOrDefault("documentId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
@@ -96,14 +103,22 @@ public class DirectAnswerWorker implements WorkerAgent {
         StringBuilder contentBuilder = new StringBuilder();
         SessionContextHolder.set(sessionId);
         try {
-            chatClient.prompt()
+            var promptSpec = chatClient.prompt()
                     .system(skill.systemPrompt())
                     .user(userPrompt)
                     .advisors(new MessageChatMemoryAdvisor(chatMemory))
                     .advisors(a -> a.param(
                             AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                            conversationId))
-                    .stream()
+                            conversationId));
+
+            if (longTermMemoryProperties.isEnabled()) {
+                promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                        memoryService,
+                        List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
+                        sessionId, documentId));
+            }
+
+            promptSpec.stream()
                     .content()
                     .doOnNext(chunk -> {
                         contentBuilder.append(chunk);
