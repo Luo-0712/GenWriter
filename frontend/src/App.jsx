@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
+import MemoryPanel from './components/MemoryPanel';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
 import * as projectsApi from './api/projects';
@@ -18,6 +19,7 @@ function App() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
+  const [view, setView] = useState('chat');
 
   const abortRef = useRef(null);
 
@@ -25,34 +27,24 @@ function App() {
     let cancelled = false;
     async function init() {
       try {
-        let projectList = await projectsApi.getAllProjects();
+        const projectList = await projectsApi.getAllProjects();
         if (cancelled) return;
-        if (!projectList || projectList.length === 0) {
-          const defaultProject = await projectsApi.createProject({
-            name: '默认项目',
-            description: '系统默认项目,用于组织您的写作会话',
-          });
-          projectList = [defaultProject];
-        }
-        setProjects(projectList);
-        const currentProject = projectList[0];
-        setActiveProject(currentProject);
-
-        const sessionList = await sessionsApi.getSessionsByProjectId(currentProject.id);
-        if (cancelled) return;
-        setSessions(sessionList || []);
-        if (sessionList && sessionList.length > 0) {
-          setActiveSession(sessionList[0]);
-        } else {
-          const created = await sessionsApi.createSession({
-            title: '新对话',
-            type: 'CHAT',
-            projectId: currentProject.id,
-          });
-          if (!cancelled) {
-            setSessions([created]);
-            setActiveSession(created);
+        setProjects(projectList || []);
+        if (projectList && projectList.length > 0) {
+          const currentProject = projectList[0];
+          setActiveProject(currentProject);
+          const sessionList = await sessionsApi.getSessionsByProjectId(currentProject.id);
+          if (cancelled) return;
+          setSessions(sessionList || []);
+          if (sessionList && sessionList.length > 0) {
+            setActiveSession(sessionList[0]);
+          } else {
+            setActiveSession(null);
           }
+        } else {
+          setActiveProject(null);
+          setSessions([]);
+          setActiveSession(null);
         }
       } catch (e) {
         if (!cancelled) {
@@ -114,9 +106,38 @@ function App() {
 
   const handleSend = useCallback(
     async (content) => {
-      if (!activeSession?.id || isLoading) return;
+      if (isLoading) return;
 
-      const sessionId = activeSession.id;
+      let project = activeProject;
+      let session = activeSession;
+
+      try {
+        if (!project) {
+          const createdProject = await projectsApi.createProject({
+            name: '默认项目',
+            description: '系统默认项目,用于组织您的写作会话',
+          });
+          setProjects([createdProject]);
+          setActiveProject(createdProject);
+          project = createdProject;
+        }
+
+        if (!session) {
+          const createdSession = await sessionsApi.createSession({
+            title: '新对话',
+            type: 'CHAT',
+            projectId: project.id,
+          });
+          setSessions([createdSession]);
+          setActiveSession(createdSession);
+          session = createdSession;
+        }
+      } catch (e) {
+        setError('初始化会话失败: ' + e.message);
+        return;
+      }
+
+      const sessionId = session.id;
 
       const userMsg = {
         id: `local-user-${Date.now()}`,
@@ -311,7 +332,7 @@ function App() {
         },
       });
     },
-    [activeSession, isLoading]
+    [activeProject, activeSession, isLoading]
   );
 
   const handleSelectProject = useCallback(async (project) => {
@@ -322,13 +343,7 @@ function App() {
       if (sessionList && sessionList.length > 0) {
         setActiveSession(sessionList[0]);
       } else {
-        const created = await sessionsApi.createSession({
-          title: '新对话',
-          type: 'CHAT',
-          projectId: project.id,
-        });
-        setSessions([created]);
-        setActiveSession(created);
+        setActiveSession(null);
       }
     } catch (e) {
       setError('加载项目会话失败: ' + e.message);
@@ -361,26 +376,21 @@ function App() {
     async (project) => {
       try {
         await projectsApi.deleteProject(project.id);
-        setProjects((prev) => {
-          const remaining = prev.filter((p) => p.id !== project.id);
-          if (activeProject?.id === project.id) {
-            if (remaining.length > 0) {
-              setActiveProject(remaining[0]);
-              sessionsApi.getSessionsByProjectId(remaining[0].id).then((list) => {
-                setSessions(list || []);
-                setActiveSession(list?.[0] || null);
-              });
-            } else {
-              projectsApi.createProject({ name: '默认项目' }).then((p) => {
-                setProjects([p]);
-                setActiveProject(p);
-                setSessions([]);
-                setActiveSession(null);
-              });
-            }
+        const updatedProjects = await projectsApi.getAllProjects();
+        setProjects(updatedProjects || []);
+        if (activeProject?.id === project.id) {
+          if (updatedProjects && updatedProjects.length > 0) {
+            const newActive = updatedProjects[0];
+            setActiveProject(newActive);
+            const sessionList = await sessionsApi.getSessionsByProjectId(newActive.id);
+            setSessions(sessionList || []);
+            setActiveSession(sessionList?.[0] || null);
+          } else {
+            setActiveProject(null);
+            setSessions([]);
+            setActiveSession(null);
           }
-          return remaining;
-        });
+        }
       } catch (e) {
         setError('删除项目失败: ' + e.message);
       }
@@ -407,23 +417,15 @@ function App() {
     async (session) => {
       try {
         await sessionsApi.deleteSession(session.id);
-        setSessions((prev) => {
-          const remaining = prev.filter((s) => s.id !== session.id);
-          if (activeSession?.id === session.id) {
-            if (remaining.length > 0) {
-              setActiveSession(remaining[0]);
-            } else {
-              sessionsApi
-                .createSession({ title: '新对话', type: 'CHAT', projectId: activeProject?.id })
-                .then((created) => {
-                  setSessions([created]);
-                  setActiveSession(created);
-                })
-                .catch((err) => setError('创建会话失败: ' + err.message));
-            }
-          }
-          return remaining;
-        });
+        const [sessionList, projectList] = await Promise.all([
+          sessionsApi.getSessionsByProjectId(activeProject?.id),
+          projectsApi.getAllProjects(),
+        ]);
+        setSessions(sessionList || []);
+        setProjects(projectList || []);
+        if (activeSession?.id === session.id) {
+          setActiveSession(sessionList?.[0] || null);
+        }
       } catch (e) {
         setError('删除会话失败: ' + e.message);
       }
@@ -452,23 +454,32 @@ function App() {
         activeProject={activeProject}
         sessions={sessions}
         activeSession={activeSession}
+        view={view}
         onSelectProject={handleSelectProject}
         onNewProject={handleNewProject}
         onDeleteProject={handleDeleteProject}
         onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
+        onNavigate={setView}
       />
       <main className="main-content">
-        <ChatArea
-          messages={messages}
-          onSend={handleSend}
-          onSuggestionClick={handleSuggestionClick}
-          isLoading={isLoading}
-          hasContentStarted={hasContentStarted}
-          loadingMessages={loadingMessages}
-          isSessionLoading={isSessionLoading}
-        />
+        {view === 'chat' ? (
+          <ChatArea
+            messages={messages}
+            onSend={handleSend}
+            onSuggestionClick={handleSuggestionClick}
+            isLoading={isLoading}
+            hasContentStarted={hasContentStarted}
+            loadingMessages={loadingMessages}
+            isSessionLoading={isSessionLoading}
+          />
+        ) : (
+          <MemoryPanel
+            projectId={activeProject?.id}
+            onBack={() => setView('chat')}
+          />
+        )}
       </main>
     </div>
   );

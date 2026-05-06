@@ -15,7 +15,6 @@ public class LongTermMemory {
     private String memoryType;
     private String scope;
     private String projectId;
-    private String documentId;
     private String sessionId;
     private float[] embedding;
     private String embeddingModel;
@@ -36,7 +35,6 @@ public class LongTermMemory {
                 && (this.getMemoryType() == null ? other.getMemoryType() == null : this.getMemoryType().equals(other.getMemoryType()))
                 && (this.getScope() == null ? other.getScope() == null : this.getScope().equals(other.getScope()))
                 && (this.getProjectId() == null ? other.getProjectId() == null : this.getProjectId().equals(other.getProjectId()))
-                && (this.getDocumentId() == null ? other.getDocumentId() == null : this.getDocumentId().equals(other.getDocumentId()))
                 && (this.getSessionId() == null ? other.getSessionId() == null : this.getSessionId().equals(other.getSessionId()))
                 && (this.getEmbedding() == null ? other.getEmbedding() == null : Arrays.equals(this.getEmbedding(), other.getEmbedding()))
                 && (this.getEmbeddingModel() == null ? other.getEmbeddingModel() == null : this.getEmbeddingModel().equals(other.getEmbeddingModel()))
@@ -57,7 +55,6 @@ public class LongTermMemory {
         result = prime * result + ((getMemoryType() == null) ? 0 : getMemoryType().hashCode());
         result = prime * result + ((getScope() == null) ? 0 : getScope().hashCode());
         result = prime * result + ((getProjectId() == null) ? 0 : getProjectId().hashCode());
-        result = prime * result + ((getDocumentId() == null) ? 0 : getDocumentId().hashCode());
         result = prime * result + ((getSessionId() == null) ? 0 : getSessionId().hashCode());
         result = prime * result + ((getEmbedding() == null) ? 0 : Arrays.hashCode(getEmbedding()));
         result = prime * result + ((getEmbeddingModel() == null) ? 0 : getEmbeddingModel().hashCode());
@@ -79,7 +76,6 @@ public class LongTermMemory {
                 ", memoryType=" + memoryType +
                 ", scope=" + scope +
                 ", projectId=" + projectId +
-                ", documentId=" + documentId +
                 ", sessionId=" + sessionId +
                 ", embedding=" + (embedding != null ? "[" + embedding.length + " floats]" : "null") +
                 ", embeddingModel=" + embeddingModel +

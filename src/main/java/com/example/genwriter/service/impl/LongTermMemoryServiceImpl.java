@@ -37,7 +37,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
     @Override
     public List<MemoryVO> retrieveMemories(String query, List<MemoryType> types,
-                                           String sessionId, String documentId) {
+                                           String sessionId) {
         String projectId = resolveProjectId(sessionId);
         float[] queryEmbedding = embeddingService.embed(query);
         String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
@@ -47,7 +47,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         int limit = properties.getRetrieval().getMaxResults();
 
         List<LongTermMemory> results = mapper.similaritySearch(
-                vectorLiteral, typeNames, projectId, documentId, threshold, limit);
+                vectorLiteral, typeNames, projectId, threshold, limit);
 
         for (LongTermMemory memory : results) {
             try {
@@ -67,7 +67,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     @Override
     @Transactional
     public LongTermMemory storeMemory(String content, MemoryType type, String scope,
-                                      String projectId, String documentId,
+                                      String projectId,
                                       String sessionId, String importance) {
         float[] embedding = embeddingService.embed(content);
         String vectorLiteral = VectorUtils.arrayToVectorString(embedding);
@@ -85,7 +85,6 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .memoryType(type.name())
                 .scope(scope)
                 .projectId(projectId)
-                .documentId(documentId)
                 .sessionId(sessionId)
                 .embedding(embedding)
                 .embeddingModel("text-embedding-v1")
@@ -130,12 +129,12 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     @Override
     @Transactional(readOnly = true)
     public PageResult<MemoryVO> listByFilter(String type, String scope, String projectId,
-                                             String documentId, String importance,
+                                             String importance,
                                              String keyword, int page, int size) {
         int offset = (page - 1) * size;
-        List<LongTermMemory> items = mapper.selectByFilter(type, scope, projectId, documentId,
+        List<LongTermMemory> items = mapper.selectByFilter(type, scope, projectId,
                 importance, keyword, size, offset);
-        long total = mapper.countByFilter(type, scope, projectId, documentId, importance, keyword);
+        long total = mapper.countByFilter(type, scope, projectId, importance, keyword);
 
         List<MemoryVO> vos = items.stream().map(this::convertToVO).collect(Collectors.toList());
         return PageResult.<MemoryVO>builder()
@@ -160,7 +159,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         }
 
         List<LongTermMemory> results = mapper.similaritySearch(
-                vectorLiteral, types, projectId, null, threshold, limit);
+                vectorLiteral, types, projectId, threshold, limit);
 
         return results.stream().map(this::convertToVO).collect(Collectors.toList());
     }
@@ -171,7 +170,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         String scope = request.getScope() != null ? request.getScope() : "GLOBAL";
         String importance = request.getImportance() != null ? request.getImportance() : "MEDIUM";
 
-        validateScopeConsistency(scope, request.getProjectId(), request.getDocumentId());
+        validateScopeConsistency(scope, request.getProjectId());
 
         float[] embedding = embeddingService.embed(request.getContent());
         String vectorLiteral = VectorUtils.arrayToVectorString(embedding);
@@ -189,7 +188,6 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .memoryType(request.getMemoryType())
                 .scope(scope)
                 .projectId(request.getProjectId())
-                .documentId(request.getDocumentId())
                 .embedding(embedding)
                 .embeddingModel("text-embedding-v1")
                 .importance(importance)
@@ -224,7 +222,6 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         builder.memoryType(request.getMemoryType() != null ? request.getMemoryType() : existing.getMemoryType());
         builder.scope(request.getScope() != null ? request.getScope() : existing.getScope());
         builder.projectId(request.getProjectId() != null ? request.getProjectId() : existing.getProjectId());
-        builder.documentId(request.getDocumentId() != null ? request.getDocumentId() : existing.getDocumentId());
         builder.importance(request.getImportance() != null ? request.getImportance() : existing.getImportance());
         builder.embeddingModel(existing.getEmbeddingModel());
         builder.accessCount(existing.getAccessCount());
@@ -239,7 +236,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     @Override
     @Transactional(readOnly = true)
     public List<MemoryVO> listByType(MemoryType type) {
-        return mapper.selectByFilter(type.name(), null, null, null, null, null,
+        return mapper.selectByFilter(type.name(), null, null, null, null,
                         Integer.MAX_VALUE, 0)
                 .stream()
                 .map(this::convertToVO)
@@ -249,7 +246,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     @Override
     @Transactional(readOnly = true)
     public List<MemoryVO> listByProject(String projectId) {
-        return mapper.selectByFilter(null, null, projectId, null, null, null,
+        return mapper.selectByFilter(null, null, projectId, null, null,
                         Integer.MAX_VALUE, 0)
                 .stream()
                 .map(this::convertToVO)
@@ -292,11 +289,8 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         return "LOW";
     }
 
-    private void validateScopeConsistency(String scope, String projectId, String documentId) {
+    private void validateScopeConsistency(String scope, String projectId) {
         if ("PROJECT".equals(scope) && (projectId == null || projectId.isBlank())) {
-            throw new BizException(BizException.ErrorCode.MEMORY_SCOPE_INVALID);
-        }
-        if ("DOCUMENT".equals(scope) && (documentId == null || documentId.isBlank())) {
             throw new BizException(BizException.ErrorCode.MEMORY_SCOPE_INVALID);
         }
     }
@@ -308,7 +302,6 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .memoryType(memory.getMemoryType())
                 .scope(memory.getScope())
                 .projectId(memory.getProjectId())
-                .documentId(memory.getDocumentId())
                 .sessionId(memory.getSessionId())
                 .embeddingModel(memory.getEmbeddingModel())
                 .importance(memory.getImportance())

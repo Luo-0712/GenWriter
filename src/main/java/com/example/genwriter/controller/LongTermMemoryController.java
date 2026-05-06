@@ -27,13 +27,12 @@ public class LongTermMemoryController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) String projectId,
-            @RequestParam(required = false) String documentId,
             @RequestParam(required = false) String importance,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
         PageResult<MemoryVO> result = memoryService.listByFilter(
-                type, scope, projectId, documentId, importance, keyword, page, size);
+                type, scope, projectId, importance, keyword, page, size);
         return ApiResponse.success(result);
     }
 

@@ -20,16 +20,13 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
     private final LongTermMemoryService memoryService;
     private final List<MemoryType> memoryTypes;
     private final String sessionId;
-    private final String documentId;
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
                                  List<MemoryType> memoryTypes,
-                                 String sessionId,
-                                 String documentId) {
+                                 String sessionId) {
         this.memoryService = memoryService;
         this.memoryTypes = memoryTypes;
         this.sessionId = sessionId;
-        this.documentId = documentId;
     }
 
     @NotNull
@@ -52,7 +49,7 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
 
         try {
             List<MemoryVO> memories = memoryService.retrieveMemories(
-                    query, memoryTypes, sessionId, documentId);
+                    query, memoryTypes, sessionId);
 
             if (memories.isEmpty()) {
                 return chain.nextAroundCall(request);

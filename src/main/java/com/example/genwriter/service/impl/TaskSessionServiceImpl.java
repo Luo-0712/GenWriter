@@ -132,6 +132,9 @@ public class TaskSessionServiceImpl implements TaskSessionService {
             throw new BizException(BizException.ErrorCode.SESSION_NOT_FOUND);
         }
 
+        messageMapper.deleteBySessionId(id);
+        documentMapper.deleteBySessionId(id);
+
         int result = taskSessionMapper.deleteById(id);
         if (result <= 0) {
             throw new BizException(BizException.ErrorCode.DB_DELETE_ERROR);
@@ -145,6 +148,11 @@ public class TaskSessionServiceImpl implements TaskSessionService {
 
         if (ids == null || ids.isEmpty()) {
             return;
+        }
+
+        for (String id : ids) {
+            messageMapper.deleteBySessionId(id);
+            documentMapper.deleteBySessionId(id);
         }
 
         int result = taskSessionMapper.deleteByIds(ids);

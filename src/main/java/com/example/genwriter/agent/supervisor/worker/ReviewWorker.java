@@ -84,7 +84,6 @@ public class ReviewWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
-        String documentId = (String) state.getOrDefault("documentId", "");
         String polishedContent = (String) state.getOrDefault("polishedContent", "");
         String outline = (String) state.getOrDefault("outline", "");
         String userInput = (String) state.getOrDefault("userInput", "");
@@ -127,7 +126,7 @@ public class ReviewWorker implements WorkerAgent {
                 promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                         memoryService,
                         List.of(MemoryType.WRITING_PREFERENCE, MemoryType.CORRECTION_PATTERN),
-                        sessionId, documentId));
+                        sessionId));
             }
 
             final var finalPromptSpec = promptSpec;

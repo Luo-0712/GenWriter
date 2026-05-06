@@ -58,7 +58,6 @@ public class DraftGenerationWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
-        String documentId = (String) state.getOrDefault("documentId", "");
         String outline = (String) state.getOrDefault("outline", "");
         String context = (String) state.getOrDefault("context", "");
         String userInput = (String) state.getOrDefault("userInput", "");
@@ -86,7 +85,7 @@ public class DraftGenerationWorker implements WorkerAgent {
                     memoryService,
                     List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WORLD_SETTING,
                             MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
-                    sessionId, documentId));
+                    sessionId));
         }
 
         try {

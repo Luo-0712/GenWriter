@@ -18,7 +18,5 @@ public class CreateMemoryRequest {
 
     private String projectId;
 
-    private String documentId;
-
     private String importance;
 }

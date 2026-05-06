@@ -159,7 +159,7 @@ public class StateGraphRunner {
 
                     if (longTermMemoryProperties.isEnabled()) {
                         try {
-                            memoryExtractionService.extractAsync(sessionId, documentId, userInput, finalOutput);
+                            memoryExtractionService.extractAsync(sessionId, userInput, finalOutput);
                         } catch (Exception e) {
                             log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
                         }

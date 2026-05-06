@@ -40,7 +40,7 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
 
     @Override
     @Async("taskExecutor")
-    public void extractAsync(String sessionId, String documentId,
+    public void extractAsync(String sessionId,
                              String userInput, String finalOutput) {
         if (!properties.getExtraction().isEnabled()) {
             return;
@@ -50,7 +50,7 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
 
         try {
             String projectId = resolveProjectId(sessionId);
-            String extractionPrompt = buildExtractionPrompt(userInput, finalOutput, projectId, documentId);
+            String extractionPrompt = buildExtractionPrompt(userInput, finalOutput, projectId);
 
             ChatClient extractionClient = chatClientFactory.create(properties.getExtraction().getTemperature());
             String response = extractionClient.prompt()
@@ -66,13 +66,12 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
                 if (stored >= maxMemories) break;
 
                 try {
-                    String scope = determineScope(em.memoryType, projectId, documentId);
+                    String scope = determineScope(em.memoryType, projectId);
                     memoryService.storeMemory(
                             em.content,
                             MemoryType.valueOf(em.memoryType),
                             scope,
                             projectId,
-                            documentId,
                             sessionId,
                             em.importance
                     );
@@ -100,26 +99,24 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
     }
 
     private String buildExtractionPrompt(String userInput, String finalOutput,
-                                         String projectId, String documentId) {
+                                         String projectId) {
         String template = llmConfig.getPrompts().getMemoryExtractionPrompt();
 
         if (template != null && !template.isBlank()) {
             return template
                     .replace("{userInput}", userInput != null ? userInput : "")
                     .replace("{finalOutput}", finalOutput != null ? finalOutput : "")
-                    .replace("{projectId}", projectId != null ? projectId : "无")
-                    .replace("{documentId}", documentId != null ? documentId : "无");
+                    .replace("{projectId}", projectId != null ? projectId : "无");
         }
 
-        return buildDefaultExtractionPrompt(userInput, finalOutput, projectId, documentId);
+        return buildDefaultExtractionPrompt(userInput, finalOutput, projectId);
     }
 
     private String buildDefaultExtractionPrompt(String userInput, String finalOutput,
-                                                String projectId, String documentId) {
+                                                String projectId) {
         StringBuilder sb = new StringBuilder();
         sb.append("你是一个写作助手的记忆提取系统。分析以下对话，提取值得长期保存的原子事实。\n\n");
-        sb.append("当前项目：").append(projectId != null ? projectId : "无").append("\n");
-        sb.append("当前文档：").append(documentId != null ? documentId : "无").append("\n\n");
+        sb.append("当前项目：").append(projectId != null ? projectId : "无").append("\n\n");
         sb.append("# 提取类别\n");
         sb.append("- WRITING_PREFERENCE: 用户表达的风格/语气/格式偏好（如\"偏好学术风格\"、\"喜欢短段落\"）\n");
         sb.append("- WORLD_SETTING: 故事世界观、背景设定（如\"故事发生在2049年的赛博朋克上海\"）\n");
@@ -140,7 +137,7 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
         return sb.toString();
     }
 
-    private String determineScope(String memoryType, String projectId, String documentId) {
+    private String determineScope(String memoryType, String projectId) {
         if (GLOBAL_TYPES.contains(memoryType)) {
             return "GLOBAL";
         }

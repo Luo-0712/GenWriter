@@ -6,12 +6,14 @@ const Sidebar = ({
   activeProject,
   sessions,
   activeSession,
+  view,
   onSelectProject,
   onNewProject,
   onDeleteProject,
   onSelectSession,
   onNewChat,
   onDeleteSession,
+  onNavigate,
 }) => {
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -140,6 +142,28 @@ const Sidebar = ({
         </div>
       </div>
 
+      <div className="sidebar-nav">
+        <button
+          className={`sidebar-nav-btn ${view === 'chat' ? 'active' : ''}`}
+          onClick={() => onNavigate('chat')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          对话
+        </button>
+        <button
+          className={`sidebar-nav-btn ${view === 'memories' ? 'active' : ''}`}
+          onClick={() => onNavigate('memories')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+            <path d="M12 2a10 10 0 0 1 10 10"></path>
+            <path d="M20.2 7.2A10 10 0 0 0 12 2v10"></path>
+          </svg>
+          记忆
+        </button>
+      </div>
       <div className="sidebar-footer">
         <div className="user-info">
           <div className="user-avatar">U</div>

@@ -66,7 +66,7 @@ public class BizException extends RuntimeException {
         PROJECT_NOT_FOUND("1008", "项目不存在"),
         MEMORY_NOT_FOUND("1009", "记忆不存在"),
         MEMORY_DUPLICATE("1010", "相似记忆已存在"),
-        MEMORY_SCOPE_INVALID("1011", "scope 与 projectId/documentId 不一致"),
+        MEMORY_SCOPE_INVALID("1011", "scope 与 projectId 不一致"),
         
         // 数据操作错误
         DB_INSERT_ERROR("2001", "数据插入失败"),

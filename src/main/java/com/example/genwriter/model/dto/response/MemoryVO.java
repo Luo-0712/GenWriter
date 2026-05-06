@@ -14,7 +14,6 @@ public class MemoryVO {
     private String memoryType;
     private String scope;
     private String projectId;
-    private String documentId;
     private String sessionId;
     private String embeddingModel;
     private String importance;

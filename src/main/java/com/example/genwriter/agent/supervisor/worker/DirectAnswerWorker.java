@@ -91,7 +91,6 @@ public class DirectAnswerWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
-        String documentId = (String) state.getOrDefault("documentId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
@@ -123,7 +122,7 @@ public class DirectAnswerWorker implements WorkerAgent {
                 promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                         memoryService,
                         List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
-                        sessionId, documentId));
+                        sessionId));
             }
 
             promptSpec.stream()

@@ -15,7 +15,5 @@ public class UpdateMemoryRequest {
 
     private String projectId;
 
-    private String documentId;
-
     private String importance;
 }

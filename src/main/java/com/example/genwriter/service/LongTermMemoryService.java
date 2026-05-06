@@ -12,10 +12,10 @@ import java.util.List;
 public interface LongTermMemoryService {
 
     List<MemoryVO> retrieveMemories(String query, List<MemoryType> types,
-                                    String sessionId, String documentId);
+                                    String sessionId);
 
     LongTermMemory storeMemory(String content, MemoryType type, String scope,
-                               String projectId, String documentId,
+                               String projectId,
                                String sessionId, String importance);
 
     void deleteMemory(String id);
@@ -25,7 +25,7 @@ public interface LongTermMemoryService {
     MemoryVO getById(String id);
 
     PageResult<MemoryVO> listByFilter(String type, String scope, String projectId,
-                                      String documentId, String importance,
+                                      String importance,
                                       String keyword, int page, int size);
 
     List<MemoryVO> searchByQuery(String query, List<String> types, String scope,

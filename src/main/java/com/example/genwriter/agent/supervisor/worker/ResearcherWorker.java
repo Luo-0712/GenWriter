@@ -83,7 +83,6 @@ public class ResearcherWorker implements WorkerAgent {
     @Override
     public Map<String, Object> execute(Map<String, Object> state) throws Exception {
         String sessionId = (String) state.getOrDefault("sessionId", "");
-        String documentId = (String) state.getOrDefault("documentId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
 
@@ -116,7 +115,7 @@ public class ResearcherWorker implements WorkerAgent {
                 promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                         memoryService,
                         List.of(MemoryType.DOMAIN_KNOWLEDGE),
-                        sessionId, documentId));
+                        sessionId));
             }
 
             final var finalPromptSpec = promptSpec;

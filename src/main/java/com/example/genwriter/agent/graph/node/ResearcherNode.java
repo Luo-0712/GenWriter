@@ -21,7 +21,6 @@ public class ResearcherNode implements NodeAction {
     public Map<String, Object> apply(OverAllState state) throws Exception {
         Map<String, Object> stateMap = new HashMap<>();
         state.value("sessionId", String.class).ifPresent(v -> stateMap.put("sessionId", v));
-        state.value("documentId", String.class).ifPresent(v -> stateMap.put("documentId", v));
         state.value("userInput", String.class).ifPresent(v -> stateMap.put("userInput", v));
         state.value("kbId", String.class).ifPresent(v -> stateMap.put("kbId", v));
         state.value("intent", String.class).ifPresent(v -> stateMap.put("intent", v));

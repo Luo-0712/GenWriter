@@ -1516,3 +1516,580 @@
     display: none;
   }
 }
+
+/* ========== 侧边栏导航 ========== */
+.sidebar-nav {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar-nav-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-nav-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-nav-btn.active {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.sidebar-nav-btn.active:hover {
+  background: var(--accent-hover);
+}
+
+/* ========== 记忆面板 ========== */
+.memory-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.memory-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.memory-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.memory-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memory-back-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.memory-panel-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.memory-panel-count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.memory-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.memory-new-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* 工具栏 */
+.memory-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.memory-search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.memory-search .search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+}
+
+.memory-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.memory-search-input:focus {
+  border-color: var(--accent-color);
+}
+
+.memory-filter-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+}
+
+.memory-batch-delete-btn {
+  padding: 8px 12px;
+  border: 1px solid #fee2e2;
+  border-radius: var(--radius-sm);
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memory-batch-delete-btn:hover {
+  background: #fecaca;
+}
+
+/* 错误提示 */
+.memory-error {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* 加载与空状态 */
+.memory-loading,
+.memory-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.memory-empty p {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.memory-empty span {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* 表头 */
+.memory-table-header {
+  display: grid;
+  grid-template-columns: 32px 1fr 100px 70px 70px 140px 80px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+/* 列表 */
+.memory-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px;
+}
+
+.memory-card {
+  display: grid;
+  grid-template-columns: 32px 1fr 100px 70px 70px 140px 80px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+
+.memory-card:hover {
+  background: var(--bg-secondary);
+  margin: 0 -24px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.memory-card.selected {
+  background: #fff7ed;
+}
+
+.memory-checkbox-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.memory-checkbox-wrap input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.memory-card-content {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.memory-card-type,
+.memory-card-scope,
+.memory-card-importance,
+.memory-card-updated {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.memory-card-importance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memory-importance-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.memory-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.memory-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memory-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.memory-action-delete:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* 标签 */
+.memory-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.memory-badge-type-WRITING_PREFERENCE { background: #dbeafe; color: #1d4ed8; }
+.memory-badge-type-CORRECTION_PATTERN { background: #fce7f3; color: #be185d; }
+.memory-badge-type-DOMAIN_KNOWLEDGE   { background: #d1fae5; color: #047857; }
+.memory-badge-type-WORLD_SETTING      { background: #fef3c7; color: #b45309; }
+.memory-badge-type-CHARACTER_PROFILE  { background: #ede9fe; color: #6d28d9; }
+.memory-badge-type-FORESHADOWING      { background: #e0f2fe; color: #0369a1; }
+
+/* 分页 */
+.memory-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.memory-page-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memory-page-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.memory-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.memory-page-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ========== 弹窗 ========== */
+.memory-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.memory-modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.memory-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.memory-modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.memory-modal-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memory-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.memory-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.memory-form-error {
+  padding: 10px 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.memory-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.memory-form-group label .required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.memory-form-group input,
+.memory-form-group textarea,
+.memory-form-group select {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s;
+}
+
+.memory-form-group input:focus,
+.memory-form-group textarea:focus,
+.memory-form-group select:focus {
+  border-color: var(--accent-color);
+}
+
+.memory-form-group textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.memory-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.memory-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.memory-btn-secondary {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.memory-btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+.memory-btn-primary {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-color);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.memory-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.memory-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .memory-table-header {
+    display: none;
+  }
+
+  .memory-card {
+    grid-template-columns: 32px 1fr auto;
+    gap: 10px;
+  }
+
+  .memory-card-content {
+    grid-column: 2;
+    white-space: normal;
+  }
+
+  .memory-card-type,
+  .memory-card-scope,
+  .memory-card-importance,
+  .memory-card-updated {
+    display: none;
+  }
+
+  .memory-card-actions {
+    grid-column: 3;
+  }
+
+  .memory-form-row {
+    grid-template-columns: 1fr;
+  }
+}

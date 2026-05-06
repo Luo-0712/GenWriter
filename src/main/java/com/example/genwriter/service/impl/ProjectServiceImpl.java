@@ -7,6 +7,7 @@ import com.example.genwriter.model.dto.request.CreateProjectRequest;
 import com.example.genwriter.model.dto.request.UpdateProjectRequest;
 import com.example.genwriter.model.dto.response.ProjectDTO;
 import com.example.genwriter.model.entity.Project;
+import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -116,6 +117,14 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BizException(BizException.ErrorCode.PROJECT_NOT_FOUND);
         }
 
+        List<TaskSession> sessions = taskSessionMapper.selectByProjectId(id);
+        if (sessions != null && !sessions.isEmpty()) {
+            List<String> sessionIds = sessions.stream()
+                    .map(TaskSession::getId)
+                    .collect(Collectors.toList());
+            taskSessionMapper.deleteByIds(sessionIds);
+        }
+
         int result = projectMapper.deleteById(id);
         if (result <= 0) {
             throw new BizException(BizException.ErrorCode.DB_DELETE_ERROR);
@@ -129,6 +138,16 @@ public class ProjectServiceImpl implements ProjectService {
 
         if (ids == null || ids.isEmpty()) {
             return;
+        }
+
+        for (String id : ids) {
+            List<TaskSession> sessions = taskSessionMapper.selectByProjectId(id);
+            if (sessions != null && !sessions.isEmpty()) {
+                List<String> sessionIds = sessions.stream()
+                        .map(TaskSession::getId)
+                        .collect(Collectors.toList());
+                taskSessionMapper.deleteByIds(sessionIds);
+            }
         }
 
         int result = projectMapper.deleteByIds(ids);

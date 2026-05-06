@@ -67,7 +67,6 @@ public class SupervisorNode implements NodeAction {
 
         Map<String, Object> accumulated = new HashMap<>();
         accumulated.put("sessionId", sessionId);
-        accumulated.put("documentId", state.value("documentId", String.class).orElse(""));
         accumulated.put("userInput", state.value("userInput", String.class).orElse(""));
         accumulated.put("kbId", state.value("kbId", String.class).orElse(""));
         accumulated.put("writingType", state.value("writingType", String.class).orElse("CREATE"));
@@ -152,6 +151,15 @@ public class SupervisorNode implements NodeAction {
                 Map<String, Object> result = worker.execute(new HashMap<>(accumulated));
                 accumulated.putAll(result);
 
+                if ("intent_recognition".equals(workerName)) {
+                    List<String> adjusted = ensurePlanMatchesIntent(steps, accumulated);
+                    if (adjusted != steps) {
+                        publishStatus(sessionId, "【调整】根据意图调整执行计划");
+                        log.info("[SupervisorNode] 意图识别后调整计划: {} -> {}", steps, adjusted);
+                        steps = adjusted;
+                    }
+                }
+
                 Object outputSummary = buildWorkerOutputSummary(workerName, result);
                 chainPublisher.publishComplete(sessionId, workerNodeId, outputSummary);
                 planIndex++;
@@ -166,6 +174,13 @@ public class SupervisorNode implements NodeAction {
         }
 
         String finalOutput = extractFinalOutput(accumulated);
+
+        if (hasWritingSteps(steps) && isFallingBackToResearch(accumulated, finalOutput)) {
+            log.warn("[SupervisorNode] 写作计划包含draft/polish但最终输出仅为调研报告，中间步骤可能失败，使用direct_answer包装");
+            accumulated.put("context", "请基于以下调研报告生成完整回答：\n\n" + finalOutput);
+            return finishWithDirectAnswer(accumulated);
+        }
+
         accumulated.put("finalOutput", finalOutput);
         accumulated.put("currentNode", "SupervisorNode");
 
@@ -231,12 +246,10 @@ public class SupervisorNode implements NodeAction {
             String action = root.path("action").asText("");
 
             if (SupervisorDecision.FINISH.equals(action)) {
-                String finalOutput = root.path("finalOutput").asText("");
                 String reasoning = root.path("reasoning").asText("");
-                log.info("[SupervisorNode] 直接完成: reasoning={}", reasoning);
-                accumulated.put("finalOutput", finalOutput);
-                accumulated.put("currentNode", "SupervisorNode");
-                return null;
+                log.info("[SupervisorNode] LLM返回FINISH，但强制先执行intent_recognition再判断: reasoning={}", reasoning);
+                return ExecutionPlan.of(List.of("intent_recognition", "direct_answer"),
+                        "LLM returned FINISH, forcing minimal plan through intent_recognition");
             }
 
             if (SupervisorDecision.PLAN.equals(action)) {
@@ -326,6 +339,44 @@ public class SupervisorNode implements NodeAction {
         return "REVISE_DRAFT".equals(reviewResult) || "REVISE_POLISH".equals(reviewResult);
     }
 
+    private List<String> ensurePlanMatchesIntent(List<String> steps, Map<String, Object> accumulated) {
+        String intent = (String) accumulated.getOrDefault("intent", "");
+        if (!"WRITING_TASK".equals(intent)) {
+            return steps;
+        }
+
+        List<String> remaining = steps.subList(1, steps.size());
+        boolean hasWritingStages = remaining.stream()
+                .anyMatch(s -> "outline".equals(s) || "draft".equals(s) || "polish".equals(s));
+        if (hasWritingStages) {
+            return steps;
+        }
+
+        log.info("[SupervisorNode] 检测到WRITING_TASK但计划缺少写作阶段，自动补充");
+        List<String> adjusted = new ArrayList<>();
+        adjusted.add("intent_recognition");
+        if (remaining.contains("researcher")) {
+            adjusted.add("researcher");
+        }
+        adjusted.add("outline");
+        adjusted.add("draft");
+        adjusted.add("polish");
+        adjusted.add("review");
+        return adjusted;
+    }
+
+    private boolean hasWritingSteps(List<String> steps) {
+        return steps.stream().anyMatch(s -> "draft".equals(s) || "polish".equals(s) || "outline".equals(s));
+    }
+
+    private boolean isFallingBackToResearch(Map<String, Object> accumulated, String finalOutput) {
+        if (finalOutput == null || finalOutput.isBlank()) return false;
+        String researchReport = (String) accumulated.getOrDefault("researchReport", "");
+        if (!finalOutput.equals(researchReport)) return false;
+        return String.valueOf(accumulated.getOrDefault("polishedContent", "")).isBlank()
+                && String.valueOf(accumulated.getOrDefault("draft", "")).isBlank();
+    }
+
     private String buildPlanPrompt(Map<String, Object> state) {
         StringBuilder sb = new StringBuilder();
         sb.append("## 当前状态\n");
@@ -396,7 +447,7 @@ public class SupervisorNode implements NodeAction {
             if (userInput == null || userInput.isBlank()) return;
 
             List<MemoryVO> memories = memoryService.retrieveMemories(
-                    userInput, List.of(MemoryType.WRITING_PREFERENCE), sessionId, null);
+                    userInput, List.of(MemoryType.WRITING_PREFERENCE), sessionId);
 
             if (!memories.isEmpty()) {
                 sb.append("\n## 用户写作偏好（长期记忆）\n");
@@ -431,16 +482,15 @@ public class SupervisorNode implements NodeAction {
         if (directAnswer != null) {
             try {
                 Map<String, Object> result = directAnswer.execute(new HashMap<>(state));
-                result.put("currentNode", "SupervisorNode");
-                return result;
+                state.putAll(result);
+                state.put("currentNode", "SupervisorNode");
+                return state;
             } catch (Exception e) {
                 log.warn("[SupervisorNode] direct_answer Worker 执行也失败", e);
             }
         }
-        return Map.of(
-                "finalOutput", state.getOrDefault("finalOutput", ""),
-                "currentNode", "SupervisorNode"
-        );
+        state.put("currentNode", "SupervisorNode");
+        return state;
     }
 
     private String stripMarkdownCodeBlock(String text) {
