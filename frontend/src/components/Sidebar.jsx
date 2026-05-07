@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import '../styles/global.css';
 
 const Sidebar = ({
@@ -10,14 +10,42 @@ const Sidebar = ({
   onSelectProject,
   onNewProject,
   onDeleteProject,
+  onUpdateProject,
   onSelectSession,
   onNewChat,
   onDeleteSession,
+  onUpdateSession,
   onNavigate,
 }) => {
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState(null);
+
+  // 项目编辑状态
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
+  const projectInputRef = useRef(null);
+
+  // 会话编辑状态
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editingSessionTitle, setEditingSessionTitle] = useState('');
+  const sessionInputRef = useRef(null);
+
+  // 项目编辑聚焦
+  useEffect(() => {
+    if (editingProjectId && projectInputRef.current) {
+      projectInputRef.current.focus();
+      projectInputRef.current.select();
+    }
+  }, [editingProjectId]);
+
+  // 会话编辑聚焦
+  useEffect(() => {
+    if (editingSessionId && sessionInputRef.current) {
+      sessionInputRef.current.focus();
+      sessionInputRef.current.select();
+    }
+  }, [editingSessionId]);
 
   const handleDeleteClick = (e, session) => {
     e.stopPropagation();
@@ -36,6 +64,64 @@ const Sidebar = ({
       setConfirmDeleteProjectId(null);
     } else {
       setConfirmDeleteProjectId(project.id);
+    }
+  };
+
+  // ---------- 项目重命名 ----------
+  const startEditingProject = (e, project) => {
+    e.stopPropagation();
+    setEditingProjectId(project.id);
+    setEditingProjectName(project.name);
+  };
+
+  const commitProjectEdit = () => {
+    if (!editingProjectId) return;
+    const trimmed = editingProjectName.trim();
+    if (trimmed) {
+      const project = projects.find((p) => p.id === editingProjectId);
+      if (project && project.name !== trimmed) {
+        onUpdateProject({ ...project, name: trimmed });
+      }
+    }
+    setEditingProjectId(null);
+    setEditingProjectName('');
+  };
+
+  const handleProjectKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      commitProjectEdit();
+    } else if (e.key === 'Escape') {
+      setEditingProjectId(null);
+      setEditingProjectName('');
+    }
+  };
+
+  // ---------- 会话重命名 ----------
+  const startEditingSession = (e, session) => {
+    e.stopPropagation();
+    setEditingSessionId(session.id);
+    setEditingSessionTitle(session.title);
+  };
+
+  const commitSessionEdit = () => {
+    if (!editingSessionId) return;
+    const trimmed = editingSessionTitle.trim();
+    if (trimmed) {
+      const session = sessions.find((s) => s.id === editingSessionId);
+      if (session && session.title !== trimmed) {
+        onUpdateSession({ ...session, title: trimmed });
+      }
+    }
+    setEditingSessionId(null);
+    setEditingSessionTitle('');
+  };
+
+  const handleSessionKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      commitSessionEdit();
+    } else if (e.key === 'Escape') {
+      setEditingSessionId(null);
+      setEditingSessionTitle('');
     }
   };
 
@@ -73,7 +159,25 @@ const Sidebar = ({
                 <svg className="project-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
-                <span className="project-name">{project.name}</span>
+                {editingProjectId === project.id ? (
+                  <input
+                    ref={projectInputRef}
+                    className="sidebar-edit-input"
+                    value={editingProjectName}
+                    onChange={(e) => setEditingProjectName(e.target.value)}
+                    onBlur={commitProjectEdit}
+                    onKeyDown={handleProjectKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="project-name"
+                    onDoubleClick={(e) => startEditingProject(e, project)}
+                    title="双击重命名"
+                  >
+                    {project.name}
+                  </span>
+                )}
                 <span className="project-session-count">{project.sessionCount || 0}</span>
                 <button
                   className="project-delete-btn"
@@ -117,7 +221,25 @@ const Sidebar = ({
                 <svg className="session-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
-                <span className="session-title">{session.title}</span>
+                {editingSessionId === session.id ? (
+                  <input
+                    ref={sessionInputRef}
+                    className="sidebar-edit-input"
+                    value={editingSessionTitle}
+                    onChange={(e) => setEditingSessionTitle(e.target.value)}
+                    onBlur={commitSessionEdit}
+                    onKeyDown={handleSessionKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="session-title"
+                    onDoubleClick={(e) => startEditingSession(e, session)}
+                    title="双击重命名"
+                  >
+                    {session.title}
+                  </span>
+                )}
                 {hoveredSession === session.id && (
                   <button
                     className="session-delete-btn"
@@ -151,6 +273,16 @@ const Sidebar = ({
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
           对话
+        </button>
+        <button
+          className={`sidebar-nav-btn ${view === 'knowledge-bases' ? 'active' : ''}`}
+          onClick={() => onNavigate('knowledge-bases')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          知识库
         </button>
         <button
           className={`sidebar-nav-btn ${view === 'memories' ? 'active' : ''}`}

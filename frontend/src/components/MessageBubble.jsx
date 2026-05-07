@@ -26,16 +26,16 @@ const intentLabel = (intent) => INTENT_LABELS[intent] || intent || '未知意图
 const typeLabel = (type) => TYPE_LABELS[type] || type || '未知类型';
 
 const STAGE_CONFIG = {
-  '任务启动': { label: '启动', color: '#3b82f6', bg: '#dbeafe' },
-  '意图识别': { label: '意图识别', color: '#7c3aed', bg: '#ede9fe' },
-  '知识库检索': { label: '知识检索', color: '#0891b2', bg: '#cffafe' },
-  '大纲生成': { label: '大纲生成', color: '#ea580c', bg: '#fff7ed' },
+  '任务启动': { label: '启动', color: '#4f46e5', bg: '#eef2ff' },
+  '意图识别': { label: '意图识别', color: '#7c3aed', bg: '#f5f3ff' },
+  '知识库检索': { label: '知识检索', color: '#0ea5e9', bg: '#f0f9ff' },
+  '大纲生成': { label: '大纲生成', color: '#4f46e5', bg: '#eef2ff' },
   '正文写作': { label: '正文写作', color: '#2563eb', bg: '#dbeafe' },
-  '内容评审': { label: '内容评审', color: '#d97706', bg: '#fef3c7' },
-  '润色': { label: '润色', color: '#16a34a', bg: '#dcfce7' },
-  '直接回答': { label: '直接回答', color: '#0891b2', bg: '#cffafe' },
-  '任务完成': { label: '完成', color: '#16a34a', bg: '#dcfce7' },
-  '任务失败': { label: '失败', color: '#dc2626', bg: '#fee2e2' },
+  '内容评审': { label: '内容评审', color: '#d97706', bg: '#fffbeb' },
+  '润色': { label: '润色', color: '#059669', bg: '#ecfdf5' },
+  '直接回答': { label: '直接回答', color: '#0ea5e9', bg: '#f0f9ff' },
+  '任务完成': { label: '完成', color: '#059669', bg: '#ecfdf5' },
+  '任务失败': { label: '失败', color: '#dc2626', bg: '#fef2f2' },
 };
 
 const parseStatusText = (text) => {
@@ -78,10 +78,10 @@ const renderIntentDetail = (data) => (
 );
 
 const scoreColor = (score) => {
-  if (score >= 9) return '#27ae60';
-  if (score >= 7) return '#2ecc71';
-  if (score >= 5) return '#f39c12';
-  return '#e74c3c';
+  if (score >= 9) return '#059669';
+  if (score >= 7) return '#10b981';
+  if (score >= 5) return '#f59e0b';
+  return '#ef4444';
 };
 
 const verdictClass = (verdict) => {

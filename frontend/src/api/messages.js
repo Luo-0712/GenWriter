@@ -10,5 +10,7 @@ export const chat = (sessionId, userInput, type = 'CREATE') =>
     headers: { 'Content-Type': 'text/plain' },
   });
 
+export const updateMessage = (id, data) => client.put(`/messages/${id}`, data);
+
 export const deleteMessagesBySessionId = (sessionId) =>
   client.delete(`/messages/session/${sessionId}`);

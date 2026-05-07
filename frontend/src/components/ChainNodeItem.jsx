@@ -2,12 +2,12 @@ import { useState } from 'react';
 import '../styles/global.css';
 
 const NODE_TYPE_CONFIG = {
-  PLANNING: { icon: '◈', color: '#7c3aed', bg: '#ede9fe', label: '规划' },
-  THINKING: { icon: '◉', color: '#2563eb', bg: '#dbeafe', label: '思考' },
-  TOOL_CALL: { icon: '⟐', color: '#0891b2', bg: '#cffafe', label: '工具调用' },
-  EXECUTION: { icon: '▶', color: '#ea580c', bg: '#fff7ed', label: '执行' },
-  RESULT: { icon: '✓', color: '#16a34a', bg: '#dcfce7', label: '结果' },
-  ERROR: { icon: '✗', color: '#dc2626', bg: '#fee2e2', label: '错误' },
+  PLANNING:  { icon: '◈', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', label: '规划' },
+  THINKING:  { icon: '◉', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe', label: '思考' },
+  TOOL_CALL: { icon: '⟐', color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', label: '工具' },
+  EXECUTION: { icon: '▶', color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: '执行' },
+  RESULT:    { icon: '✓', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', label: '结果' },
+  ERROR:     { icon: '✗', color: '#ef4444', bg: '#fef2f2', border: '#fecaca', label: '错误' },
 };
 
 const STATUS_CONFIG = {
@@ -47,22 +47,43 @@ const ChainNodeItem = ({ node, isLast }) => {
   const hasDetails = node.input || node.output || node.error;
   const isRunning = node.status === 'STARTED' || node.status === 'RUNNING';
 
+  const dotStyle = {
+    borderColor: node.status === 'ERROR' ? '#ef4444' : typeConfig.color,
+    backgroundColor: typeConfig.bg,
+    boxShadow: node.status === 'RUNNING' || node.status === 'STARTED'
+      ? `0 0 0 3px ${typeConfig.bg}`
+      : 'none',
+  };
+
   return (
     <div className={`chain-node-item ${isRunning ? 'chain-node-running' : ''}`}>
       <div className="chain-node-timeline">
         <div
           className={`chain-node-dot ${statusConfig.dotClass}`}
-          style={{ borderColor: typeConfig.color }}
+          style={dotStyle}
         >
           {node.status === 'COMPLETED' ? (
-            <span style={{ color: typeConfig.color }}>✓</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 6.5L4.5 8.5L9.5 3.5" stroke={typeConfig.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           ) : node.status === 'ERROR' ? (
-            <span style={{ color: '#dc2626' }}>✗</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M2 2L8 8M8 2L2 8" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           ) : (
-            <span style={{ color: typeConfig.color }}>{typeConfig.icon}</span>
+            <span style={{ color: typeConfig.color, fontSize: '10px' }}>{typeConfig.icon}</span>
           )}
         </div>
-        {!isLast && <div className="chain-node-line" />}
+        {!isLast && (
+          <div
+            className="chain-node-line"
+            style={{
+              background: node.status === 'COMPLETED'
+                ? `linear-gradient(to bottom, ${typeConfig.color}40, var(--border-color))`
+                : undefined
+            }}
+          />
+        )}
       </div>
       <div className="chain-node-content">
         <div className="chain-node-header" onClick={() => hasDetails && setExpanded(!expanded)}>
@@ -70,22 +91,36 @@ const ChainNodeItem = ({ node, isLast }) => {
             <span className="chain-node-name">{node.nodeName}</span>
             <span
               className="chain-node-type-badge"
-              style={{ color: typeConfig.color, backgroundColor: typeConfig.bg }}
+              style={{
+                color: typeConfig.color,
+                backgroundColor: typeConfig.bg,
+                borderColor: typeConfig.border,
+              }}
             >
               {typeConfig.label}
             </span>
             {isRunning && (
               <span className="chain-node-running-indicator">
-                <span className="chain-pulse" />
+                <span className="chain-pulse" style={{ backgroundColor: typeConfig.color }} />
               </span>
             )}
           </div>
           <div className="chain-node-meta">
             {node.duration != null && node.duration > 0 && (
-              <span className="chain-node-duration">{formatDuration(node.duration)}</span>
+              <span className="chain-node-duration">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: '3px', opacity: 0.5 }}>
+                  <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M6 3V6L8 7.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                </svg>
+                {formatDuration(node.duration)}
+              </span>
             )}
             {hasDetails && (
-              <span className="chain-node-expand-icon">{expanded ? '▲' : '▼'}</span>
+              <span className={`chain-node-expand-icon ${expanded ? 'expanded' : ''}`}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d={expanded ? 'M2 7L5 4L8 7' : 'M2 3.5L5 6.5L8 3.5'} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
             )}
           </div>
         </div>

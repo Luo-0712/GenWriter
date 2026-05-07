@@ -2,11 +2,47 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
+import KnowledgeBasePanel from './components/KnowledgeBasePanel';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
 import * as projectsApi from './api/projects';
 import { connectSSE } from './api/sse';
 import './styles/global.css';
+
+/* ---------- sessionStorage 思维链缓存 ---------- */
+const chainStorageKey = (sessionId) => `genwriter_chain_${sessionId}`;
+
+const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix) => {
+  try {
+    const data = {
+      chainNodes: chainNodes || [],
+      thinkingSteps: thinkingSteps || [],
+      contentPrefix: contentPrefix || '',
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem(chainStorageKey(sessionId), JSON.stringify(data));
+  } catch (e) {
+    // sessionStorage 可能已满，静默失败
+  }
+};
+
+const loadChainFromStorage = (sessionId) => {
+  try {
+    const raw = sessionStorage.getItem(chainStorageKey(sessionId));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+};
+
+const clearChainStorage = (sessionId) => {
+  try {
+    sessionStorage.removeItem(chainStorageKey(sessionId));
+  } catch (e) {
+    // ignore
+  }
+};
 
 function App() {
   const [projects, setProjects] = useState([]);
@@ -70,14 +106,42 @@ function App() {
       try {
         const list = await messagesApi.getMessagesBySessionId(activeSession.id);
         if (!cancelled) {
-          setMessages(
-            (list || []).map((m) => ({
+          const mapped = (list || []).map((m) => {
+            const msg = {
               id: m.id,
               role: m.role?.toLowerCase() === 'user' ? 'user' : 'assistant',
               content: m.content || '',
               timestamp: m.createdAt,
-            }))
-          );
+            };
+            // 从后端 metadata 恢复思维链（支持长期持久化）
+            if (m.metadata) {
+              try {
+                const meta = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
+                if (meta.chainNodes) msg.chainNodes = meta.chainNodes;
+                if (meta.thinkingSteps) msg.thinkingSteps = meta.thinkingSteps;
+              } catch (e) {
+                // ignore parse error
+              }
+            }
+            return msg;
+          });
+
+          // 从 sessionStorage 恢复最新的思维链（覆盖后端数据，因为 sessionStorage 更实时）
+          const cached = loadChainFromStorage(activeSession.id);
+          if (cached && cached.chainNodes?.length > 0) {
+            const lastAssistantIdx = mapped.reduce((last, m, i) =>
+              m.role === 'assistant' ? i : last, -1
+            );
+            if (lastAssistantIdx >= 0) {
+              mapped[lastAssistantIdx] = {
+                ...mapped[lastAssistantIdx],
+                chainNodes: cached.chainNodes,
+                thinkingSteps: cached.thinkingSteps || mapped[lastAssistantIdx].thinkingSteps || [],
+              };
+            }
+          }
+
+          setMessages(mapped);
         }
       } catch (e) {
         if (!cancelled) {
@@ -103,6 +167,21 @@ function App() {
       }
     };
   }, []);
+
+  /* ---------- 自动将思维链缓存到 sessionStorage ---------- */
+  useEffect(() => {
+    if (!activeSession?.id) return;
+    const msgs = [...messages];
+    const lastAssistant = msgs.reverse().find((m) => m.role === 'assistant');
+    if (lastAssistant && (lastAssistant.chainNodes?.length > 0 || lastAssistant.thinkingSteps?.length > 0)) {
+      saveChainToStorage(
+        activeSession.id,
+        lastAssistant.chainNodes,
+        lastAssistant.thinkingSteps,
+        lastAssistant.content?.substring(0, 100)
+      );
+    }
+  }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
     async (content) => {
@@ -138,6 +217,9 @@ function App() {
       }
 
       const sessionId = session.id;
+
+      // 发送新消息前清除旧的思维链缓存
+      clearChainStorage(sessionId);
 
       const userMsg = {
         id: `local-user-${Date.now()}`,
@@ -440,6 +522,40 @@ function App() {
     [handleSend]
   );
 
+  const handleUpdateProject = useCallback(
+    async (project) => {
+      try {
+        await projectsApi.updateProject(project.id, project);
+        setProjects((prev) =>
+          prev.map((p) => (p.id === project.id ? { ...p, ...project } : p))
+        );
+        if (activeProject?.id === project.id) {
+          setActiveProject((prev) => ({ ...prev, ...project }));
+        }
+      } catch (e) {
+        setError('更新项目失败: ' + e.message);
+      }
+    },
+    [activeProject]
+  );
+
+  const handleUpdateSession = useCallback(
+    async (session) => {
+      try {
+        await sessionsApi.updateSession(session.id, session);
+        setSessions((prev) =>
+          prev.map((s) => (s.id === session.id ? { ...s, ...session } : s))
+        );
+        if (activeSession?.id === session.id) {
+          setActiveSession((prev) => ({ ...prev, ...session }));
+        }
+      } catch (e) {
+        setError('更新会话失败: ' + e.message);
+      }
+    },
+    [activeSession]
+  );
+
   const clearError = () => setError(null);
 
   return (
@@ -458,9 +574,11 @@ function App() {
         onSelectProject={handleSelectProject}
         onNewProject={handleNewProject}
         onDeleteProject={handleDeleteProject}
+        onUpdateProject={handleUpdateProject}
         onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
+        onUpdateSession={handleUpdateSession}
         onNavigate={setView}
       />
       <main className="main-content">
@@ -474,6 +592,8 @@ function App() {
             loadingMessages={loadingMessages}
             isSessionLoading={isSessionLoading}
           />
+        ) : view === 'knowledge-bases' ? (
+          <KnowledgeBasePanel onBack={() => setView('chat')} />
         ) : (
           <MemoryPanel
             projectId={activeProject?.id}
