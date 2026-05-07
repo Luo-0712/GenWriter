@@ -191,6 +191,7 @@ public class SupervisorNode implements NodeAction {
     private Object buildWorkerOutputSummary(String workerName, Map<String, Object> result) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("worker", workerName);
+        summary.put("displayName", WORKER_DISPLAY_NAMES.getOrDefault(workerName, workerName));
         if (result.containsKey("intent")) {
             summary.put("intent", result.get("intent"));
         }
@@ -210,13 +211,23 @@ public class SupervisorNode implements NodeAction {
             summary.put("polishedLength", pc != null ? pc.length() : 0);
         }
         if (result.containsKey("reviewResult")) {
-            summary.put("reviewResult", result.get("reviewResult"));
+            summary.put("verdict", result.get("reviewResult"));
+        }
+        if (result.containsKey("reviewFeedback")) {
+            String fb = (String) result.get("reviewFeedback");
+            summary.put("feedback", fb != null ? truncate(fb, 100) : "");
         }
         if (result.containsKey("reviewCount")) {
             summary.put("reviewCount", result.get("reviewCount"));
         }
         if (result.containsKey("searchRounds")) {
             summary.put("searchRounds", result.get("searchRounds"));
+        }
+        if (result.containsKey("researchSources")) {
+            try {
+                List<?> sources = objectMapper.readValue((String) result.get("researchSources"), List.class);
+                summary.put("sourcesCount", sources.size());
+            } catch (Exception ignored) {}
         }
         if (result.containsKey("finalOutput")) {
             String fo = (String) result.get("finalOutput");

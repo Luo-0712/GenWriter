@@ -102,6 +102,13 @@
             <version>2.9.1</version>
         </dependency>
 
+        <!-- Apache POI for Word document export -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
         <!-- DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

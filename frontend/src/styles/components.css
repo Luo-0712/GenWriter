@@ -1454,6 +1454,26 @@
   transform: rotate(180deg);
 }
 
+.chain-node-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  padding: 4px 10px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  border-left: 2px solid var(--border-color);
+  border-radius: 0 4px 4px 0;
+  animation: chain-summary-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: -0.1px;
+  word-break: break-word;
+  font-weight: 400;
+}
+
+@keyframes chain-summary-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ========== 节点详情 ========== */
 .chain-node-details {
   margin-top: 8px;
@@ -2162,4 +2182,181 @@
   .memory-form-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* ========== 消息操作按钮 ========== */
+.message-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-bubble:hover .message-actions {
+  opacity: 1;
+}
+
+.message-action-btn {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-action-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+/* ========== 导出弹窗 ========== */
+.export-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.export-dialog {
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.export-dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.export-dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-dialog-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.export-dialog-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.export-dialog-input:focus {
+  border-color: var(--accent-color);
+}
+
+.export-format-options {
+  display: flex;
+  gap: 10px;
+}
+
+.export-format-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.export-format-btn:hover {
+  border-color: var(--text-secondary);
+}
+
+.export-format-btn.active {
+  border-color: var(--accent-color);
+  background: #fff7ed;
+  color: var(--accent-color);
+}
+
+.export-format-icon {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.export-dialog-error {
+  padding: 10px 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.export-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.export-cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.export-cancel-btn:hover {
+  background: var(--bg-hover);
+}
+
+.export-confirm-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-color);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.export-confirm-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.export-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

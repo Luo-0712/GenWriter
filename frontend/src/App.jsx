@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
 import KnowledgeBasePanel from './components/KnowledgeBasePanel';
+import ExportDialog from './components/ExportDialog';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
 import * as projectsApi from './api/projects';
@@ -56,6 +57,7 @@ function App() {
   const [error, setError] = useState(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [view, setView] = useState('chat');
+  const [exportDialogMessage, setExportDialogMessage] = useState(null);
 
   const abortRef = useRef(null);
 
@@ -522,6 +524,10 @@ function App() {
     [handleSend]
   );
 
+  const handleExportMessage = useCallback((message) => {
+    setExportDialogMessage(message);
+  }, []);
+
   const handleUpdateProject = useCallback(
     async (project) => {
       try {
@@ -587,6 +593,7 @@ function App() {
             messages={messages}
             onSend={handleSend}
             onSuggestionClick={handleSuggestionClick}
+            onExport={handleExportMessage}
             isLoading={isLoading}
             hasContentStarted={hasContentStarted}
             loadingMessages={loadingMessages}
@@ -601,6 +608,13 @@ function App() {
           />
         )}
       </main>
+      {exportDialogMessage && activeSession && (
+        <ExportDialog
+          message={exportDialogMessage}
+          sessionId={activeSession.id}
+          onClose={() => setExportDialogMessage(null)}
+        />
+      )}
     </div>
   );
 }

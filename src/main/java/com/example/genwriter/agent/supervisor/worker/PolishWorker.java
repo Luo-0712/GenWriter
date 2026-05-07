@@ -4,6 +4,7 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.PolishSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -20,6 +21,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +39,7 @@ public class PolishWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final MemoryQueryExtractor memoryQueryExtractor;
 
     private ChatClient chatClient;
 
@@ -81,10 +84,21 @@ public class PolishWorker implements WorkerAgent {
                 .user(userPrompt);
 
         if (longTermMemoryProperties.isEnabled()) {
+            List<String> queries = null;
+            if (longTermMemoryProperties.getArticleQueryExtraction().isEnabled()) {
+                queries = new ArrayList<>(memoryQueryExtractor.extractQueries(contentToPolish));
+                if (userInput != null && !userInput.isBlank()) {
+                    queries.add(userInput);
+                }
+                if (queries.isEmpty()) {
+                    queries = null;
+                }
+            }
             promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                     memoryService,
                     List.of(MemoryType.WRITING_PREFERENCE),
-                    sessionId));
+                    sessionId,
+                    queries));
         }
 
         try {

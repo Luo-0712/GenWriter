@@ -343,5 +343,25 @@ public class LLMConfig {
         private String supervisorSystemPrompt = "";
 
         private String memoryExtractionPrompt = "";
+
+        /**
+         * 文章关键细节提取提示词模板
+         * 用于从长文章中提取需要核查的关键细节，作为长期记忆检索的query
+         * 可用占位符：{articleContent}
+         */
+        private String articleDetailExtractionPrompt = """
+            你是一个文章细节提取助手。请从给定的文章中提取3-5个关键细节或核查要点，这些细节可能需要参考历史记忆来确认一致性。
+
+            关注以下类型的细节：
+            - 人物设定（姓名、身份、性格、关系等）
+            - 时间线与历史事件
+            - 地点与场景描述
+            - 专有名词、术语
+            - 风格或语气特征
+            - 前后文可能需要呼应的情节
+
+            输出格式：纯JSON数组，不要markdown代码块
+            ["核查要点1", "核查要点2", "核查要点3"]
+            """;
     }
 }

@@ -15,6 +15,8 @@ public class LongTermMemoryProperties {
 
     private Extraction extraction = new Extraction();
 
+    private ArticleQueryExtraction articleQueryExtraction = new ArticleQueryExtraction();
+
     @Data
     public static class Retrieval {
         private int maxResults = 5;
@@ -27,6 +29,14 @@ public class LongTermMemoryProperties {
         private boolean enabled = true;
         private boolean async = true;
         private int maxMemoriesPerTurn = 5;
+        private double temperature = 0.1;
+    }
+
+    @Data
+    public static class ArticleQueryExtraction {
+        private boolean enabled = true;
+        private int maxQueries = 5;
+        private int minArticleLength = 500;
         private double temperature = 0.1;
     }
 }

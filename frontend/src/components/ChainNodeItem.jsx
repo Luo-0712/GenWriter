@@ -24,6 +24,95 @@ const formatDuration = (ms) => {
   return `${(ms / 60000).toFixed(1)}m`;
 };
 
+const formatNum = (n) => {
+  if (n == null) return '';
+  return Number(n).toLocaleString();
+};
+
+const WORKER_LABELS = {
+  intent_recognition: '意图识别',
+  outline: '大纲生成',
+  draft: '正文写作',
+  polish: '润色优化',
+  review: '内容评审',
+  researcher: '网络调研',
+  direct_answer: '直接回答',
+};
+
+const VERDICT_LABELS = {
+  PASS: '通过',
+  REVISE_DRAFT: '需修改草稿',
+  REVISE_POLISH: '需修改润色',
+};
+
+const getOutputSummary = (node) => {
+  if (!node || node.status !== 'COMPLETED') return null;
+  const { nodeType, output } = node;
+  if (!output || typeof output !== 'object') return null;
+
+  // Planning node: show planned steps
+  if (nodeType === 'PLANNING' && output.steps && Array.isArray(output.steps)) {
+    const stepLabels = output.steps.map(s => WORKER_LABELS[s] || s);
+    return `计划执行: ${stepLabels.join(' → ')}`;
+  }
+  if (nodeType === 'PLANNING' && output.reasoning) {
+    return output.reasoning;
+  }
+
+  // Worker execution wrapper from SupervisorNode
+  if (output.worker) {
+    const workerName = output.worker;
+    if (workerName === 'intent_recognition' && output.intent) {
+      const type = output.writingType || '';
+      return `识别为 ${output.intent}${type ? ` (${type})` : ''}`;
+    }
+    if (workerName === 'researcher' && output.searchRounds != null) {
+      const parts = [`执行 ${output.searchRounds} 次搜索`];
+      if (output.sourcesCount) parts.push(`${output.sourcesCount} 个来源`);
+      return parts.join('，');
+    }
+    if (workerName === 'review' && output.verdict) {
+      const verdict = VERDICT_LABELS[output.verdict] || output.verdict;
+      const fb = output.feedback ? ` — ${output.feedback}` : '';
+      return `${verdict}${fb}`;
+    }
+    if (workerName === 'draft' && output.draftLength != null) return `生成草稿 ${formatNum(output.draftLength)} 字`;
+    if (workerName === 'polish' && output.polishedLength != null) return `润色完成 ${formatNum(output.polishedLength)} 字`;
+    if (workerName === 'outline' && output.outlineLength != null) return `生成大纲 ${formatNum(output.outlineLength)} 字`;
+    if (workerName === 'direct_answer' && output.outputLength != null) return `生成回答 ${formatNum(output.outputLength)} 字`;
+    if (output.draftLength != null) return `生成草稿 ${formatNum(output.draftLength)} 字`;
+    if (output.polishedLength != null) return `润色完成 ${formatNum(output.polishedLength)} 字`;
+    if (output.outlineLength != null) return `生成大纲 ${formatNum(output.outlineLength)} 字`;
+    if (output.outputLength != null) return `生成回答 ${formatNum(output.outputLength)} 字`;
+  }
+
+  // Direct worker outputs
+  if (nodeType === 'THINKING' && output.intent) {
+    const type = output.writingType || '';
+    return `识别为 ${output.intent}${type ? ` (${type})` : ''}`;
+  }
+  if (nodeType === 'THINKING' && output.score != null) {
+    const verdict = VERDICT_LABELS[output.verdict] || output.verdict || '';
+    const fb = output.feedback ? ` — ${output.feedback}` : '';
+    return `评分 ${output.score}/10${verdict ? ` — ${verdict}` : ''}${fb}`;
+  }
+  if (nodeType === 'TOOL_CALL' && output.searchRounds != null) {
+    const parts = [`执行 ${output.searchRounds} 次搜索`];
+    if (output.reportLength) parts.push(`生成 ${formatNum(output.reportLength)} 字报告`);
+    if (output.sourcesCount) parts.push(`${output.sourcesCount} 个来源`);
+    return parts.join('，');
+  }
+  if (output.length != null) {
+    return `${formatNum(output.length)} 字`;
+  }
+  if (output.newSteps && Array.isArray(output.newSteps)) {
+    const stepLabels = output.newSteps.map(s => WORKER_LABELS[s] || s);
+    return `调整为: ${stepLabels.join(' → ')}`;
+  }
+
+  return null;
+};
+
 const formatOutput = (output) => {
   if (!output) return null;
   if (typeof output === 'string') return output;
@@ -46,6 +135,7 @@ const ChainNodeItem = ({ node, isLast }) => {
   const statusConfig = STATUS_CONFIG[node.status] || STATUS_CONFIG.STARTED;
   const hasDetails = node.input || node.output || node.error;
   const isRunning = node.status === 'STARTED' || node.status === 'RUNNING';
+  const outputSummary = getOutputSummary(node);
 
   const dotStyle = {
     borderColor: node.status === 'ERROR' ? '#ef4444' : typeConfig.color,
@@ -124,6 +214,9 @@ const ChainNodeItem = ({ node, isLast }) => {
             )}
           </div>
         </div>
+        {outputSummary && (
+          <div className="chain-node-summary">{outputSummary}</div>
+        )}
         {expanded && hasDetails && (
           <div className="chain-node-details">
             {node.error && (

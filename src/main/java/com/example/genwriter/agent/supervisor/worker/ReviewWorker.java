@@ -5,6 +5,7 @@ import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.graph.dto.ReviewResult;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ReviewSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -28,6 +29,7 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -52,6 +54,7 @@ public class ReviewWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final MemoryQueryExtractor memoryQueryExtractor;
 
     private ChatClient chatClient;
 
@@ -123,10 +126,21 @@ public class ReviewWorker implements WorkerAgent {
                             conversationId));
 
             if (longTermMemoryProperties.isEnabled()) {
+                List<String> queries = null;
+                if (longTermMemoryProperties.getArticleQueryExtraction().isEnabled()) {
+                    queries = new ArrayList<>(memoryQueryExtractor.extractQueries(polishedContent));
+                    if (userInput != null && !userInput.isBlank()) {
+                        queries.add(userInput);
+                    }
+                    if (queries.isEmpty()) {
+                        queries = null;
+                    }
+                }
                 promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                         memoryService,
                         List.of(MemoryType.WRITING_PREFERENCE, MemoryType.CORRECTION_PATTERN),
-                        sessionId));
+                        sessionId,
+                        queries));
             }
 
             final var finalPromptSpec = promptSpec;

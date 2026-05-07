@@ -209,7 +209,7 @@ const renderStepData = (data) => {
   return <span className="thinking-process-detail-text">{String(data)}</span>;
 };
 
-const MessageBubble = ({ message }) => {
+const MessageBubble = ({ message, onExport }) => {
   const isUser = message.role === 'user';
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
   const thinkingSteps = message.thinkingSteps || [];
@@ -289,6 +289,13 @@ const MessageBubble = ({ message }) => {
             {message.content || ''}
           </ReactMarkdown>
         </div>
+        {!isUser && message.content && !message.isStreaming && (
+          <div className="message-actions">
+            <button className="message-action-btn" onClick={() => onExport?.(message)}>
+              导出
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

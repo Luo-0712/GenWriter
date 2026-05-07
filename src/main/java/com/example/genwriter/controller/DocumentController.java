@@ -2,13 +2,16 @@ package com.example.genwriter.controller;
 
 import com.example.genwriter.model.common.ApiResponse;
 import com.example.genwriter.model.dto.request.CreateDocumentRequest;
+import com.example.genwriter.model.dto.request.ExportDocumentRequest;
 import com.example.genwriter.model.dto.request.UpdateDocumentRequest;
 import com.example.genwriter.model.dto.response.DocumentDTO;
 import com.example.genwriter.model.vo.DocumentVO;
+import com.example.genwriter.service.DocumentExportService;
 import com.example.genwriter.service.DocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,12 +27,52 @@ import java.util.stream.Collectors;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentExportService documentExportService;
 
     @PostMapping
     public ApiResponse<DocumentVO> createDocument(@Valid @RequestBody CreateDocumentRequest request) {
         log.debug("创建文档请求: {}", request.getTitle());
         DocumentDTO dto = documentService.createDocument(request);
         return ApiResponse.success(convertToVO(dto));
+    }
+
+    @PostMapping("/export")
+    public ResponseEntity<byte[]> exportDocument(@Valid @RequestBody ExportDocumentRequest request) {
+        log.debug("导出文档: title={}, format={}", request.getTitle(), request.getFormat());
+
+        // Save to DB
+        CreateDocumentRequest createReq = CreateDocumentRequest.builder()
+                .sessionId(request.getSessionId())
+                .title(request.getTitle())
+                .content(request.getContent())
+                .type("final")
+                .format(request.getFormat())
+                .status("published")
+                .build();
+        documentService.createDocument(createReq);
+
+        // Generate file
+        String format = request.getFormat();
+        byte[] data;
+        String filename;
+        MediaType mediaType;
+
+        if ("docx".equals(format)) {
+            data = documentExportService.exportAsDocx(request.getTitle(), request.getContent());
+            filename = request.getTitle() + ".docx";
+            mediaType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        } else {
+            data = documentExportService.exportAsMarkdown(request.getTitle(), request.getContent());
+            filename = request.getTitle() + ".md";
+            mediaType = MediaType.TEXT_PLAIN;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(mediaType);
+        headers.setContentDisposition(ContentDisposition.builder("attachment").filename(filename).build());
+        headers.setContentLength(data.length);
+
+        return new ResponseEntity<>(data, headers, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")

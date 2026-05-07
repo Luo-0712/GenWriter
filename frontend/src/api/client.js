@@ -9,6 +9,10 @@ const client = axios.create({
 
 client.interceptors.response.use(
   (response) => {
+    // Blob responses (file downloads) bypass JSON unwrapping
+    if (response.config.responseType === 'blob') {
+      return response.data;
+    }
     const { data } = response;
     if (data && data.code === '200') {
       return data.data;

@@ -4,7 +4,7 @@ import InputBox from './InputBox';
 import WelcomeScreen from './WelcomeScreen';
 import '../styles/global.css';
 
-const ChatArea = ({ messages, onSend, onSuggestionClick, isLoading, hasContentStarted, loadingMessages, isSessionLoading }) => {
+const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, hasContentStarted, loadingMessages, isSessionLoading }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ const ChatArea = ({ messages, onSend, onSuggestionClick, isLoading, hasContentSt
             </div>
           )}
           {messages.map((message, index) => (
-            <MessageBubble key={index} message={message} />
+            <MessageBubble key={index} message={message} onExport={onExport} />
           ))}
           {isLoading && !hasContentStarted && (
             <div className="message-bubble assistant">
