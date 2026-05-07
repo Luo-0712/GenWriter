@@ -2820,3 +2820,300 @@ java.net.SocketException: Connection reset
 2026-05-07T15:57:33.956+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-12] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
 2026-05-07T15:58:04.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
 2026-05-07T15:58:04.035+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-13] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T15:58:34.132+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T15:58:34.134+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-14] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T15:59:04.232+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-28] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T15:59:04.244+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-15] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T15:59:34.332+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-30] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T15:59:34.359+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-16] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:00:04.437+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-1] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:00:04.439+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-17] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:00:34.536+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-2] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:00:34.537+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-18] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:01:04.633+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-4] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:01:04.657+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-19] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:01:34.740+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-6] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:01:34.743+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-20] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:02:04.835+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-8] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:02:04.836+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-21] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:02:34.931+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-10] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:02:34.932+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-22] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:03:05.038+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-12] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:03:05.053+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-23] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:03:35.132+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-14] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:03:35.134+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-24] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:04:05.238+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-16] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:04:05.240+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-25] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:04:35.332+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-18] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:04:35.358+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-26] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:05:05.432+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-20] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:05:05.444+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-27] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:05:35.532+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-22] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:05:35.533+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-28] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:06:05.631+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:06:05.644+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-29] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:06:35.737+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:06:35.740+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-30] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:07:05.832+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-28] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:07:05.834+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-31] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:07:35.939+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-30] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:07:35.942+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-32] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:08:06.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-1] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:08:06.036+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-1] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:08:36.134+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-2] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:08:36.135+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-2] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:09:06.238+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-4] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:09:06.240+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-3] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:09:36.334+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-6] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:09:36.360+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-4] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:10:06.433+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-8] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:10:06.444+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-5] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:10:36.531+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-10] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:10:36.555+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-6] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:11:06.631+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-12] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:11:06.646+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-7] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:11:36.738+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-14] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:11:36.752+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-8] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:12:06.832+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-16] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:12:06.834+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-9] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:12:36.942+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-18] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:12:36.957+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-10] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:13:07.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-20] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:13:07.034+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-11] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:13:37.133+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-22] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:13:37.148+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-12] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:14:07.235+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:14:07.250+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-13] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:14:37.331+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:14:37.333+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-14] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:15:07.434+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-28] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:15:07.435+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-15] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:15:37.538+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-30] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:15:37.553+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-16] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:16:07.640+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-1] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:16:07.655+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-17] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:16:37.734+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-2] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:16:37.750+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-18] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:17:07.833+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-4] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:17:07.845+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-19] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:17:37.938+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-6] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:17:37.940+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-20] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:18:08.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-8] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:18:08.034+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-21] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:18:38.135+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-10] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:18:38.150+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-22] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:19:08.239+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-12] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:19:08.254+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-23] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:19:38.334+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-14] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:19:38.350+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-24] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:20:08.439+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-16] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:20:08.441+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-25] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:20:38.537+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-18] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:20:38.538+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-26] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:21:08.634+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-20] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:21:08.654+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-27] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:21:38.733+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-22] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:21:38.757+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-28] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:22:08.832+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:22:08.834+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-29] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:22:38.932+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:22:38.953+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-30] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:23:09.041+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-28] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:23:09.043+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-31] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:23:39.135+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-30] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:23:39.150+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-32] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:24:09.237+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-1] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:24:09.252+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-1] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:24:39.333+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-2] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:24:39.345+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-2] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:25:02.164+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.nacos.client.logging.NacosLogging    : Nacos Logging Adapter Builder: com.alibaba.nacos.logger.adapter.logback12.LogbackNacosLoggingAdapterBuilder
+2026-05-07T16:25:02.170+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.nacos.client.logging.NacosLogging    : Nacos Logging Adapter Builder: com.alibaba.nacos.logger.adapter.logback14.LogbackNacosLoggingAdapterBuilder
+2026-05-07T16:25:02.170+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.nacos.client.logging.NacosLogging    : Nacos Logging Adapter: com.alibaba.nacos.logger.adapter.logback14.LogbackNacosLoggingAdapter match ch.qos.logback.classic.Logger success.
+2026-05-07T16:25:02.177+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.nacos.client.logging.NacosLogging    : Nacos Logging Adapter Builder: com.alibaba.nacos.logger.adapter.log4j2.Log4j2NacosLoggingAdapterBuilder
+2026-05-07T16:25:02.434+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : Starting GenWriterApplication using Java 23 with PID 35328 (E:\JavaProjects\GenWriter\target\classes started by 22369 in E:\JavaProjects\GenWriter)
+2026-05-07T16:25:02.435+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T16:25:02.482+08:00  INFO 35328 --- [GenWriter] [restartedMain] o.s.b.devtools.restart.ChangeableUrls    : The Class-Path manifest attribute in C:\Users\22369\.m2\repository\org\apache\opennlp\opennlp-tools\2.5.4\opennlp-tools-2.5.4.jar referenced one or more files that do not exist: file:/C:/Users/22369/.m2/repository/org/apache/opennlp/opennlp-tools/2.5.4/slf4j-api-2.0.17.jar
+2026-05-07T16:25:02.483+08:00  INFO 35328 --- [GenWriter] [restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-05-07T16:25:02.483+08:00  INFO 35328 --- [GenWriter] [restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-05-07T16:25:03.601+08:00  INFO 35328 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-05-07T16:25:03.604+08:00  INFO 35328 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-05-07T16:25:03.641+08:00  INFO 35328 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 20 ms. Found 0 Redis repository interfaces.
+2026-05-07T16:25:03.910+08:00  WARN 35328 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'com.alibaba.cloud.nacos.NacosConfigAutoConfiguration' of type [com.alibaba.cloud.nacos.NacosConfigAutoConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [nacosAnnotationProcessor] is declared through a non-static factory method on that class; consider declaring it as static instead.
+2026-05-07T16:25:03.915+08:00  WARN 35328 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'nacosConfigProperties' of type [com.alibaba.cloud.nacos.NacosConfigProperties] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). Is this bean getting eagerly injected/applied to a currently created BeanPostProcessor [nacosAnnotationProcessor]? Check the corresponding BeanPostProcessor declaration and its dependencies/advisors. If this bean does not have to be post-processed, declare it with ROLE_INFRASTRUCTURE.
+2026-05-07T16:25:03.987+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.impl.NacosClientAuthServiceImpl success.
+2026-05-07T16:25:03.987+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.a.n.p.a.s.c.ClientAuthPluginManager    : [ClientAuthPluginManager] Load ClientAuthService com.alibaba.nacos.client.auth.ram.RamClientAuthServiceImpl success.
+2026-05-07T16:25:03.989+08:00  WARN 35328 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'nacosConfigManager' of type [com.alibaba.cloud.nacos.NacosConfigManager] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). Is this bean getting eagerly injected/applied to a currently created BeanPostProcessor [nacosAnnotationProcessor]? Check the corresponding BeanPostProcessor declaration and its dependencies/advisors. If this bean does not have to be post-processed, declare it with ROLE_INFRASTRUCTURE.
+2026-05-07T16:25:04.913+08:00  INFO 35328 --- [GenWriter] [restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-05-07T16:25:05.017+08:00  INFO 35328 --- [GenWriter] [restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2533 ms
+2026-05-07T16:25:05.122+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:25:06.638+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:25:07.644+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:25:07.673+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:25:07.680+08:00  INFO 35328 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:25:08.028+08:00  WARN 35328 --- [GenWriter] [restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : Unable to start LiveReload server
+2026-05-07T16:25:08.056+08:00  WARN 35328 --- [GenWriter] [restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-05-07T16:25:08.086+08:00  INFO 35328 --- [GenWriter] [restartedMain] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-05-07T16:25:08.104+08:00 ERROR 35328 --- [GenWriter] [restartedMain] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+2026-05-07T16:25:09.433+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-4] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:25:09.435+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-3] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:25:39.540+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-6] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:25:39.556+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-4] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:26:09.632+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-8] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:26:09.633+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-5] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:26:39.738+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-10] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:26:39.740+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-6] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:27:09.833+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-12] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:27:09.834+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-7] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:27:39.938+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-14] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:27:39.940+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-8] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:28:10.034+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-16] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:28:10.058+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-9] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:28:40.131+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-18] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:28:40.154+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-10] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:29:10.232+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-20] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:29:10.233+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-11] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:29:40.339+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-22] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:29:40.340+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-12] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:30:10.439+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:30:10.441+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-13] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:30:40.539+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:30:40.542+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-14] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:31:10.633+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-28] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:31:10.647+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-15] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:31:40.732+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-30] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:31:40.734+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-16] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:32:10.840+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-1] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:32:10.841+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-17] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:32:40.935+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-2] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:32:40.938+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-18] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:33:11.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-4] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:33:11.045+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-19] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:33:41.142+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-6] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:33:41.144+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-20] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:34:11.234+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-8] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:34:11.236+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-21] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:34:41.337+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-10] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:34:41.338+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-22] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:35:11.431+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-12] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:35:11.443+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-23] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:35:41.538+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-14] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:35:41.541+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-24] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:36:11.632+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-16] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:36:11.634+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-25] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:36:41.734+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-18] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:36:41.736+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-26] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:37:11.832+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-20] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:37:11.834+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-27] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:37:41.934+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-22] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:37:41.950+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-28] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:38:12.032+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-24] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:38:12.034+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-29] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:38:42.136+08:00  INFO 38400 --- [GenWriter] [lettuce-eventExecutorLoop-1-26] i.l.core.protocol.ConnectionWatchdog     : Reconnecting, last destination was localhost/<unresolved>:6379
+2026-05-07T16:38:42.151+08:00  WARN 38400 --- [GenWriter] [lettuce-nioEventLoop-4-30] i.l.core.protocol.ConnectionWatchdog     : Cannot reconnect to [localhost/<unresolved>:6379]: Connection refused: getsockopt: localhost/127.0.0.1:6379
+2026-05-07T16:39:01.675+08:00  INFO 38400 --- [GenWriter] [File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 6 class path changes (0 additions, 6 deletions, 0 modifications)
+2026-05-07T16:39:01.697+08:00  INFO 38400 --- [GenWriter] [Thread-21] o.s.b.w.e.tomcat.GracefulShutdown        : Commencing graceful shutdown. Waiting for active requests to complete
+2026-05-07T16:39:01.747+08:00  INFO 38400 --- [GenWriter] [tomcat-shutdown] o.s.b.w.e.tomcat.GracefulShutdown        : Graceful shutdown complete
+2026-05-07T16:39:01.760+08:00  INFO 38400 --- [GenWriter] [Thread-21] o.s.b.j.HikariCheckpointRestoreLifecycle : Evicting Hikari connections
+2026-05-07T16:39:01.831+08:00  INFO 38400 --- [GenWriter] [Thread-21] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-05-07T16:39:01.935+08:00  INFO 38400 --- [GenWriter] [Thread-21] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-05-07T16:39:02.401+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : Starting GenWriterApplication using Java 23 with PID 38400 (E:\JavaProjects\GenWriter\target\classes started by 22369 in E:\JavaProjects\GenWriter)
+2026-05-07T16:39:02.402+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T16:39:03.768+08:00  WARN 38400 --- [GenWriter] [restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: java.lang.IllegalStateException: Error processing condition on org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration.propertySourcesPlaceholderConfigurer
+2026-05-07T16:39:03.787+08:00  INFO 38400 --- [GenWriter] [restartedMain] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-05-07T16:39:03.862+08:00 ERROR 38400 --- [GenWriter] [restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+java.lang.IllegalStateException: Error processing condition on org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration.propertySourcesPlaceholderConfigurer
+	at org.springframework.boot.autoconfigure.condition.SpringBootCondition.matches(SpringBootCondition.java:60) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.context.annotation.ConditionEvaluator.shouldSkip(ConditionEvaluator.java:99) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitionsForBeanMethod(ConfigurationClassBeanDefinitionReader.java:184) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitionsForConfigurationClass(ConfigurationClassBeanDefinitionReader.java:145) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.loadBeanDefinitions(ConfigurationClassBeanDefinitionReader.java:121) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.processConfigBeanDefinitions(ConfigurationClassPostProcessor.java:430) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry(ConfigurationClassPostProcessor.java:290) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(PostProcessorRegistrationDelegate.java:349) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(PostProcessorRegistrationDelegate.java:118) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.support.AbstractApplicationContext.invokeBeanFactoryPostProcessors(AbstractApplicationContext.java:791) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:609) ~[spring-context-6.2.5.jar:6.2.5]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.4.4.jar:3.4.4]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752) ~[spring-boot-3.4.4.jar:3.4.4]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439) ~[spring-boot-3.4.4.jar:3.4.4]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318) ~[spring-boot-3.4.4.jar:3.4.4]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361) ~[spring-boot-3.4.4.jar:3.4.4]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350) ~[spring-boot-3.4.4.jar:3.4.4]
+	at com.example.genwriter.GenWriterApplication.main(GenWriterApplication.java:10) ~[classes/:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50) ~[spring-boot-devtools-3.4.4.jar:3.4.4]
+Caused by: java.lang.IllegalStateException: Failed to introspect Class [com.example.genwriter.agent.graph.GraphConfig] from ClassLoader [org.springframework.boot.devtools.restart.classloader.RestartClassLoader@2a381ee]
+	at org.springframework.util.ReflectionUtils.getDeclaredMethods(ReflectionUtils.java:483) ~[spring-core-6.2.5.jar:6.2.5]
+	at org.springframework.util.ReflectionUtils.doWithMethods(ReflectionUtils.java:360) ~[spring-core-6.2.5.jar:6.2.5]
+	at org.springframework.util.ReflectionUtils.getUniqueDeclaredMethods(ReflectionUtils.java:417) ~[spring-core-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.lambda$getTypeForFactoryMethod$1(AbstractAutowireCapableBeanFactory.java:751) ~[spring-beans-6.2.5.jar:6.2.5]
+	at java.base/java.util.concurrent.ConcurrentHashMap.computeIfAbsent(ConcurrentHashMap.java:1713) ~[na:na]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.getTypeForFactoryMethod(AbstractAutowireCapableBeanFactory.java:750) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.determineTargetType(AbstractAutowireCapableBeanFactory.java:683) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.predictBeanType(AbstractAutowireCapableBeanFactory.java:654) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.isFactoryBean(AbstractBeanFactory.java:1704) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doGetBeanNamesForType(DefaultListableBeanFactory.java:618) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.getBeanNamesForType(DefaultListableBeanFactory.java:590) ~[spring-beans-6.2.5.jar:6.2.5]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.collectBeanDefinitionsForType(OnBeanCondition.java:332) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.getBeanDefinitionsForType(OnBeanCondition.java:324) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.getBeanDefinitionsForType(OnBeanCondition.java:314) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.getMatchingBeans(OnBeanCondition.java:213) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.evaluateConditionalOnMissingBean(OnBeanCondition.java:196) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.OnBeanCondition.getMatchOutcome(OnBeanCondition.java:143) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	at org.springframework.boot.autoconfigure.condition.SpringBootCondition.matches(SpringBootCondition.java:47) ~[spring-boot-autoconfigure-3.4.4.jar:3.4.4]
+	... 20 common frames omitted
+Caused by: java.lang.NoClassDefFoundError: com/example/genwriter/agent/graph/node/PolishNode
+	at java.base/java.lang.Class.getDeclaredMethods0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.privateGetDeclaredMethods(Class.java:3650) ~[na:na]
+	at java.base/java.lang.Class.getDeclaredMethods(Class.java:2735) ~[na:na]
+	at org.springframework.util.ReflectionUtils.getDeclaredMethods(ReflectionUtils.java:465) ~[spring-core-6.2.5.jar:6.2.5]
+	... 37 common frames omitted
+Caused by: java.lang.ClassNotFoundException: com.example.genwriter.agent.graph.node.PolishNode
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641) ~[na:na]
+	at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188) ~[na:na]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:528) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:578) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:557) ~[na:na]
+	at org.springframework.boot.devtools.restart.classloader.RestartClassLoader.loadClass(RestartClassLoader.java:121) ~[spring-boot-devtools-3.4.4.jar:3.4.4]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:528) ~[na:na]
+	... 41 common frames omitted
+
+2026-05-07T16:39:12.432+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : Starting GenWriterApplication using Java 23 with PID 38400 (E:\JavaProjects\GenWriter\target\classes started by 22369 in E:\JavaProjects\GenWriter)
+2026-05-07T16:39:12.432+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : No active profile set, falling back to 1 default profile: "default"
+2026-05-07T16:39:13.791+08:00  INFO 38400 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-05-07T16:39:13.792+08:00  INFO 38400 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-05-07T16:39:13.863+08:00  INFO 38400 --- [GenWriter] [restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 67 ms. Found 0 Redis repository interfaces.
+2026-05-07T16:39:14.187+08:00  WARN 38400 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'com.alibaba.cloud.nacos.NacosConfigAutoConfiguration' of type [com.alibaba.cloud.nacos.NacosConfigAutoConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [nacosAnnotationProcessor] is declared through a non-static factory method on that class; consider declaring it as static instead.
+2026-05-07T16:39:14.191+08:00  WARN 38400 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'nacosConfigProperties' of type [com.alibaba.cloud.nacos.NacosConfigProperties] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). Is this bean getting eagerly injected/applied to a currently created BeanPostProcessor [nacosAnnotationProcessor]? Check the corresponding BeanPostProcessor declaration and its dependencies/advisors. If this bean does not have to be post-processed, declare it with ROLE_INFRASTRUCTURE.
+2026-05-07T16:39:14.192+08:00  WARN 38400 --- [GenWriter] [restartedMain] trationDelegate$BeanPostProcessorChecker : Bean 'nacosConfigManager' of type [com.alibaba.cloud.nacos.NacosConfigManager] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). Is this bean getting eagerly injected/applied to a currently created BeanPostProcessor [nacosAnnotationProcessor]? Check the corresponding BeanPostProcessor declaration and its dependencies/advisors. If this bean does not have to be post-processed, declare it with ROLE_INFRASTRUCTURE.
+2026-05-07T16:39:15.001+08:00  INFO 38400 --- [GenWriter] [restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-05-07T16:39:15.295+08:00  INFO 38400 --- [GenWriter] [restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2856 ms
+2026-05-07T16:39:15.478+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:39:16.958+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:39:19.338+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:39:19.411+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:39:19.428+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.config.ChatModelConfig     : RestClient 超时配置: connectTimeout=30s, readTimeout=900s
+2026-05-07T16:39:20.492+08:00  INFO 38400 --- [GenWriter] [restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : LiveReload server is running on port 35729
+2026-05-07T16:39:20.561+08:00  INFO 38400 --- [GenWriter] [restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-05-07T16:39:20.574+08:00  INFO 38400 --- [GenWriter] [restartedMain] c.e.genwriter.GenWriterApplication       : Started GenWriterApplication in 8.327 seconds (process running for 59141.392)
+2026-05-07T16:39:20.579+08:00  INFO 38400 --- [GenWriter] [restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged

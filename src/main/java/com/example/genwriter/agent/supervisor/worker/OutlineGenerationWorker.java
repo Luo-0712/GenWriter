@@ -24,7 +24,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OutlineGenerationWorker implements WorkerAgent {
 
-    private static final double TEMPERATURE = 0.3;
+    private static final double TEMPERATURE = 1.2;
 
     private final ChatClientFactory chatClientFactory;
     private final OutlineSkill skill;

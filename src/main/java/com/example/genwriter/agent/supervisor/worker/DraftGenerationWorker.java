@@ -27,7 +27,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DraftGenerationWorker implements WorkerAgent {
 
-    private static final double TEMPERATURE = 0.7;
+    private static final double TEMPERATURE = 1.5;
 
     private final ChatClientFactory chatClientFactory;
     private final DraftSkill skill;

@@ -21,7 +21,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class OutlineGenerationNode implements NodeAction {
-    private static final double TEMPERATURE = 0.3;
+    private static final double TEMPERATURE = 1.2;
 
     private final ChatClientFactory chatClientFactory;
     private final OutlineSkill skill;

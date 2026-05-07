@@ -28,7 +28,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PolishWorker implements WorkerAgent {
 
-    private static final double TEMPERATURE = 0.7;
+    private static final double TEMPERATURE = 1.0;
 
     private final ChatClientFactory chatClientFactory;
     private final PolishSkill skill;
