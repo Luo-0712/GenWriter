@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
+
 /**
  * ChatModel 配置类
  * 使用 Spring AI Alibaba 提供的 ChatModel
@@ -24,6 +26,7 @@ import org.springframework.web.client.RestClient;
 public class ChatModelConfig {
 
     private final LLMConfig llmConfig;
+    private final ChatModelFactory chatModelFactory;
 
     /**
      * 自定义 RestClient.Builder，设置 15 分钟读取超时
@@ -42,7 +45,7 @@ public class ChatModelConfig {
 
     /**
      * 创建动态 ChatModel
-     * 注入 Spring AI Alibaba 提供的 ChatModel Bean
+     * 注入 Spring AI Alibaba 提供的 ChatModel Bean，并从 YAML 加载所有已配置供应商
      *
      * @param dashScopeChatModel Spring AI Alibaba 自动配置的 dashscope ChatModel
      * @return DynamicChatModel 实例
@@ -53,10 +56,33 @@ public class ChatModelConfig {
             @Qualifier("dashscopeChatModel") ChatModel dashScopeChatModel) {
         DynamicChatModel dynamicModel = new DynamicChatModel(llmConfig.getDefaultModel());
 
-        // 注册 DashScope 模型（通义千问）
+        // 始终注册自动配置的 DashScope 作为兜底
         dynamicModel.registerModel("dashscope", dashScopeChatModel);
         dynamicModel.registerModel(llmConfig.getDefaultModel(), dashScopeChatModel);
 
+        // 从 YAML providers 列表加载所有供应商
+        List<LLMConfig.ProviderConfig> providers = llmConfig.getProviders();
+        String defaultKey = llmConfig.getDefaultProvider() + ":" + llmConfig.getDefaultModel();
+
+        for (LLMConfig.ProviderConfig provider : providers) {
+            try {
+                ChatModel model = chatModelFactory.createChatModel(provider);
+                for (String modelName : provider.getModels()) {
+                    String key = provider.getType() + ":" + modelName;
+                    dynamicModel.registerModel(key, model);
+                    log.info("注册模型: {} ({})", key, provider.getDisplayName());
+                }
+                // 注册简称键（如 "dashscope"、"openai"）方便切换
+                String providerKey = provider.getType() + ":" + provider.getActiveModel();
+                if (provider.getType().equals(llmConfig.getDefaultProvider())) {
+                    dynamicModel.switchModel(providerKey);
+                }
+            } catch (Exception e) {
+                log.warn("注册供应商失败 [{}]: {}", provider.getDisplayName(), e.getMessage());
+            }
+        }
+
+        log.info("当前激活模型: {}", dynamicModel.getActiveModel());
         return dynamicModel;
     }
 

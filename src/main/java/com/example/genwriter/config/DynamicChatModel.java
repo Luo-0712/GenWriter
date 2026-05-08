@@ -92,6 +92,20 @@ public class DynamicChatModel implements ChatModel {
         return modelRegistry.keySet();
     }
 
+    /**
+     * 注销模型
+     * @param name 模型名称
+     * @return 是否注销成功
+     */
+    public boolean unregisterModel(String name) {
+        if (defaultModelName.equals(name) || !modelRegistry.containsKey(name)) {
+            return false;
+        }
+        modelRegistry.remove(name);
+        log.info("已注销模型: {}", name);
+        return true;
+    }
+
     @Override
     public ChatResponse call(Prompt prompt) {
         return getCurrentModel().call(prompt);

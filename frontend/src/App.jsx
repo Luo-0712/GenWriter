@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import MemoryPanel from './components/MemoryPanel';
 import KnowledgeBasePanel from './components/KnowledgeBasePanel';
+import SettingsPanel from './components/SettingsPanel';
 import ExportDialog from './components/ExportDialog';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
@@ -601,12 +602,14 @@ function App() {
           />
         ) : view === 'knowledge-bases' ? (
           <KnowledgeBasePanel onBack={() => setView('chat')} />
-        ) : (
+        ) : view === 'memories' ? (
           <MemoryPanel
             projectId={activeProject?.id}
             onBack={() => setView('chat')}
           />
-        )}
+        ) : view === 'settings' ? (
+          <SettingsPanel />
+        ) : null}
       </main>
       {exportDialogMessage && activeSession && (
         <ExportDialog

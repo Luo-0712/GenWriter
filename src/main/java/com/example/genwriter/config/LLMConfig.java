@@ -5,6 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * LLM调用统摄配置
@@ -50,6 +52,46 @@ public class LLMConfig {
      * 提示词模板配置
      */
     private PromptTemplates prompts = new PromptTemplates();
+
+    /**
+     * 已配置的模型供应商列表
+     */
+    private List<ProviderConfig> providers = new ArrayList<>();
+
+    /**
+     * 单个供应商配置
+     */
+    @Data
+    public static class ProviderConfig {
+        /**
+         * 供应商类型: dashscope/openai/deepseek/anthropic
+         */
+        private String type;
+        /**
+         * 显示名称
+         */
+        private String displayName;
+        /**
+         * API Key
+         */
+        private String apiKey;
+        /**
+         * 自定义 Base URL（OpenAI 兼容 API 使用）
+         */
+        private String baseUrl;
+        /**
+         * API 兼容性: native/openai_compatible
+         */
+        private String apiCompatibility = "native";
+        /**
+         * 可用模型列表
+         */
+        private List<String> models = new ArrayList<>();
+        /**
+         * 当前选中的模型
+         */
+        private String activeModel;
+    }
 
     /**
      * 提示词模板配置

@@ -14,6 +14,14 @@ spring:
         options:
           model: qwen-plus
           temperature: 0.7
+    openai:
+      api-key: dummy
+      chat:
+        enabled: false
+    anthropic:
+      api-key: dummy
+      chat:
+        enabled: false
     vectorstore:
       pgvector:
         index-type: hnsw
@@ -99,6 +107,38 @@ genwriter:
     default-model: qwen-plus
     default-temperature: 0.7
     default-max-tokens: 65535
+    providers:
+      - type: dashscope
+        display-name: 通义千问
+        api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
+        models:
+          - qwen-plus
+          - qwen-max
+          - qwen-turbo
+        active-model: qwen-plus
+      - type: deepseek
+        display-name: DeepSeek
+        api-key: your-deepseek-key
+        base-url: https://api.deepseek.com
+        api-compatibility: openai_compatible
+        models:
+          - deepseek-chat
+          - deepseek-reasoner
+        active-model: deepseek-chat
+      - type: openai
+        display-name: OpenAI
+        api-key: your-openai-key
+        models:
+          - gpt-4o
+          - gpt-4o-mini
+        active-model: gpt-4o
+      - type: anthropic
+        display-name: Claude
+        api-key: your-anthropic-key
+        models:
+          - claude-sonnet-4-20250514
+          - claude-haiku-4-5-20251001
+        active-model: claude-sonnet-4-20250514
   embedding:
     default-model: text-embedding-v1
     dimension: 1024

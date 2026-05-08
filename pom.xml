@@ -53,6 +53,18 @@
             <artifactId>spring-ai-alibaba-starter</artifactId>
             <version>${spring-ai-alibaba-starter.version}</version>
         </dependency>
+
+        <!-- Spring AI OpenAI (支持 OpenAI 及 OpenAI 兼容 API 如 DeepSeek) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring AI Anthropic (支持 Claude) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-anthropic-spring-boot-starter</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-document-reader-poi</artifactId>
