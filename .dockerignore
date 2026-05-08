@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+.vscode
+
+# Build output
+target/
+frontend/dist/
+frontend/node_modules/
+
+# Logs
+logs/
+*.log
+
+# Temp files
+temp/
+dump.rdb
+
+# Docker (避免递归)
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+# Docs
+docs/
+HELP.md
