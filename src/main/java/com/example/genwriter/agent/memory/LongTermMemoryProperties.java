@@ -17,6 +17,8 @@ public class LongTermMemoryProperties {
 
     private ArticleQueryExtraction articleQueryExtraction = new ArticleQueryExtraction();
 
+    private WritingSkillExtraction writingSkillExtraction = new WritingSkillExtraction();
+
     @Data
     public static class Retrieval {
         private int maxResults = 5;
@@ -38,5 +40,13 @@ public class LongTermMemoryProperties {
         private int maxQueries = 5;
         private int minArticleLength = 500;
         private double temperature = 0.1;
+    }
+
+    @Data
+    public static class WritingSkillExtraction {
+        private boolean enabled = true;
+        private boolean async = true;
+        private int maxSkillsPerTurn = 3;
+        private double temperature = 0.2;
     }
 }

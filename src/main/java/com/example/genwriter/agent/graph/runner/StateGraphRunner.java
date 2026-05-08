@@ -16,6 +16,7 @@ import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
+import com.example.genwriter.service.WritingSkillExtractionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -46,6 +47,7 @@ public class StateGraphRunner {
     private final RedisChatMemory chatMemory;
     private final MemoryProperties memoryProperties;
     private final MemoryExtractionService memoryExtractionService;
+    private final WritingSkillExtractionService writingSkillExtractionService;
     private final LongTermMemoryProperties longTermMemoryProperties;
 
     private volatile CompiledGraph compiledGraph;
@@ -61,6 +63,7 @@ public class StateGraphRunner {
                             RedisChatMemory chatMemory,
                             MemoryProperties memoryProperties,
                             MemoryExtractionService memoryExtractionService,
+                            WritingSkillExtractionService writingSkillExtractionService,
                             LongTermMemoryProperties longTermMemoryProperties) {
         this.intentRouterGraph = intentRouterGraph;
         this.supervisorGraph = supervisorGraph;
@@ -72,6 +75,7 @@ public class StateGraphRunner {
         this.chatMemory = chatMemory;
         this.memoryProperties = memoryProperties;
         this.memoryExtractionService = memoryExtractionService;
+        this.writingSkillExtractionService = writingSkillExtractionService;
         this.longTermMemoryProperties = longTermMemoryProperties;
     }
 
@@ -162,6 +166,13 @@ public class StateGraphRunner {
                             memoryExtractionService.extractAsync(sessionId, userInput, finalOutput);
                         } catch (Exception e) {
                             log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
+                        }
+                        if (longTermMemoryProperties.getWritingSkillExtraction().isEnabled()) {
+                            try {
+                                writingSkillExtractionService.extractAsync(sessionId, userInput, finalOutput, writingType);
+                            } catch (Exception e) {
+                                log.warn("触发写作技巧提取失败: sessionId={}", sessionId, e);
+                            }
                         }
                     }
                 }

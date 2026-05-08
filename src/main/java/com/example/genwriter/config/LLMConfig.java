@@ -288,9 +288,10 @@ public class LLMConfig {
             }
 
             ## 约束条件
-            - intent 只能是 GENERAL_QA、WRITING_TASK、KNOWLEDGE_QA、POLISH_TASK、RESEARCH_TASK、UNKNOWN 之一
+            - intent 只能是 GENERAL_QA、WRITING_TASK、KNOWLEDGE_QA、POLISH_TASK、RESEARCH_TASK、STYLE_LEARNING、UNKNOWN 之一
             - writingType 只能是 CREATE、CONTINUE、POLISH、KNOWLEDGE_QA 之一
             - RESEARCH_TASK 用于用户明确要求调研、搜集信息、了解某个主题最新情况等需要外部搜索的场景
+            - STYLE_LEARNING 用于用户要求系统学习某篇文章的写作风格、提取写作技巧、分析写法等场景。此时用户提供了示例文章并要求系统从中学习技法，而不是要求系统直接写作
             - reason 简要说明判断依据
             """;
 
@@ -385,6 +386,20 @@ public class LLMConfig {
         private String supervisorSystemPrompt = "";
 
         private String memoryExtractionPrompt = "";
+
+        /**
+         * 写作技巧对话提取提示词模板
+         * 用于从用户与助手的对话中提取可复用的写作技巧
+         * 可用占位符：{userInput}, {assistantOutput}, {writingType}
+         */
+        private String writingSkillExtractionPrompt = "";
+
+        /**
+         * 文章风格学习提示词模板
+         * 用于从示例文章中提取可复用的写作技法和风格特征
+         * 可用占位符：{articleContent}, {description}
+         */
+        private String articleSkillLearningPrompt = "";
 
         /**
          * 文章关键细节提取提示词模板

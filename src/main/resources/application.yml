@@ -1,6 +1,10 @@
 spring:
   application:
     name: GenWriter
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+      - org.springframework.ai.autoconfigure.anthropic.AnthropicAutoConfiguration
   http:
     encoding:
       charset: UTF-8
@@ -14,14 +18,6 @@ spring:
         options:
           model: qwen-plus
           temperature: 0.7
-    openai:
-      api-key: dummy
-      chat:
-        enabled: false
-    anthropic:
-      api-key: dummy
-      chat:
-        enabled: false
     vectorstore:
       pgvector:
         index-type: hnsw
@@ -187,6 +183,11 @@ genwriter:
       max-queries: 5
       min-article-length: 500
       temperature: 0.1
+    writing-skill-extraction:
+      enabled: true
+      async: true
+      max-skills-per-turn: 3
+      temperature: 0.2
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
@@ -207,6 +208,64 @@ genwriter:
       {context}
       用户问题：{question}
       请根据知识库内容提供准确、简洁的回答。如果知识库中没有相关信息，请明确说明。
+    writing-skill-extraction-prompt: |
+      你是一位写作技巧提取专家。分析以下用户与写作助手的交互，判断用户是否表达了可抽象为通用写作技巧的改进要求。
+
+      # 提取标准
+      只提取满足以下条件的技巧：
+      1. 用户明确指出了写作中的问题或改进方向
+      2. 该要求可抽象为一条可复用的写作规则（不限于本次内容）
+      3. 不是针对特定事实内容的修改（如"把主角名字改成张三"不提取）
+
+      # 输出格式
+      纯 JSON 数组，不要 markdown 代码块：
+      [{
+        "skillName": "技巧名称",
+        "category": "描写|叙事|对话|结构|修辞|风格|其他",
+        "rule": "具体规则描述",
+        "applicableScene": "适用场景",
+        "goodExample": "正例（如有）",
+        "badExample": "反例（如有）",
+        "importance": "HIGH|MEDIUM|LOW"
+      }]
+
+      # 交互内容
+      用户输入：{userInput}
+      助手输出：{assistantOutput}
+      写作类型：{writingType}
+
+      若无可提取技巧，返回空数组 []。
+    article-skill-learning-prompt: |
+      你是一位写作技法分析专家。请从用户提供的示例文章中，提取可复用的写作技巧、风格特征和表达手法。
+
+      # 分析维度
+      - 叙事节奏：张弛、快慢、悬念设置
+      - 修辞手法：比喻、排比、通感、反讽等
+      - 段落结构：长短交替、段落功能划分
+      - 对话风格：口语化程度、潜台词、对话推动剧情的方式
+      - 过渡技巧：场景切换、时间跳跃的处理
+      - 视角控制：人称、距离、聚焦方式
+      - 描写策略：感官运用、细节选择、动静结合
+      - 语言质感：词汇偏好、句式节奏、语气特征
+
+      # 输出格式
+      纯 JSON 数组，不要 markdown 代码块：
+      [{
+        "skillName": "技巧名称",
+        "category": "描写|叙事|对话|结构|修辞|风格|节奏|视角|其他",
+        "rule": "具体规则描述，说明该技法是什么以及如何使用",
+        "applicableScene": "适用场景",
+        "goodExample": "从文章中截取的正例原文片段",
+        "importance": "HIGH|MEDIUM|LOW"
+      }]
+
+      # 用户说明
+      {description}
+
+      # 示例文章
+      {articleContent}
+
+      如果文章没有明显的可提取技法，返回空数组 []。
 
 server:
   port: 8080

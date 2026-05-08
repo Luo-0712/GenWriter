@@ -52,7 +52,8 @@ public class SupervisorNode implements NodeAction {
             "polish", "润色优化",
             "review", "内容评审",
             "researcher", "网络调研",
-            "direct_answer", "直接回答"
+            "direct_answer", "直接回答",
+            "writing_skill_extractor", "写作技巧提取"
     );
 
     @PostConstruct
@@ -352,6 +353,10 @@ public class SupervisorNode implements NodeAction {
 
     private List<String> ensurePlanMatchesIntent(List<String> steps, Map<String, Object> accumulated) {
         String intent = (String) accumulated.getOrDefault("intent", "");
+        if ("STYLE_LEARNING".equals(intent)) {
+            log.info("[SupervisorNode] 检测到STYLE_LEARNING意图，调整计划为写作技巧提取");
+            return List.of("intent_recognition", "writing_skill_extractor");
+        }
         if (!"WRITING_TASK".equals(intent)) {
             return steps;
         }

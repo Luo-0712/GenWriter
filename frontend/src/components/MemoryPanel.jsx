@@ -9,6 +9,7 @@ const MEMORY_TYPE_MAP = {
   WORLD_SETTING: '世界观设定',
   CHARACTER_PROFILE: '人物设定',
   FORESHADOWING: '伏笔',
+  WRITING_TECHNIQUE: '写作技巧',
 };
 
 const SCOPE_MAP = {

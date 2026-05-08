@@ -7,6 +7,8 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.DraftSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.SessionContextHolder;
+import com.example.genwriter.agent.tool.UpdateWritingSkillToolCallback;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
@@ -16,6 +18,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -36,12 +40,23 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final UpdateWritingSkillToolCallback updateWritingSkillToolCallback;
 
     private ChatClient chatClient;
 
     @PostConstruct
     void init() {
-        this.chatClient = chatClientFactory.create(TEMPERATURE);
+        ToolCallback skillToolCallback = FunctionToolCallback
+                .builder("update_writing_skill", (java.util.function.Function<UpdateWritingSkillToolCallback.UpdateWritingSkillInput, String>)
+                        updateWritingSkillToolCallback)
+                .description("Save a reusable writing skill or technique to long-term memory. Use this tool when the user has taught or demonstrated a writing style, technique, or rule that should be remembered and applied in future writing tasks.")
+                .inputType(UpdateWritingSkillToolCallback.UpdateWritingSkillInput.class)
+                .build();
+
+        this.chatClient = chatClientFactory.create(TEMPERATURE)
+                .mutate()
+                .defaultTools(skillToolCallback)
+                .build();
         registry.register(this);
     }
 
@@ -83,11 +98,12 @@ public class DraftGenerationWorker implements WorkerAgent {
         if (longTermMemoryProperties.isEnabled()) {
             promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                     memoryService,
-                    List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WORLD_SETTING,
-                            MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
+                    List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WRITING_TECHNIQUE,
+                            MemoryType.WORLD_SETTING, MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
                     sessionId));
         }
 
+        SessionContextHolder.set(sessionId);
         try {
             promptSpec.stream()
                     .content()
@@ -100,6 +116,8 @@ public class DraftGenerationWorker implements WorkerAgent {
         } catch (Exception e) {
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
+        } finally {
+            SessionContextHolder.clear();
         }
 
         String fullResponse = contentBuilder.toString();
