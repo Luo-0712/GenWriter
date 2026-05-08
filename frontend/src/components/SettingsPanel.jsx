@@ -4,18 +4,18 @@ import '../styles/global.css';
 
 const PROVIDER_TYPE_LABEL = {
   dashscope: '通义千问',
-  openai: 'OpenAI',
   deepseek: 'DeepSeek',
-  anthropic: 'Anthropic',
+  moonshot: 'Kimi',
+  zhipu: '智谱GLM',
   openai_compatible: 'OpenAI 兼容',
 };
 
 const PROVIDER_TYPE_COLOR = {
-  dashscope: '#6366f1',
-  openai: '#10b981',
-  deepseek: '#3b82f6',
-  anthropic: '#f59e0b',
-  openai_compatible: '#8b5cf6',
+  dashscope: '#78716c',
+  deepseek: '#78716c',
+  moonshot: '#78716c',
+  zhipu: '#78716c',
+  openai_compatible: '#78716c',
 };
 
 const SettingsPanel = () => {

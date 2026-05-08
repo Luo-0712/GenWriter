@@ -140,7 +140,7 @@ const KnowledgeBaseDetail = ({ kbId, onBack }) => {
       </div>
 
       {/* 上传区域 */}
-      <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-light)', background: '#fafafa' }}>
+      <div className="panel-section" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-light)', background: '#fafafa' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <input
             id="kb-upload-input"

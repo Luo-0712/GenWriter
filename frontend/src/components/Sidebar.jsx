@@ -1,6 +1,42 @@
 import { useState, useRef, useEffect } from 'react';
 import '../styles/global.css';
 
+const navItems = [
+  { key: 'chat', label: '对话', icon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+  )},
+  { key: 'knowledge-bases', label: '知识库', icon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+    </svg>
+  )},
+  { key: 'memories', label: '记忆', icon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+      <path d="M12 2a10 10 0 0 1 10 10"></path>
+      <path d="M20.2 7.2A10 10 0 0 0 12 2v10"></path>
+    </svg>
+  )},
+  { key: 'writing-skills', label: '风格学习', icon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+      <path d="M12 2a10 10 0 0 1 10 10"></path>
+      <path d="M20.2 7.2A10 10 0 0 0 12 2v10"></path>
+      <path d="M12 12l-4 4"></path>
+      <path d="M12 12l4 4"></path>
+    </svg>
+  )},
+  { key: 'settings', label: '设置', icon: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+    </svg>
+  )},
+];
+
 const Sidebar = ({
   projects,
   activeProject,
@@ -20,6 +56,8 @@ const Sidebar = ({
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   // 项目编辑状态
   const [editingProjectId, setEditingProjectId] = useState(null);
@@ -46,6 +84,17 @@ const Sidebar = ({
       sessionInputRef.current.select();
     }
   }, [editingSessionId]);
+
+  // 点击外部关闭用户菜单
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleDeleteClick = (e, session) => {
     e.stopPropagation();
@@ -264,66 +313,42 @@ const Sidebar = ({
         </div>
       </div>
 
-      <div className="sidebar-nav">
-        <button
-          className={`sidebar-nav-btn ${view === 'chat' ? 'active' : ''}`}
-          onClick={() => onNavigate('chat')}
+      <div className="sidebar-footer" ref={userMenuRef}>
+        <div
+          className="user-info"
+          onClick={() => setIsUserMenuOpen((prev) => !prev)}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          对话
-        </button>
-        <button
-          className={`sidebar-nav-btn ${view === 'knowledge-bases' ? 'active' : ''}`}
-          onClick={() => onNavigate('knowledge-bases')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          </svg>
-          知识库
-        </button>
-        <button
-          className={`sidebar-nav-btn ${view === 'memories' ? 'active' : ''}`}
-          onClick={() => onNavigate('memories')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
-            <path d="M12 2a10 10 0 0 1 10 10"></path>
-            <path d="M20.2 7.2A10 10 0 0 0 12 2v10"></path>
-          </svg>
-          记忆
-        </button>
-        <button
-          className={`sidebar-nav-btn ${view === 'writing-skills' ? 'active' : ''}`}
-          onClick={() => onNavigate('writing-skills')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
-            <path d="M12 2a10 10 0 0 1 10 10"></path>
-            <path d="M20.2 7.2A10 10 0 0 0 12 2v10"></path>
-            <path d="M12 12l-4 4"></path>
-            <path d="M12 12l4 4"></path>
-          </svg>
-          风格学习
-        </button>
-        <button
-          className={`sidebar-nav-btn ${view === 'settings' ? 'active' : ''}`}
-          onClick={() => onNavigate('settings')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
-          </svg>
-          设置
-        </button>
-      </div>
-      <div className="sidebar-footer">
-        <div className="user-info">
           <div className="user-avatar">U</div>
           <span className="user-name">用户</span>
+          <svg
+            className={`user-menu-arrow ${isUserMenuOpen ? 'open' : ''}`}
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
+        {isUserMenuOpen && (
+          <div className="user-dropdown-menu">
+            {navItems.map((item) => (
+              <button
+                key={item.key}
+                className={`user-dropdown-item ${view === item.key ? 'active' : ''}`}
+                onClick={() => {
+                  onNavigate(item.key);
+                  setIsUserMenuOpen(false);
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );

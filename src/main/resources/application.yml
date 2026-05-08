@@ -121,20 +121,26 @@ genwriter:
           - deepseek-chat
           - deepseek-reasoner
         active-model: deepseek-chat
-      - type: openai
-        display-name: OpenAI
-        api-key: your-openai-key
+      - type: moonshot
+        display-name: Kimi
+        api-key: your-moonshot-key
+        base-url: https://api.moonshot.cn
+        api-compatibility: openai_compatible
         models:
-          - gpt-4o
-          - gpt-4o-mini
-        active-model: gpt-4o
-      - type: anthropic
-        display-name: Claude
-        api-key: your-anthropic-key
+          - moonshot-v1-8k
+          - moonshot-v1-32k
+          - moonshot-v1-128k
+        active-model: moonshot-v1-8k
+      - type: zhipu
+        display-name: 智谱GLM
+        api-key: your-zhipu-key
+        base-url: https://open.bigmodel.cn/api/paas/v4
+        api-compatibility: openai_compatible
         models:
-          - claude-sonnet-4-20250514
-          - claude-haiku-4-5-20251001
-        active-model: claude-sonnet-4-20250514
+          - glm-4
+          - glm-4-flash
+          - glm-4v
+        active-model: glm-4
   embedding:
     default-model: text-embedding-v1
     dimension: 1024

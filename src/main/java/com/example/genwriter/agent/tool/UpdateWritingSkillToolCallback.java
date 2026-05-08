@@ -6,10 +6,12 @@ import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.function.Function;
 
 @Slf4j
+@Component
 public class UpdateWritingSkillToolCallback implements Function<UpdateWritingSkillToolCallback.UpdateWritingSkillInput, String> {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
