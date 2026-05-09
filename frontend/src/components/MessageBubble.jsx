@@ -26,14 +26,14 @@ const intentLabel = (intent) => INTENT_LABELS[intent] || intent || '未知意图
 const typeLabel = (type) => TYPE_LABELS[type] || type || '未知类型';
 
 const STAGE_CONFIG = {
-  '任务启动': { label: '启动', color: '#4f46e5', bg: '#eef2ff' },
-  '意图识别': { label: '意图识别', color: '#7c3aed', bg: '#f5f3ff' },
-  '知识库检索': { label: '知识检索', color: '#0ea5e9', bg: '#f0f9ff' },
-  '大纲生成': { label: '大纲生成', color: '#4f46e5', bg: '#eef2ff' },
-  '正文写作': { label: '正文写作', color: '#2563eb', bg: '#dbeafe' },
-  '内容评审': { label: '内容评审', color: '#d97706', bg: '#fffbeb' },
-  '润色': { label: '润色', color: '#059669', bg: '#ecfdf5' },
-  '直接回答': { label: '直接回答', color: '#0ea5e9', bg: '#f0f9ff' },
+  '任务启动': { label: '启动', color: '#6b7280', bg: '#f3f4f6' },
+  '意图识别': { label: '意图识别', color: '#6b7280', bg: '#f3f4f6' },
+  '知识库检索': { label: '知识检索', color: '#6b7280', bg: '#f3f4f6' },
+  '大纲生成': { label: '大纲生成', color: '#6b7280', bg: '#f3f4f6' },
+  '正文写作': { label: '正文写作', color: '#6b7280', bg: '#f3f4f6' },
+  '内容评审': { label: '内容评审', color: '#6b7280', bg: '#f3f4f6' },
+  '润色': { label: '润色', color: '#6b7280', bg: '#f3f4f6' },
+  '直接回答': { label: '直接回答', color: '#6b7280', bg: '#f3f4f6' },
   '任务完成': { label: '完成', color: '#059669', bg: '#ecfdf5' },
   '任务失败': { label: '失败', color: '#dc2626', bg: '#fef2f2' },
 };

@@ -8,6 +8,8 @@ import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ResearcherSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.KnowledgeBaseTool;
+import com.example.genwriter.agent.tool.KnowledgeBaseToolCallback;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.WebSearchTool;
 import com.example.genwriter.agent.tool.WebSearchToolCallback;
@@ -43,6 +45,7 @@ public class ResearcherWorker implements WorkerAgent {
     private final ChatClientFactory chatClientFactory;
     private final ResearcherSkill skill;
     private final WebSearchTool webSearchTool;
+    private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -63,9 +66,16 @@ public class ResearcherWorker implements WorkerAgent {
                 .inputType(WebSearchToolCallback.WebSearchInput.class)
                 .build();
 
+        ToolCallback kbSearchCallback = FunctionToolCallback
+                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseToolCallback.KnowledgeSearchInput, String>)
+                        new KnowledgeBaseToolCallback(knowledgeBaseTool))
+                .description("Search the knowledge base for relevant content. Use this tool when a knowledge base ID (kbId) is provided and the question relates to the knowledge base content.")
+                .inputType(KnowledgeBaseToolCallback.KnowledgeSearchInput.class)
+                .build();
+
         this.chatClient = chatClientFactory.create(TEMPERATURE)
                 .mutate()
-                .defaultTools(webSearchCallback)
+                .defaultTools(webSearchCallback, kbSearchCallback)
                 .build();
         registry.register(this);
     }
@@ -85,6 +95,7 @@ public class ResearcherWorker implements WorkerAgent {
         String sessionId = (String) state.getOrDefault("sessionId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
+        String kbId = (String) state.getOrDefault("kbId", "");
 
         String nodeId = chainPublisher.publishStart(sessionId, "网络调研",
                 ChainNode.Type.TOOL_CALL, null,
@@ -95,7 +106,8 @@ public class ResearcherWorker implements WorkerAgent {
         String systemPrompt = skill.systemPrompt();
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "userInput", userInput,
-                "context", existingContext
+                "context", existingContext,
+                "kbId", kbId
         ));
 
         String conversationId = sessionId + ":researcher";
@@ -195,7 +207,8 @@ public class ResearcherWorker implements WorkerAgent {
         try {
             return (int) chatMemory.getAllMessages(conversationId).stream()
                     .filter(msg -> msg instanceof org.springframework.ai.chat.messages.ToolResponseMessage trm
-                            && trm.getResponses().stream().anyMatch(r -> "web_search".equals(r.name())))
+                            && trm.getResponses().stream().anyMatch(r ->
+                                    "web_search".equals(r.name()) || "knowledge_base_search".equals(r.name())))
                     .count();
         } catch (Exception e) {
             log.debug("统计搜索轮次失败", e);

@@ -7,7 +7,9 @@ export const uploadDocument = (file, kbId, strategy) => {
   if (strategy) {
     formData.append('strategy', strategy);
   }
-  return client.post('/rag/upload', formData);
+  return client.post('/rag/upload', formData, {
+    headers: { 'Content-Type': undefined },
+  });
 };
 
 export const processDocument = (data) => client.post('/rag/process/document', data);

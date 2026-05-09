@@ -16,7 +16,7 @@ public class EmbeddingConfig {
     /**
      * 默认嵌入模型标识
      */
-    private String defaultModel = "text-embedding-v1";
+    private String defaultModel = "text-embedding-v4";
 
     /**
      * 向量维度，需与数据库表定义一致

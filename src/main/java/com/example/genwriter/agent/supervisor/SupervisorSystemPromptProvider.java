@@ -42,6 +42,7 @@ public class SupervisorSystemPromptProvider {
 
                 ## 推荐流程
                 - 新写作任务(需外部数据): intent_recognition -> researcher -> outline -> draft -> polish -> review
+                - 新写作任务(有kbId): intent_recognition -> researcher -> outline -> draft -> polish -> review（researcher 会优先检索知识库，再补充网络搜索）
                 - 新写作任务(无需外部数据): intent_recognition -> outline -> draft -> polish -> review
                 - 纯调研任务: intent_recognition -> researcher -> direct_answer
                 - 评审结果 REVISE_DRAFT: 回到 draft
@@ -49,7 +50,7 @@ public class SupervisorSystemPromptProvider {
                 - 评审结果 PASS: FINISH，将 polishedContent 作为 finalOutput
                 - 简单问答: intent_recognition -> direct_answer
                 - 润色任务: intent_recognition -> polish
-                - 知识库问答(有kbId): intent_recognition -> direct_answer（DirectAnswerWorker 内部自主调用知识库搜索）
+                - 知识库问答(有kbId，非写作): intent_recognition -> direct_answer（DirectAnswerWorker 内部自主调用知识库搜索）
 
                 ## 规则
                 - 一次性制定完整计划，不要逐步决策

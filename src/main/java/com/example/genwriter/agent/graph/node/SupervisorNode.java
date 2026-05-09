@@ -365,6 +365,15 @@ public class SupervisorNode implements NodeAction {
         boolean hasWritingStages = remaining.stream()
                 .anyMatch(s -> "outline".equals(s) || "draft".equals(s) || "polish".equals(s));
         if (hasWritingStages) {
+            String kbId = (String) accumulated.getOrDefault("kbId", "");
+            if (kbId != null && !kbId.isBlank() && !remaining.contains("researcher")) {
+                log.info("[SupervisorNode] 检测到WRITING_TASK+kbId但计划缺少researcher，自动补充");
+                List<String> adjusted = new ArrayList<>();
+                adjusted.add("intent_recognition");
+                adjusted.add("researcher");
+                adjusted.addAll(remaining);
+                return adjusted;
+            }
             return steps;
         }
 

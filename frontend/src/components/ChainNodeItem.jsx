@@ -2,10 +2,10 @@ import { useState } from 'react';
 import '../styles/global.css';
 
 const NODE_TYPE_CONFIG = {
-  PLANNING:  { icon: '◈', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', label: '规划' },
-  THINKING:  { icon: '◉', color: '#4f46e5', bg: '#eef2ff', border: '#c7d2fe', label: '思考' },
-  TOOL_CALL: { icon: '⟐', color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd', label: '工具' },
-  EXECUTION: { icon: '▶', color: '#475569', bg: '#f8fafc', border: '#e2e8f0', label: '执行' },
+  PLANNING:  { icon: '◈', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: '规划' },
+  THINKING:  { icon: '◉', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: '思考' },
+  TOOL_CALL: { icon: '⟐', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: '工具' },
+  EXECUTION: { icon: '▶', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: '执行' },
   RESULT:    { icon: '✓', color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', label: '结果' },
   ERROR:     { icon: '✗', color: '#ef4444', bg: '#fef2f2', border: '#fecaca', label: '错误' },
 };

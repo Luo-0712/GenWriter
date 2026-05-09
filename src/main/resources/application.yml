@@ -18,6 +18,10 @@ spring:
         options:
           model: qwen-plus
           temperature: 0.7
+      embedding:
+        enabled: true
+        options:
+          model: text-embedding-v4
     vectorstore:
       pgvector:
         index-type: hnsw
@@ -72,9 +76,9 @@ logging:
 
 app:
   embedding:
-    default-model: bge-m3
+    default-model: text-embedding-v4
     dimensions:
-      bge-m3: 1024
+      text-embedding-v4: 1024
       openai-ada-002: 1536
       openai-small: 1536
       openai-large-3: 3072
@@ -142,7 +146,7 @@ genwriter:
           - glm-4v
         active-model: glm-4
   embedding:
-    default-model: text-embedding-v1
+    default-model: text-embedding-v4
     dimension: 1024
     batch-size: 100
     default-search-limit: 5

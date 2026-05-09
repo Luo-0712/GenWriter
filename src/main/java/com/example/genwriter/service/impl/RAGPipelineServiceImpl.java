@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -47,8 +48,9 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
                 .build();
 
         List<DocumentChunk> chunks = chunkingService.chunkDocument(filePath, strategy, config);
+        String sourceId = UUID.randomUUID().toString();
 
-        return saveChunks(chunks, kbId, filePath);
+        return saveChunks(chunks, kbId, sourceId);
     }
 
     @Override

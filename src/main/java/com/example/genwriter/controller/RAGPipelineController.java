@@ -54,7 +54,7 @@ public class RAGPipelineController {
             String taskId = UUID.randomUUID().toString();
             String filename = taskId + "_" + file.getOriginalFilename();
             Path filePath = uploadDir.resolve(filename);
-            file.transferTo(filePath.toFile());
+            file.transferTo(filePath);
 
             knowledgeImportService.processImportAsync(taskId, filePath.toString(), kbId, strategy);
 
