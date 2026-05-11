@@ -7,6 +7,8 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.OutlineSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.SaveSettingDetailTool;
+import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -14,6 +16,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -32,12 +36,23 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final SaveSettingDetailTool saveSettingDetailTool;
 
     private ChatClient chatClient;
 
     @PostConstruct
     void init() {
-        this.chatClient = chatClientFactory.create(TEMPERATURE);
+        ToolCallback settingDetailCallback = FunctionToolCallback
+                .builder("save_setting_detail", (java.util.function.Function<SaveSettingDetailTool.SaveSettingDetailInput, String>)
+                        saveSettingDetailTool)
+                .description("Save a world setting, character profile, or plot detail (foreshadowing) to long-term memory. Use this tool when you define or introduce setting details during content creation to ensure consistency in future writing.")
+                .inputType(SaveSettingDetailTool.SaveSettingDetailInput.class)
+                .build();
+
+        this.chatClient = chatClientFactory.create(TEMPERATURE)
+                .mutate()
+                .defaultTools(settingDetailCallback)
+                .build();
         registry.register(this);
     }
 
@@ -76,11 +91,14 @@ public class OutlineGenerationWorker implements WorkerAgent {
         }
 
         String response;
+        SessionContextHolder.set(sessionId);
         try {
             response = promptSpec.call().content();
         } catch (Exception e) {
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
+        } finally {
+            SessionContextHolder.clear();
         }
 
         log.info("大纲生成完成: length={}", response.length());

@@ -11,9 +11,7 @@ import com.example.genwriter.agent.skill.ReviewSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.WebSearchTool;
-import com.example.genwriter.agent.tool.WebSearchToolCallback;
-import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -46,11 +44,10 @@ public class ReviewWorker implements WorkerAgent {
     private final ChatClientFactory chatClientFactory;
     private final ObjectMapper objectMapper;
     private final ReviewSkill skill;
-    private final WebSearchTool webSearchTool;
+    private final TavilyWebSearchTool webSearchTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
-    private final ResearcherProperties properties;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
@@ -61,10 +58,10 @@ public class ReviewWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<WebSearchToolCallback.WebSearchInput, String>)
-                        new WebSearchToolCallback(webSearchTool, properties, sseService))
+                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                        webSearchTool)
                 .description("Search the web to verify facts, data, statistics, or any factual claims in the article.")
-                .inputType(WebSearchToolCallback.WebSearchInput.class)
+                .inputType(TavilyWebSearchTool.WebSearchInput.class)
                 .build();
 
         this.chatClient = chatClientFactory.create(TEMPERATURE)

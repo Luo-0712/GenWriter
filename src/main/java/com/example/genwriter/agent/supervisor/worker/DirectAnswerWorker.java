@@ -9,11 +9,8 @@ import com.example.genwriter.agent.skill.DirectAnswerSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.KnowledgeBaseTool;
-import com.example.genwriter.agent.tool.KnowledgeBaseToolCallback;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.WebSearchTool;
-import com.example.genwriter.agent.tool.WebSearchToolCallback;
-import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
@@ -43,12 +40,11 @@ public class DirectAnswerWorker implements WorkerAgent {
 
     private final ChatClientFactory chatClientFactory;
     private final DirectAnswerSkill skill;
-    private final WebSearchTool webSearchTool;
+    private final TavilyWebSearchTool webSearchTool;
     private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
-    private final ResearcherProperties properties;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
@@ -58,17 +54,17 @@ public class DirectAnswerWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<WebSearchToolCallback.WebSearchInput, String>)
-                        new WebSearchToolCallback(webSearchTool, properties, sseService))
+                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                        webSearchTool)
                 .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
-                .inputType(WebSearchToolCallback.WebSearchInput.class)
+                .inputType(TavilyWebSearchTool.WebSearchInput.class)
                 .build();
 
         ToolCallback kbSearchCallback = FunctionToolCallback
-                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseToolCallback.KnowledgeSearchInput, String>)
-                        new KnowledgeBaseToolCallback(knowledgeBaseTool))
+                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
+                        knowledgeBaseTool)
                 .description("Search the knowledge base for relevant content. Use this tool when a knowledge base ID (kbId) is provided and the question relates to the knowledge base content.")
-                .inputType(KnowledgeBaseToolCallback.KnowledgeSearchInput.class)
+                .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
                 .build();
 
         this.chatClient = chatClientFactory.create(TEMPERATURE)

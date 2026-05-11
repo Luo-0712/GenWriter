@@ -119,16 +119,13 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
         sb.append("当前项目：").append(projectId != null ? projectId : "无").append("\n\n");
         sb.append("# 提取类别\n");
         sb.append("- WRITING_PREFERENCE: 用户表达的风格/语气/格式偏好（如\"偏好学术风格\"、\"喜欢短段落\"）\n");
-        sb.append("- WORLD_SETTING: 故事世界观、背景设定（如\"故事发生在2049年的赛博朋克上海\"）\n");
-        sb.append("- CHARACTER_PROFILE: 角色性格、背景、外貌、关系（如\"主角王某是一名退役刑警\"）\n");
-        sb.append("- FORESHADOWING: 已埋下待呼应的伏笔（如\"第三章中主角发现了秘密实验室\"）\n");
         sb.append("- CORRECTION_PATTERN: 用户反复提出的修改模式（如\"用户总要求删除冗长的引入段落\"）\n");
         sb.append("- DOMAIN_KNOWLEDGE: 用户分享的特定领域知识\n\n");
+        sb.append("注意：WORLD_SETTING、CHARACTER_PROFILE、FORESHADOWING 已由创作工具在写作过程中自动保存，无需在此提取。\n\n");
         sb.append("# 规则\n");
         sb.append("- 每条事实必须是独立的、完整的原子陈述\n");
         sb.append("- 只提取有新信息价值的内容，不要提取泛泛而谈的对话\n");
-        sb.append("- 若无可提取内容，返回空数组\n");
-        sb.append("- 对于 WORLD_SETTING / CHARACTER_PROFILE / FORESHADOWING，关注具体的名称、地点、事件\n\n");
+        sb.append("- 若无可提取内容，返回空数组\n\n");
         sb.append("# 对话内容\n");
         sb.append("用户：").append(userInput != null ? userInput : "").append("\n");
         sb.append("助手：").append(finalOutput != null ? finalOutput : "").append("\n\n");

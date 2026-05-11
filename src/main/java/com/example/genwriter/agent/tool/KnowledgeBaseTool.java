@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * 知识库检索 Tool
@@ -17,7 +18,37 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class KnowledgeBaseTool {
+public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSearchInput, String> {
+
+    // -------------------------------------------------------------------------
+    // Function calling 输入参数
+    // -------------------------------------------------------------------------
+
+    public record KnowledgeSearchInput(String query, String kbId, Integer topK) {
+        public KnowledgeSearchInput {
+            if (topK == null || topK < 1) topK = 5;
+            if (topK > 20) topK = 20;
+        }
+    }
+
+    @Override
+    public String apply(KnowledgeSearchInput input) {
+        if (input.kbId() == null || input.kbId().isBlank()) {
+            return "{\"error\": \"知识库ID不能为空，请确认是否有可用的知识库\"}";
+        }
+        if (input.query() == null || input.query().isBlank()) {
+            return "{\"error\": \"检索关键词不能为空，请提供具体的检索关键词\"}";
+        }
+
+        log.info("[KnowledgeBaseTool] 检索知识库: kbId={}, query={}, topK={}", input.kbId(), input.query(), input.topK());
+
+        try {
+            return searchKnowledgeBase(input.query(), input.kbId(), input.topK());
+        } catch (Exception e) {
+            log.error("[KnowledgeBaseTool] 知识库检索失败: kbId={}, query={}", input.kbId(), input.query(), e);
+            return "{\"error\": \"知识库检索失败: " + escapeJson(e.getMessage()) + "\"}";
+        }
+    }
 
     private final RAGPipelineService ragPipelineService;
     private final ObjectMapper objectMapper;
@@ -70,7 +101,7 @@ public class KnowledgeBaseTool {
      * 供 Spring AI function calling 调用的统一入口
      */
     public String search(KnowledgeSearchInput input) {
-        return searchKnowledgeBase(input.query(), input.kbId(), input.topK());
+        return apply(input);
     }
 
     private SearchResultItem toResultItem(KnowledgeChunkDTO chunk) {

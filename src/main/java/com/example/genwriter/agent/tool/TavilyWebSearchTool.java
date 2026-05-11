@@ -1,6 +1,10 @@
 package com.example.genwriter.agent.tool;
 
+import com.example.genwriter.config.ResearcherProperties;
 import com.example.genwriter.config.WebSearchProperties;
+import com.example.genwriter.agent.tool.SessionContextHolder;
+import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.service.SseService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Tavily 网页搜索工具实现
@@ -24,15 +29,28 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class TavilyWebSearchTool implements WebSearchTool {
+public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSearchTool.WebSearchInput, String> {
 
     private static final String TAVILY_API_URL = "https://api.tavily.com/search";
 
     private final WebSearchProperties webSearchProperties;
     private final RestTemplateBuilder restTemplateBuilder;
     private final ObjectMapper objectMapper;
+    private final ResearcherProperties properties;
+    private final SseService sseService;
 
     private RestTemplate restTemplate;
+
+    // -------------------------------------------------------------------------
+    // Function calling 输入参数
+    // -------------------------------------------------------------------------
+
+    public record WebSearchInput(String query, Integer topK) {
+        public WebSearchInput {
+            if (topK == null || topK < 1) topK = 5;
+            if (topK > 10) topK = 10;
+        }
+    }
 
     @PostConstruct
     void init() {
@@ -40,6 +58,31 @@ public class TavilyWebSearchTool implements WebSearchTool {
                 .setConnectTimeout(Duration.ofSeconds(webSearchProperties.getTimeoutSeconds()))
                 .setReadTimeout(Duration.ofSeconds(webSearchProperties.getTimeoutSeconds()))
                 .build();
+    }
+
+    // -------------------------------------------------------------------------
+    // Function calling 接口
+    // -------------------------------------------------------------------------
+
+    @Override
+    public String apply(WebSearchInput input) {
+        if (input.query() == null || input.query().isBlank()) {
+            return "{\"error\": \"搜索关键词不能为空，请提供具体的搜索关键词\"}";
+        }
+
+        log.info("[WebSearchTool] 执行搜索: query={}, topK={}", input.query(), input.topK());
+        publishSearchStatus(input.query(), "executing");
+
+        try {
+            int effectiveTopK = Math.min(input.topK(), properties.getMaxSearchResultsPerQuery());
+            List<WebSearchResult> results = search(input.query(), effectiveTopK);
+            publishSearchStatus(input.query(), "completed");
+            return formatResults(results);
+        } catch (Exception e) {
+            log.error("[WebSearchTool] 搜索失败: query={}", input.query(), e);
+            publishSearchStatus(input.query(), "failed");
+            return "{\"error\": \"搜索失败: " + escapeJson(e.getMessage()) + "\"}";
+        }
     }
 
     @Override
@@ -82,6 +125,51 @@ public class TavilyWebSearchTool implements WebSearchTool {
             return Collections.emptyList();
         }
     }
+
+    // -------------------------------------------------------------------------
+    // 结果格式化与辅助方法
+    // -------------------------------------------------------------------------
+
+    private String formatResults(List<WebSearchResult> results) {
+        if (results == null || results.isEmpty()) {
+            return "{\"results\": [], \"message\": \"未找到相关结果\"}";
+        }
+        try {
+            var items = results.stream()
+                    .map(r -> new SearchResultItem(r.title(), r.url(), r.snippet(), r.source()))
+                    .toList();
+            return objectMapper.writeValueAsString(new SearchResult(items, items.size()));
+        } catch (Exception e) {
+            log.error("[WebSearchTool] 格式化搜索结果失败", e);
+            return "{\"results\": [], \"error\": \"格式化失败\"}";
+        }
+    }
+
+    private void publishSearchStatus(String query, String status) {
+        String sessionId = SessionContextHolder.get();
+        if (sessionId == null || sessionId.isBlank()) return;
+        try {
+            sseService.publish(sessionId, SseMessage.builder()
+                    .type(SseMessage.Type.AI_EXECUTING)
+                    .payload(SseMessage.Payload.builder()
+                            .statusText("【搜索】" + status + ": " + query)
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.debug("SSE 搜索状态推送失败: {}", e.getMessage());
+        }
+    }
+
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
+    }
+
+    private record SearchResultItem(String title, String url, String snippet, String source) {}
+    private record SearchResult(List<SearchResultItem> results, int total) {}
 
     private List<WebSearchResult> parseResults(String responseBody) {
         List<WebSearchResult> results = new ArrayList<>();

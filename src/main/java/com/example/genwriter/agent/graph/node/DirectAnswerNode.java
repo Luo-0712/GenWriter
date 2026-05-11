@@ -6,10 +6,7 @@ import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
 import com.example.genwriter.agent.tool.KnowledgeBaseTool;
-import com.example.genwriter.agent.tool.KnowledgeBaseToolCallback;
-import com.example.genwriter.agent.tool.WebSearchTool;
-import com.example.genwriter.agent.tool.WebSearchToolCallback;
-import com.example.genwriter.config.ResearcherProperties;
+import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
@@ -33,28 +30,27 @@ public class DirectAnswerNode implements NodeAction {
 
     private final ChatClientFactory chatClientFactory;
     private final DirectAnswerSkill skill;
-    private final WebSearchTool webSearchTool;
+    private final TavilyWebSearchTool webSearchTool;
     private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final SseService sseService;
-    private final ResearcherProperties properties;
 
     private ChatClient chatClient;
 
     @PostConstruct
     void initChatClient() {
         ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<WebSearchToolCallback.WebSearchInput, String>)
-                        new WebSearchToolCallback(webSearchTool, properties, sseService))
+                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                        webSearchTool)
                 .description("Search the web for information.")
-                .inputType(WebSearchToolCallback.WebSearchInput.class)
+                .inputType(TavilyWebSearchTool.WebSearchInput.class)
                 .build();
 
         ToolCallback kbSearchCallback = FunctionToolCallback
-                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseToolCallback.KnowledgeSearchInput, String>)
-                        new KnowledgeBaseToolCallback(knowledgeBaseTool))
+                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
+                        knowledgeBaseTool)
                 .description("Search the knowledge base for relevant content.")
-                .inputType(KnowledgeBaseToolCallback.KnowledgeSearchInput.class)
+                .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
                 .build();
 
         this.chatClient = chatClientFactory.create(TEMPERATURE)

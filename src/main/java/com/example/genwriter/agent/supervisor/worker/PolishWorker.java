@@ -9,7 +9,7 @@ import com.example.genwriter.agent.skill.PolishSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.UpdateWritingSkillToolCallback;
+import com.example.genwriter.agent.tool.UpdateWritingSkillTool;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
@@ -43,17 +43,17 @@ public class PolishWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
-    private final UpdateWritingSkillToolCallback updateWritingSkillToolCallback;
+    private final UpdateWritingSkillTool updateWritingSkillToolCallback;
 
     private ChatClient chatClient;
 
     @PostConstruct
     void init() {
         ToolCallback skillToolCallback = FunctionToolCallback
-                .builder("update_writing_skill", (java.util.function.Function<UpdateWritingSkillToolCallback.UpdateWritingSkillInput, String>)
+                .builder("update_writing_skill", (java.util.function.Function<UpdateWritingSkillTool.UpdateWritingSkillInput, String>)
                         updateWritingSkillToolCallback)
                 .description("Save a reusable writing skill or technique to long-term memory. Use this tool when the user has taught or demonstrated a writing style, technique, or rule that should be remembered and applied in future writing tasks.")
-                .inputType(UpdateWritingSkillToolCallback.UpdateWritingSkillInput.class)
+                .inputType(UpdateWritingSkillTool.UpdateWritingSkillInput.class)
                 .build();
 
         this.chatClient = chatClientFactory.create(TEMPERATURE)

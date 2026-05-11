@@ -12,7 +12,7 @@ import java.util.function.Function;
 
 @Slf4j
 @Component
-public class UpdateWritingSkillToolCallback implements Function<UpdateWritingSkillToolCallback.UpdateWritingSkillInput, String> {
+public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.UpdateWritingSkillInput, String> {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -31,8 +31,8 @@ public class UpdateWritingSkillToolCallback implements Function<UpdateWritingSki
     ) {
     }
 
-    public UpdateWritingSkillToolCallback(LongTermMemoryService memoryService,
-                                          TaskSessionMapper taskSessionMapper) {
+    public UpdateWritingSkillTool(LongTermMemoryService memoryService,
+                                  TaskSessionMapper taskSessionMapper) {
         this.memoryService = memoryService;
         this.taskSessionMapper = taskSessionMapper;
     }
