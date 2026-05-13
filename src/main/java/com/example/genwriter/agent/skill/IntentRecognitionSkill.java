@@ -19,7 +19,7 @@ public class IntentRecognitionSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getIntentRecognitionSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getIntentRecognitionSystemPrompt(), "intentRecognitionSystemPrompt");
     }
 
     @Override

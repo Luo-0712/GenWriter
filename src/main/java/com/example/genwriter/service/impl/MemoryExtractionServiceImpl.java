@@ -100,7 +100,7 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
 
     private String buildExtractionPrompt(String userInput, String finalOutput,
                                          String projectId) {
-        String template = llmConfig.getPrompts().getMemoryExtractionPrompt();
+        String template = llmConfig.resolvePrompt(llmConfig.getPrompts().getMemoryExtractionPrompt(), "memoryExtractionPrompt");
 
         if (template != null && !template.isBlank()) {
             return template

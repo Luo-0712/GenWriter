@@ -4,17 +4,15 @@ import com.example.genwriter.mapper.TaskSessionMapper;
 import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.function.Function;
 
 @Slf4j
 @Component
 public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.UpdateWritingSkillInput, String> {
-
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final LongTermMemoryService memoryService;
     private final TaskSessionMapper taskSessionMapper;
@@ -41,13 +39,13 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
     public String apply(UpdateWritingSkillInput input) {
         if (input.skillName() == null || input.skillName().isBlank()
                 || input.rule() == null || input.rule().isBlank()) {
-            return "{\"error\": \"技巧名称和规则不能为空\"}";
+            return ToolResult.fail("技巧名称和规则不能为空").toJson();
         }
 
         String sessionId = SessionContextHolder.get();
         if (sessionId == null || sessionId.isBlank()) {
             log.warn("[UpdateWritingSkillTool] 无法获取 sessionId，跳过存储");
-            return "{\"error\": \"无法获取当前会话ID\"}";
+            return ToolResult.fail("无法获取当前会话ID").toJson();
         }
 
         log.info("[UpdateWritingSkillTool] 保存写作技巧: skillName={}, sessionId={}", input.skillName(), sessionId);
@@ -61,10 +59,11 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
 
             memoryService.storeMemory(content, MemoryType.WRITING_TECHNIQUE, scope, projectId, sessionId, importance);
 
-            return OBJECT_MAPPER.writeValueAsString(new ToolResult(true, "写作技巧已保存", input.skillName()));
+            return ToolResult.ok("写作技巧已保存", null,
+                    Map.of("skillName", input.skillName())).toJson();
         } catch (Exception e) {
             log.error("[UpdateWritingSkillTool] 保存失败: skillName={}", input.skillName(), e);
-            return "{\"error\": \"保存失败: " + escapeJson(e.getMessage()) + "\"}";
+            return ToolResult.fail("保存失败: " + e.getMessage()).toJson();
         }
     }
 
@@ -108,14 +107,4 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
         }
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r");
-    }
-
-    private record ToolResult(boolean success, String message, String skillName) {
-    }
 }

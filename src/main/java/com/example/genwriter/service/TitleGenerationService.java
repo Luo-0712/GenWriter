@@ -38,7 +38,7 @@ public class TitleGenerationService {
                 return;
             }
 
-            String prompt = llmConfig.getPrompts().getTitleSummaryPrompt()
+            String prompt = llmConfig.resolvePrompt(llmConfig.getPrompts().getTitleSummaryPrompt(), "titleSummaryPrompt")
                     .replace("{userMessage}", userMessage);
 
             String generatedTitle = chatClient.prompt()

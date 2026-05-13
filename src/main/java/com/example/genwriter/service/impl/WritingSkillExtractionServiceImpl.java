@@ -72,7 +72,7 @@ public class WritingSkillExtractionServiceImpl implements WritingSkillExtraction
     }
 
     private String buildExtractionPrompt(String userInput, String assistantOutput, String writingType) {
-        String template = llmConfig.getPrompts().getWritingSkillExtractionPrompt();
+        String template = llmConfig.resolvePrompt(llmConfig.getPrompts().getWritingSkillExtractionPrompt(), "writingSkillExtractionPrompt");
 
         if (template != null && !template.isBlank()) {
             return template

@@ -99,7 +99,7 @@ public class WritingSkillLearningServiceImpl implements WritingSkillLearningServ
     }
 
     private String buildLearningPrompt(String articleContent, String description) {
-        String template = llmConfig.getPrompts().getArticleSkillLearningPrompt();
+        String template = llmConfig.resolvePrompt(llmConfig.getPrompts().getArticleSkillLearningPrompt(), "articleSkillLearningPrompt");
 
         if (template != null && !template.isBlank()) {
             return template

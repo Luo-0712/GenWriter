@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+
 /**
  * Tavily 网页搜索工具实现
  * 调用 Tavily Search API (https://api.tavily.com/search)
@@ -67,7 +68,7 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
     @Override
     public String apply(WebSearchInput input) {
         if (input.query() == null || input.query().isBlank()) {
-            return "{\"error\": \"搜索关键词不能为空，请提供具体的搜索关键词\"}";
+            return ToolResult.fail("搜索关键词不能为空，请提供具体的搜索关键词").toJson();
         }
 
         log.info("[WebSearchTool] 执行搜索: query={}, topK={}", input.query(), input.topK());
@@ -81,7 +82,7 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
         } catch (Exception e) {
             log.error("[WebSearchTool] 搜索失败: query={}", input.query(), e);
             publishSearchStatus(input.query(), "failed");
-            return "{\"error\": \"搜索失败: " + escapeJson(e.getMessage()) + "\"}";
+            return ToolResult.fail("搜索失败: " + e.getMessage()).toJson();
         }
     }
 
@@ -132,17 +133,19 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
 
     private String formatResults(List<WebSearchResult> results) {
         if (results == null || results.isEmpty()) {
-            return "{\"results\": [], \"message\": \"未找到相关结果\"}";
+            return ToolResult.ok("未找到相关结果").toJson();
         }
-        try {
-            var items = results.stream()
-                    .map(r -> new SearchResultItem(r.title(), r.url(), r.snippet(), r.source()))
-                    .toList();
-            return objectMapper.writeValueAsString(new SearchResult(items, items.size()));
-        } catch (Exception e) {
-            log.error("[WebSearchTool] 格式化搜索结果失败", e);
-            return "{\"results\": [], \"error\": \"格式化失败\"}";
-        }
+        List<String> sources = results.stream()
+                .map(WebSearchResult::url)
+                .filter(url -> url != null && !url.isBlank())
+                .toList();
+
+        String content = results.stream()
+                .map(r -> "- " + r.title() + ": " + r.snippet())
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse("");
+
+        return ToolResult.ok(content, sources, Map.of("total", results.size())).toJson();
     }
 
     private void publishSearchStatus(String query, String status) {
@@ -159,17 +162,6 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
             log.debug("SSE 搜索状态推送失败: {}", e.getMessage());
         }
     }
-
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r");
-    }
-
-    private record SearchResultItem(String title, String url, String snippet, String source) {}
-    private record SearchResult(List<SearchResultItem> results, int total) {}
 
     private List<WebSearchResult> parseResults(String responseBody) {
         List<WebSearchResult> results = new ArrayList<>();

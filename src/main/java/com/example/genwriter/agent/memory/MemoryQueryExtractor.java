@@ -68,7 +68,7 @@ public class MemoryQueryExtractor {
     }
 
     private String buildPrompt(String articleContent) {
-        String template = llmConfig.getPrompts().getArticleDetailExtractionPrompt();
+        String template = llmConfig.resolvePrompt(llmConfig.getPrompts().getArticleDetailExtractionPrompt(), "articleDetailExtractionPrompt");
         if (template != null && !template.isBlank()) {
             return template.replace("{articleContent}", articleContent);
         }

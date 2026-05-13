@@ -1,0 +1,14 @@
+## Supervisor 与标题生成提示词
+
+supervisorSystemPrompt: ""
+
+titleSummaryPrompt: |
+  请根据用户的对话内容，生成一个简短的对话标题。
+
+  要求：
+  1. 标题长度不超过20个字符
+  2. 准确概括对话的核心主题
+  3. 不要使用引号、书名号等标点
+  4. 只输出标题文本，不要输出任何其他内容
+
+  用户消息：{userMessage}

@@ -19,7 +19,7 @@ public class ReviewSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getReviewSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getReviewSystemPrompt(), "reviewSystemPrompt");
     }
 
     @Override

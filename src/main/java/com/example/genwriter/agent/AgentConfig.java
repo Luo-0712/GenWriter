@@ -33,7 +33,7 @@ public class AgentConfig {
     @Bean
     public WritingAgent writingAgent() {
         WritingAgent agent = new WritingAgent(
-                chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getWritingSystemPrompt()),
+                chatClientFactory.createWithSystemPrompt(llmConfig.resolvePrompt(llmConfig.getPrompts().getWritingSystemPrompt(), "writingSystemPrompt")),
                 llmConfig,
                 chatMemory
         );
@@ -57,7 +57,7 @@ public class AgentConfig {
     @Bean
     public PolishAgent polishAgent() {
         PolishAgent agent = new PolishAgent(
-                chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getDocumentPolishPrompt()),
+                chatClientFactory.createWithSystemPrompt(llmConfig.resolvePrompt(llmConfig.getPrompts().getDocumentPolishPrompt(), "documentPolishPrompt")),
                 llmConfig,
                 chatMemory
         );
@@ -69,7 +69,7 @@ public class AgentConfig {
     @Bean
     public KnowledgeAgent knowledgeAgent() {
         KnowledgeAgent agent = new KnowledgeAgent(
-                chatClientFactory.createWithSystemPrompt(llmConfig.getPrompts().getKnowledgeQaPrompt()),
+                chatClientFactory.createWithSystemPrompt(llmConfig.resolvePrompt(llmConfig.getPrompts().getKnowledgeQaPrompt(), "knowledgeQaPrompt")),
                 llmConfig,
                 chatMemory,
                 knowledgeBaseTool

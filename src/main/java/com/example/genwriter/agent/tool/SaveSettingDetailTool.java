@@ -4,10 +4,10 @@ import com.example.genwriter.mapper.TaskSessionMapper;
 import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -15,7 +15,6 @@ import java.util.function.Function;
 @Component
 public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.SaveSettingDetailInput, String> {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final Set<String> VALID_TYPES = Set.of(
             "WORLD_SETTING", "CHARACTER_PROFILE", "FORESHADOWING"
     );
@@ -40,19 +39,19 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
     @Override
     public String apply(SaveSettingDetailInput input) {
         if (input.memoryType() == null || !VALID_TYPES.contains(input.memoryType())) {
-            return "{\"error\": \"memoryType 必须是 WORLD_SETTING、CHARACTER_PROFILE 或 FORESHADOWING 之一\"}";
+            return ToolResult.fail("memoryType 必须是 WORLD_SETTING、CHARACTER_PROFILE 或 FORESHADOWING 之一").toJson();
         }
         if (input.name() == null || input.name().isBlank()) {
-            return "{\"error\": \"名称不能为空\"}";
+            return ToolResult.fail("名称不能为空").toJson();
         }
         if (input.content() == null || input.content().isBlank()) {
-            return "{\"error\": \"内容不能为空\"}";
+            return ToolResult.fail("内容不能为空").toJson();
         }
 
         String sessionId = SessionContextHolder.get();
         if (sessionId == null || sessionId.isBlank()) {
             log.warn("[SaveSettingDetailTool] 无法获取 sessionId，跳过存储");
-            return "{\"error\": \"无法获取当前会话ID\"}";
+            return ToolResult.fail("无法获取当前会话ID").toJson();
         }
 
         log.info("[SaveSettingDetailTool] 保存设定细节: type={}, name={}, sessionId={}",
@@ -68,12 +67,12 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
             memoryService.storeMemory(content, MemoryType.valueOf(input.memoryType()),
                     scope, projectId, sessionId, importance);
 
-            return OBJECT_MAPPER.writeValueAsString(
-                    new ToolResult(true, "设定细节已保存", input.memoryType(), input.name()));
+            return ToolResult.ok("设定细节已保存", null,
+                    Map.of("memoryType", input.memoryType(), "name", input.name())).toJson();
         } catch (Exception e) {
             log.error("[SaveSettingDetailTool] 保存失败: type={}, name={}",
                     input.memoryType(), input.name(), e);
-            return "{\"error\": \"保存失败: " + escapeJson(e.getMessage()) + "\"}";
+            return ToolResult.fail("保存失败: " + e.getMessage()).toJson();
         }
     }
 
@@ -95,14 +94,4 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
         }
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r");
-    }
-
-    private record ToolResult(boolean success, String message, String memoryType, String name) {
-    }
 }

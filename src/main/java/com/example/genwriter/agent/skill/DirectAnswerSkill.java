@@ -16,7 +16,7 @@ public class DirectAnswerSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getDirectAnswerSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getDirectAnswerSystemPrompt(), "directAnswerSystemPrompt");
     }
 
     @Override

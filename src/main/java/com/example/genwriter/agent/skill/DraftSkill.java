@@ -19,7 +19,7 @@ public class DraftSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getDraftSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getDraftSystemPrompt(), "draftSystemPrompt");
     }
 
     @Override

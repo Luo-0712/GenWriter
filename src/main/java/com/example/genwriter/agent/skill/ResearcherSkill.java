@@ -17,7 +17,7 @@ public class ResearcherSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getResearcherSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getResearcherSystemPrompt(), "researcherSystemPrompt");
     }
 
     @Override

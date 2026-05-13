@@ -19,7 +19,7 @@ public class PolishSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getPolishSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getPolishSystemPrompt(), "polishSystemPrompt");
     }
 
     @Override

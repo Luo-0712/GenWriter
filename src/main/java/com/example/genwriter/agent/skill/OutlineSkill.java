@@ -19,7 +19,7 @@ public class OutlineSkill implements AgentSkill {
 
     @Override
     public String systemPrompt() {
-        return llmConfig.getPrompts().getOutlineSystemPrompt();
+        return llmConfig.resolvePrompt(llmConfig.getPrompts().getOutlineSystemPrompt(), "outlineSystemPrompt");
     }
 
     @Override

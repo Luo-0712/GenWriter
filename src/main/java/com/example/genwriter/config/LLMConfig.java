@@ -1,6 +1,7 @@
 package com.example.genwriter.config;
 
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
@@ -57,6 +58,36 @@ public class LLMConfig {
      * 已配置的模型供应商列表
      */
     private List<ProviderConfig> providers = new ArrayList<>();
+
+    /**
+     * 提示词管理器（可选注入，用于外部 YAML 提示词加载）
+     */
+    private PromptManager promptManager;
+
+    @Autowired(required = false)
+    public void setPromptManager(PromptManager promptManager) {
+        this.promptManager = promptManager;
+    }
+
+    /**
+     * 按优先级链解析提示词：application.yml > 外部 YAML > Java 内联默认值
+     *
+     * @param currentValue 当前值（来自 @ConfigurationProperties 绑定，可能为空字符串）
+     * @param yamlKey      外部 YAML 文件中的 key
+     * @return 解析后的提示词
+     */
+    public String resolvePrompt(String currentValue, String yamlKey) {
+        if (currentValue != null && !currentValue.isBlank()) {
+            return currentValue;
+        }
+        if (promptManager != null) {
+            String fromYaml = promptManager.getPrompt(yamlKey);
+            if (fromYaml != null && !fromYaml.isBlank()) {
+                return fromYaml;
+            }
+        }
+        return currentValue;
+    }
 
     /**
      * 单个供应商配置

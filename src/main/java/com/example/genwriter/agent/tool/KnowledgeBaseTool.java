@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -34,10 +35,10 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
     @Override
     public String apply(KnowledgeSearchInput input) {
         if (input.kbId() == null || input.kbId().isBlank()) {
-            return "{\"error\": \"知识库ID不能为空，请确认是否有可用的知识库\"}";
+            return ToolResult.fail("知识库ID不能为空，请确认是否有可用的知识库").toJson();
         }
         if (input.query() == null || input.query().isBlank()) {
-            return "{\"error\": \"检索关键词不能为空，请提供具体的检索关键词\"}";
+            return ToolResult.fail("检索关键词不能为空，请提供具体的检索关键词").toJson();
         }
 
         log.info("[KnowledgeBaseTool] 检索知识库: kbId={}, query={}, topK={}", input.kbId(), input.query(), input.topK());
@@ -46,7 +47,7 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
             return searchKnowledgeBase(input.query(), input.kbId(), input.topK());
         } catch (Exception e) {
             log.error("[KnowledgeBaseTool] 知识库检索失败: kbId={}, query={}", input.kbId(), input.query(), e);
-            return "{\"error\": \"知识库检索失败: " + escapeJson(e.getMessage()) + "\"}";
+            return ToolResult.fail("知识库检索失败: " + e.getMessage()).toJson();
         }
     }
 
@@ -65,28 +66,33 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
         log.info("[KnowledgeBaseTool] 检索知识库: kbId={}, query={}, topK={}", kbId, query, topK);
 
         if (query == null || query.isBlank()) {
-            return "{\"error\":\"查询语句不能为空\"}";
+            return ToolResult.fail("查询语句不能为空").toJson();
         }
         if (kbId == null || kbId.isBlank()) {
-            return "{\"error\":\"知识库ID不能为空\"}";
+            return ToolResult.fail("知识库ID不能为空").toJson();
         }
 
         try {
             List<KnowledgeChunkDTO> chunks = ragPipelineService.searchAndRetrieve(query, kbId, topK);
 
             if (chunks == null || chunks.isEmpty()) {
-                return "{\"results\":[],\"message\":\"未找到相关知识片段\"}";
+                return ToolResult.ok("未找到相关知识片段").toJson();
             }
 
-            List<SearchResultItem> items = chunks.stream()
-                    .map(this::toResultItem)
+            List<String> sources = chunks.stream()
+                    .map(c -> c.getMetadata() != null ? c.getMetadata() : "")
+                    .filter(s -> !s.isBlank())
                     .toList();
 
-            SearchResult result = new SearchResult(items, "success", items.size());
-            return objectMapper.writeValueAsString(result);
+            String content = chunks.stream()
+                    .map(KnowledgeChunkDTO::getContent)
+                    .reduce((a, b) -> a + "\n\n" + b)
+                    .orElse("");
+
+            return ToolResult.ok(content, sources, Map.of("total", chunks.size())).toJson();
         } catch (Exception e) {
             log.error("[KnowledgeBaseTool] 检索失败: kbId={}, query={}", kbId, query, e);
-            return "{\"error\":\"检索失败: " + escapeJson(e.getMessage()) + "\"}";
+            return ToolResult.fail("检索失败: " + e.getMessage()).toJson();
         }
     }
 
@@ -104,27 +110,4 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
         return apply(input);
     }
 
-    private SearchResultItem toResultItem(KnowledgeChunkDTO chunk) {
-        return new SearchResultItem(
-                chunk.getContent(),
-                chunk.getMetadata(),
-                chunk.getDistance()
-        );
-    }
-
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r");
-    }
-
-    // -------------------------------------------------------------------------
-    // 内部 DTO（仅用于序列化输出）
-    // -------------------------------------------------------------------------
-
-    private record SearchResultItem(String content, String metadata, Double relevanceScore) {}
-
-    private record SearchResult(List<SearchResultItem> results, String status, int total) {}
 }
