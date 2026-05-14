@@ -46,7 +46,7 @@ public class MessageController {
     @PostMapping("/{sessionId}/chat")
     public ApiResponse<Void> chat(
             @PathVariable String sessionId,
-            @RequestParam(defaultValue = "CREATE") ChatEvent.WritingType type,
+            @RequestParam(defaultValue = "AUTO") ChatEvent.WritingType type,
             @RequestBody(required = false) String userInput) {
         log.debug("聊天请求：sessionId={}, type={}", sessionId, type);
         // 发布聊天事件，由 @EventListener 异步处理并通过 SSE 推送结果

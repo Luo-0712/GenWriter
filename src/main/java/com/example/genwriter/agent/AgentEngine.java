@@ -75,7 +75,7 @@ public class AgentEngine {
      */
     private BaseAgent getAgentByType(ChatEvent.WritingType type) {
         return switch (type) {
-            case CREATE, CONTINUE -> writingAgent;
+            case AUTO, CREATE, CONTINUE -> writingAgent;
             case POLISH -> polishAgent;
             case KNOWLEDGE_QA -> knowledgeAgent;
             default -> null;
@@ -84,14 +84,14 @@ public class AgentEngine {
 
     private SseMessage.Type resolveStatusType(ChatEvent.WritingType type) {
         return switch (type) {
-            case CREATE, CONTINUE -> SseMessage.Type.AI_PLANNING;
+            case AUTO, CREATE, CONTINUE -> SseMessage.Type.AI_PLANNING;
             case POLISH, KNOWLEDGE_QA -> SseMessage.Type.AI_EXECUTING;
         };
     }
 
     private String resolveStatusText(ChatEvent.WritingType type) {
         return switch (type) {
-            case CREATE, CONTINUE -> "正在生成内容...";
+            case AUTO, CREATE, CONTINUE -> "正在生成内容...";
             case POLISH -> "正在润色文本...";
             case KNOWLEDGE_QA -> "正在检索知识库...";
         };

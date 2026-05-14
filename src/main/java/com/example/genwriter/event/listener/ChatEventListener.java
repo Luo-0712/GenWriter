@@ -67,7 +67,7 @@ public class ChatEventListener {
                     event.getDocumentId(),
                     event.getUserInput(),
                     event.getKbId(),
-                    event.getType() != null ? event.getType().name() : "CREATE"
+                    event.getType() != null ? event.getType().name() : "AUTO"
             );
             log.info("StateGraph 处理完成：sessionId={}", event.getSessionId());
         } catch (Exception e) {

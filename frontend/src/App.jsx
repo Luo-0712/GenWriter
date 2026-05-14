@@ -188,7 +188,7 @@ function App() {
   }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
-    async (content) => {
+    async (content, mode = 'AUTO') => {
       if (isLoading) return;
 
       let project = activeProject;
@@ -260,7 +260,7 @@ function App() {
 
       const doChat = async () => {
         try {
-          await messagesApi.chat(sessionId, content);
+          await messagesApi.chat(sessionId, content, mode);
         } catch (e) {
           setIsLoading(false);
           setError('触发聊天失败: ' + e.message);

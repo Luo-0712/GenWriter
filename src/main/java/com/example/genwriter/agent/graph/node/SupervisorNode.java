@@ -407,10 +407,26 @@ public class SupervisorNode implements NodeAction {
         sb.append("## 当前状态\n");
         sb.append("- userInput: ").append(truncate((String) state.getOrDefault("userInput", ""), 500)).append("\n");
         sb.append("- kbId: ").append(state.getOrDefault("kbId", "")).append("\n");
-        sb.append("- writingType: ").append(state.getOrDefault("writingType", "CREATE")).append("\n");
+
+        String writingType = (String) state.getOrDefault("writingType", "AUTO");
+        sb.append("- writingType: ").append(writingType).append("\n");
 
         appendStateSummary(sb, state);
         appendMemoryContext(sb, state);
+
+        // 用户显式指定了模式，作为规划硬约束
+        if (!"AUTO".equals(writingType)) {
+            String constraint = switch (writingType) {
+                case "CREATE" -> "用户指定了「新建文档」模式，计划必须包含 intent_recognition → outline → draft → polish → review 流程。";
+                case "CONTINUE" -> "用户指定了「续写」模式，计划必须包含 intent_recognition → draft（续写）→ polish → review 流程。";
+                case "POLISH" -> "用户指定了「润色优化」模式，计划必须包含 intent_recognition → polish → review 流程。";
+                case "KNOWLEDGE_QA" -> "用户指定了「知识问答」模式，计划应包含 intent_recognition → direct_answer 流程。";
+                default -> "";
+            };
+            if (!constraint.isEmpty()) {
+                sb.append("\n## 用户指定模式约束\n").append(constraint).append("\n");
+            }
+        }
 
         sb.append("\n请根据当前状态制定完整的执行计划，或直接 FINISH。");
         return sb.toString();

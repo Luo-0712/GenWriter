@@ -140,7 +140,7 @@ public class StateGraphRunner {
                     "documentId", documentId != null ? documentId : "",
                     "userInput", userInput,
                     "kbId", kbId != null ? kbId : "",
-                    "writingType", writingType != null ? writingType : "CREATE",
+                    "writingType", writingType != null ? writingType : "AUTO",
                     "context", context
             );
 

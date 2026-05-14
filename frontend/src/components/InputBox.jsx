@@ -1,8 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import '../styles/global.css';
 
+const MODES = [
+  { value: 'AUTO', label: '自动识别', icon: '✦' },
+  { value: 'CREATE', label: '新建文档', icon: '✎' },
+  { value: 'CONTINUE', label: '续写', icon: '→' },
+  { value: 'POLISH', label: '润色优化', icon: '✧' },
+  { value: 'KNOWLEDGE_QA', label: '知识问答', icon: '?' },
+];
+
 const InputBox = ({ onSend, disabled, isLoading }) => {
   const [inputValue, setInputValue] = useState('');
+  const [mode, setMode] = useState('AUTO');
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -15,7 +24,7 @@ const InputBox = ({ onSend, disabled, isLoading }) => {
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
     if (trimmed && !isLoading && !disabled) {
-      onSend(trimmed);
+      onSend(trimmed, mode);
       setInputValue('');
     }
   };
@@ -50,6 +59,19 @@ const InputBox = ({ onSend, disabled, isLoading }) => {
             <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
           </svg>
         </button>
+      </div>
+      <div className="mode-selector">
+        {MODES.map((m) => (
+          <button
+            key={m.value}
+            className={`mode-pill${mode === m.value ? ' active' : ''}`}
+            onClick={() => setMode(m.value)}
+            type="button"
+          >
+            <span className="mode-pill-icon">{m.icon}</span>
+            {m.label}
+          </button>
+        ))}
       </div>
       <p className="input-hint">按 Enter 发送，Shift + Enter 换行</p>
     </div>

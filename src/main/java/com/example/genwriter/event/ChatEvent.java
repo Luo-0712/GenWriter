@@ -48,6 +48,11 @@ public class ChatEvent {
      */
     public enum WritingType {
         /**
+         * 自动识别（默认）
+         */
+        AUTO,
+
+        /**
          * 新建文档
          */
         CREATE,

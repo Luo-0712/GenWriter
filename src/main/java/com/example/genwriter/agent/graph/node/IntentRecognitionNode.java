@@ -42,6 +42,20 @@ public class IntentRecognitionNode implements NodeAction {
     public Map<String, Object> apply(OverAllState state) throws Exception {
         String sessionId = state.value("sessionId", String.class).orElse("");
         String userInput = state.value("userInput", String.class).orElse("");
+        String writingType = state.value("writingType", String.class).orElse("AUTO");
+
+        // 用户显式指定了模式，跳过 LLM 推断
+        if (!"AUTO".equals(writingType)) {
+            String intent = mapWritingTypeToIntent(writingType);
+            log.info("用户指定模式: writingType={}, 映射为 intent={}", writingType, intent);
+            publishStatusWithData(sessionId, "【意图识别】用户指定模式: " + writingType,
+                    Map.of("意图", intent, "写作类型", writingType, "分析", "用户显式指定"));
+            return Map.of(
+                    "intent", intent,
+                    "writingType", writingType,
+                    "currentNode", "IntentRecognitionNode"
+            );
+        }
 
         log.debug("意图识别: userInput={}", userInput);
         publishStatus(sessionId, "【意图识别】正在分析用户需求...");
@@ -75,6 +89,18 @@ public class IntentRecognitionNode implements NodeAction {
                 "writingType", result.writingType(),
                 "currentNode", "IntentRecognitionNode"
         );
+    }
+
+    /**
+     * 将用户选择的写作模式映射为意图类型
+     */
+    private String mapWritingTypeToIntent(String writingType) {
+        return switch (writingType) {
+            case "CREATE", "CONTINUE" -> "WRITING_TASK";
+            case "POLISH" -> "POLISH_TASK";
+            case "KNOWLEDGE_QA" -> "KNOWLEDGE_QA";
+            default -> "UNKNOWN";
+        };
     }
 
     private IntentResult parseIntent(String response) throws Exception {

@@ -5,7 +5,7 @@ export const getMessagesBySessionId = (sessionId) =>
 
 export const createMessage = (data) => client.post('/messages', data);
 
-export const chat = (sessionId, userInput, type = 'CREATE') =>
+export const chat = (sessionId, userInput, type = 'AUTO') =>
   client.post(`/messages/${sessionId}/chat?type=${type}`, userInput, {
     headers: { 'Content-Type': 'text/plain' },
   });
