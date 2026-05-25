@@ -48,8 +48,7 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
 
     public record WebSearchInput(String query, Integer topK) {
         public WebSearchInput {
-            if (topK == null || topK < 1) topK = 5;
-            if (topK > 10) topK = 10;
+            if (topK == null || topK < 1) topK = 10;
         }
     }
 

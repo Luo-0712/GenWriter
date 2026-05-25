@@ -5,6 +5,7 @@ import MemoryPanel from './components/MemoryPanel';
 import KnowledgeBasePanel from './components/KnowledgeBasePanel';
 import SettingsPanel from './components/SettingsPanel';
 import WritingSkillLearningPanel from './components/WritingSkillLearningPanel';
+import SkillPanel from './components/SkillPanel';
 import ExportDialog from './components/ExportDialog';
 import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
@@ -613,6 +614,8 @@ function App() {
             projectId={activeProject?.id}
             onBack={() => setView('chat')}
           />
+        ) : view === 'skills' ? (
+          <SkillPanel onBack={() => setView('chat')} />
         ) : view === 'settings' ? (
           <SettingsPanel />
         ) : null}

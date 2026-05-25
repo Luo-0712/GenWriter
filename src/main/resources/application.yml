@@ -172,7 +172,7 @@ genwriter:
     fallback-worker: direct_answer
   researcher:
     max-search-queries: 5
-    max-search-results-per-query: 5
+    max-search-results-per-query: 10
     enabled: true
   websearch:
     api-key: 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
@@ -198,6 +198,8 @@ genwriter:
       async: true
       max-skills-per-turn: 3
       temperature: 0.2
+  skills:
+    external-dir: ""
   prompts:
     writing-system-prompt: |
       你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。

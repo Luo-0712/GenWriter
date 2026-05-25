@@ -11,7 +11,7 @@ public class ResearcherProperties {
 
     private int maxSearchQueries = 5;
 
-    private int maxSearchResultsPerQuery = 5;
+    private int maxSearchResultsPerQuery = 10;
 
     private boolean enabled = true;
 }

@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.supervisor;
 
+import com.example.genwriter.agent.skill.SkillService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,7 @@ public class SupervisorSystemPromptProvider {
 
     private final WorkerRegistry workerRegistry;
     private final SupervisorModeProperties supervisorModeProperties;
+    private final SkillService skillService;
 
     public String buildSystemPrompt() {
         Map<String, String> workerDescriptions = workerRegistry.getWorkerDescriptions();
@@ -24,13 +26,22 @@ public class SupervisorSystemPromptProvider {
                     .append("\n");
         }
 
+        String skillsSummary = skillService.getEnabledSkillsSummary();
+        String skillsSection = skillsSummary.isBlank() ? "" : """
+                ## 可用 Skill（工作流与经验）
+                以下是已启用的 Skill 摘要。当任务匹配某个 Skill 时，使用 read_skill_detail 工具读取完整内容后再规划。
+                不匹配的 Skill 无需读取，避免浪费 Token。
+
+                %s
+                """.formatted(skillsSummary);
+
         return """
                 ## 角色
                 你是一个多智能体写作系统的监督者（Supervisor），负责根据用户需求制定完整的执行计划。
 
                 ## 可调度的 Worker
                 %s
-
+                %s
                 ## 决策协议
                 分析用户需求和当前状态，制定执行计划或决定结束。严格按以下 JSON 格式输出（不要包含其他内容）：
 
@@ -58,6 +69,6 @@ public class SupervisorSystemPromptProvider {
                 - 如果用户请求特殊或当前状态异常，可以灵活调整步骤
                 - 最多执行 %d 个步骤
                 - 不确定时尽早 FINISH 并说明原因
-                """.formatted(workersSection.toString(), supervisorModeProperties.getMaxIterations());
+                """.formatted(workersSection.toString(), skillsSection, supervisorModeProperties.getMaxIterations());
     }
 }

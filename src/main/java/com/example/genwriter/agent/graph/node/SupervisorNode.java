@@ -5,6 +5,7 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
 import com.example.genwriter.agent.supervisor.SupervisorDecision;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
@@ -23,6 +24,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -41,6 +44,7 @@ public class SupervisorNode implements NodeAction {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final SkillService skillService;
 
     private ChatClient chatClient;
     private String systemPrompt;
@@ -56,10 +60,28 @@ public class SupervisorNode implements NodeAction {
             "writing_skill_extractor", "写作技巧提取"
     );
 
+    record ReadSkillInput(String name) {}
+
     @PostConstruct
     void init() {
-        this.chatClient = chatClientFactory.create(properties.getTemperature());
+        ToolCallback readSkillDetail = FunctionToolCallback
+                .builder("read_skill_detail",
+                        (java.util.function.Function<ReadSkillInput, String>) this::readSkillDetail)
+                .description("读取指定 Skill 的完整 Markdown 内容。" +
+                        "当任务匹配某个 Skill 时调用，获取详细的工作流和写作经验后再规划。")
+                .inputType(ReadSkillInput.class)
+                .build();
+
+        this.chatClient = chatClientFactory.create(properties.getTemperature())
+                .mutate()
+                .defaultTools(readSkillDetail)
+                .build();
         this.systemPrompt = promptProvider.buildSystemPrompt();
+    }
+
+    private String readSkillDetail(ReadSkillInput input) {
+        log.info("[Supervisor] 读取 skill 详情: {}", input.name());
+        return skillService.readSkillDetail(input.name());
     }
 
     @Override
