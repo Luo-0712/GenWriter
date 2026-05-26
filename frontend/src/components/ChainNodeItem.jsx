@@ -114,10 +114,12 @@ const getOutputSummary = (node) => {
 };
 
 const formatOutput = (output) => {
-  if (!output) return null;
-  if (typeof output === 'string') return output;
+  if (output == null) return null;
+  if (typeof output === 'string') return output || null;
   if (typeof output === 'object') {
-    return Object.entries(output).map(([k, v]) => (
+    const entries = Object.entries(output).filter(([, v]) => v != null);
+    if (entries.length === 0) return null;
+    return entries.map(([k, v]) => (
       <div key={k} className="chain-node-detail-kv">
         <span className="chain-node-detail-key">{k}</span>
         <span className="chain-node-detail-value">
@@ -126,7 +128,8 @@ const formatOutput = (output) => {
       </div>
     ));
   }
-  return String(output);
+  const str = String(output);
+  return str === 'null' || str === 'undefined' ? null : str;
 };
 
 const ChainNodeItem = ({ node, isLast }) => {
@@ -153,15 +156,15 @@ const ChainNodeItem = ({ node, isLast }) => {
           style={dotStyle}
         >
           {node.status === 'COMPLETED' ? (
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
               <path d="M2.5 6.5L4.5 8.5L9.5 3.5" stroke={typeConfig.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           ) : node.status === 'ERROR' ? (
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
               <path d="M2 2L8 8M8 2L2 8" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           ) : (
-            <span style={{ color: typeConfig.color, fontSize: '10px' }}>{typeConfig.icon}</span>
+            <span style={{ color: typeConfig.color, fontSize: '9px' }}>{typeConfig.icon}</span>
           )}
         </div>
         {!isLast && (
@@ -198,7 +201,7 @@ const ChainNodeItem = ({ node, isLast }) => {
           <div className="chain-node-meta">
             {node.duration != null && node.duration > 0 && (
               <span className="chain-node-duration">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: '3px', opacity: 0.5 }}>
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ marginRight: '2px', opacity: 0.4 }}>
                   <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/>
                   <path d="M6 3V6L8 7.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
                 </svg>
@@ -207,7 +210,7 @@ const ChainNodeItem = ({ node, isLast }) => {
             )}
             {hasDetails && (
               <span className={`chain-node-expand-icon ${expanded ? 'expanded' : ''}`}>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
                   <path d={expanded ? 'M2 7L5 4L8 7' : 'M2 3.5L5 6.5L8 3.5'} stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </span>
@@ -225,13 +228,13 @@ const ChainNodeItem = ({ node, isLast }) => {
                 <div className="chain-node-error-text">{node.error}</div>
               </div>
             )}
-            {node.input && (
+            {node.input && formatOutput(node.input) && (
               <div className="chain-node-detail-section">
                 <span className="chain-node-detail-label">输入参数</span>
                 <div className="chain-node-detail-body">{formatOutput(node.input)}</div>
               </div>
             )}
-            {node.output && (
+            {node.output && formatOutput(node.output) && (
               <div className="chain-node-detail-section">
                 <span className="chain-node-detail-label">输出结果</span>
                 <div className="chain-node-detail-body">{formatOutput(node.output)}</div>

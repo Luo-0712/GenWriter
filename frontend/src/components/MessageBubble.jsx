@@ -190,14 +190,16 @@ const StatusWithBadge = ({ text, streamDesc }) => {
 };
 
 const renderStepData = (data) => {
-  if (!data) return null;
-  if (typeof data === 'string') return renderOutlineDetail(data);
+  if (data == null) return null;
+  if (typeof data === 'string') return data ? renderOutlineDetail(data) : null;
   if (typeof data === 'object') {
     if ('综合评分' in data || '结论' in data) return renderReviewDetail(data);
     if ('意图' in data) return renderIntentDetail(data);
+    const entries = Object.entries(data).filter(([, v]) => v != null);
+    if (entries.length === 0) return null;
     return (
       <dl className="thinking-process-detail-kv">
-        {Object.entries(data).map(([k, v]) => (
+        {entries.map(([k, v]) => (
           <div key={k} className="thinking-process-kv-row">
             <dt>{k}</dt>
             <dd>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</dd>
@@ -206,7 +208,9 @@ const renderStepData = (data) => {
       </dl>
     );
   }
-  return <span className="thinking-process-detail-text">{String(data)}</span>;
+  const str = String(data);
+  if (str === 'null' || str === 'undefined') return null;
+  return <span className="thinking-process-detail-text">{str}</span>;
 };
 
 const MessageBubble = ({ message, onExport }) => {
@@ -286,7 +290,7 @@ const MessageBubble = ({ message, onExport }) => {
         )}
         <div className="message-text">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content || ''}
+            {message.content && message.content !== 'null' ? message.content : ''}
           </ReactMarkdown>
         </div>
         {!isUser && message.content && !message.isStreaming && (

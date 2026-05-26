@@ -213,7 +213,7 @@ const KnowledgeBasePanel = ({ onBack }) => {
         <>
           <div
             className="memory-table-header"
-            style={{ gridTemplateColumns: '1fr 100px 140px 100px', paddingLeft: '24px' }}
+            style={{ gridTemplateColumns: '1fr 100px 140px 100px', paddingLeft: 'var(--panel-padding-x)' }}
           >
             <span>名称 / 描述</span>
             <span>类型</span>
@@ -225,7 +225,7 @@ const KnowledgeBasePanel = ({ onBack }) => {
               <div
                 key={kb.id}
                 className="memory-card"
-                style={{ gridTemplateColumns: '1fr 100px 140px 100px', paddingLeft: '24px', paddingRight: '24px' }}
+                style={{ gridTemplateColumns: '1fr 100px 140px 100px', paddingLeft: 'var(--panel-padding-x)', paddingRight: 'var(--panel-padding-x)' }}
               >
                 <div className="memory-card-content">
                   <div style={{ fontWeight: 500, marginBottom: 2 }}>{kb.name}</div>

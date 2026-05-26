@@ -3,8 +3,8 @@ import ChainNodeItem from './ChainNodeItem';
 import '../styles/global.css';
 
 const ThinkingPanel = ({ chainNodes, isStreaming }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const contentRef = useRef(null);
 
   const hasNodes = chainNodes && chainNodes.length > 0;
@@ -29,13 +29,9 @@ const ThinkingPanel = ({ chainNodes, isStreaming }) => {
 
   if (!hasNodes) return null;
 
-  if (isStreaming && hasNodes && isCollapsed) {
-    setIsCollapsed(false);
-  }
-
   const latestNode = chainNodes[chainNodes.length - 1];
   const latestStatusText = latestNode
-    ? `${latestNode.nodeName}${latestNode.status === 'COMPLETED' ? ' ✓' : latestNode.status === 'ERROR' ? ' ✗' : '...'}`
+    ? `${latestNode.nodeName || ''}${latestNode.status === 'COMPLETED' ? ' ✓' : latestNode.status === 'ERROR' ? ' ✗' : '...'}`
     : '';
 
   return (
@@ -44,22 +40,22 @@ const ThinkingPanel = ({ chainNodes, isStreaming }) => {
         <div className="thinking-panel-header-left">
           <span className="thinking-panel-arrow">{isCollapsed ? '▶' : '▼'}</span>
           <span className="thinking-panel-title">思维链</span>
-          {isStreaming && runningCount > 0 && (
+          {isCollapsed && (
+            <span className="thinking-panel-collapsed-summary">{latestStatusText}</span>
+          )}
+          {!isCollapsed && isStreaming && runningCount > 0 && (
             <span className="thinking-panel-live-badge">
               <span className="thinking-panel-live-dot" />
               运行中
             </span>
           )}
-          {!isStreaming && completedCount > 0 && (
+          {!isCollapsed && !isStreaming && completedCount > 0 && (
             <span className="thinking-panel-stats">
               {completedCount} 步完成
               {errorCount > 0 && ` · ${errorCount} 错误`}
             </span>
           )}
         </div>
-        {isCollapsed && (
-          <span className="thinking-panel-collapsed-summary">{latestStatusText}</span>
-        )}
         {!isCollapsed && chainNodes.length > 2 && (
           <button
             className="thinking-panel-toggle-btn"

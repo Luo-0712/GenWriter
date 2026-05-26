@@ -140,7 +140,7 @@ const KnowledgeBaseDetail = ({ kbId, onBack }) => {
       </div>
 
       {/* 上传区域 */}
-      <div className="panel-section" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-light)', background: '#fafafa' }}>
+      <div className="panel-section" style={{ padding: '14px var(--panel-padding-x)', borderBottom: '1px solid var(--border-light)', background: '#fafafa' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <input
             id="kb-upload-input"
@@ -233,7 +233,7 @@ const KnowledgeBaseDetail = ({ kbId, onBack }) => {
         </div>
       ) : (
         <>
-          <div className="memory-table-header" style={{ gridTemplateColumns: '1fr 140px 80px', paddingLeft: '24px' }}>
+          <div className="memory-table-header" style={{ gridTemplateColumns: '1fr 140px 80px', paddingLeft: 'var(--panel-padding-x)' }}>
             <span>内容预览</span>
             <span>创建时间</span>
             <span>操作</span>
@@ -243,7 +243,7 @@ const KnowledgeBaseDetail = ({ kbId, onBack }) => {
               <div
                 key={chunk.id}
                 className="memory-card"
-                style={{ gridTemplateColumns: '1fr 140px 80px', paddingLeft: '24px', paddingRight: '24px' }}
+                style={{ gridTemplateColumns: '1fr 140px 80px', paddingLeft: 'var(--panel-padding-x)', paddingRight: 'var(--panel-padding-x)' }}
               >
                 <div className="memory-card-content" title={chunk.content}>
                   {chunk.content?.substring(0, 120)}
