@@ -4,10 +4,14 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,6 +24,7 @@ import java.util.Map;
 public class SsePublishNode implements NodeAction {
 
     private final SseService sseService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -28,10 +33,26 @@ public class SsePublishNode implements NodeAction {
         String finalOutput = state.value("finalOutput", String.class).orElse("");
 
         if (finalOutput != null && !finalOutput.isBlank()) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("content", finalOutput);
+
+            String researchSourcesJson = state.value("researchSources", String.class).orElse(null);
+            if (researchSourcesJson != null && !researchSourcesJson.isBlank()) {
+                try {
+                    List<Map<String, String>> sources = objectMapper.readValue(
+                            researchSourcesJson, new TypeReference<>() {});
+                    if (!sources.isEmpty()) {
+                        data.put("sources", sources);
+                    }
+                } catch (Exception e) {
+                    log.warn("解析 researchSources 失败: {}", e.getMessage());
+                }
+            }
+
             SseMessage message = SseMessage.builder()
                     .type(SseMessage.Type.AI_GENERATED_CONTENT)
                     .payload(SseMessage.Payload.builder()
-                            .data(Map.of("content", finalOutput))
+                            .data(data)
                             .build())
                     .metadata(SseMessage.Metadata.builder()
                             .resourceId(documentId)

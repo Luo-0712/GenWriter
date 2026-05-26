@@ -16,11 +16,12 @@ import './styles/global.css';
 /* ---------- sessionStorage 思维链缓存 ---------- */
 const chainStorageKey = (sessionId) => `genwriter_chain_${sessionId}`;
 
-const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix) => {
+const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix, sources) => {
   try {
     const data = {
       chainNodes: chainNodes || [],
       thinkingSteps: thinkingSteps || [],
+      sources: sources || [],
       contentPrefix: contentPrefix || '',
       timestamp: Date.now(),
     };
@@ -124,6 +125,7 @@ function App() {
                 const meta = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
                 if (meta.chainNodes) msg.chainNodes = meta.chainNodes;
                 if (meta.thinkingSteps) msg.thinkingSteps = meta.thinkingSteps;
+                if (meta.sources) msg.sources = meta.sources;
               } catch (e) {
                 // ignore parse error
               }
@@ -142,6 +144,7 @@ function App() {
                 ...mapped[lastAssistantIdx],
                 chainNodes: cached.chainNodes,
                 thinkingSteps: cached.thinkingSteps || mapped[lastAssistantIdx].thinkingSteps || [],
+                sources: cached.sources || mapped[lastAssistantIdx].sources || [],
               };
             }
           }
@@ -178,12 +181,13 @@ function App() {
     if (!activeSession?.id) return;
     const msgs = [...messages];
     const lastAssistant = msgs.reverse().find((m) => m.role === 'assistant');
-    if (lastAssistant && (lastAssistant.chainNodes?.length > 0 || lastAssistant.thinkingSteps?.length > 0)) {
+    if (lastAssistant && (lastAssistant.chainNodes?.length > 0 || lastAssistant.thinkingSteps?.length > 0 || lastAssistant.sources?.length > 0)) {
       saveChainToStorage(
         activeSession.id,
         lastAssistant.chainNodes,
         lastAssistant.thinkingSteps,
-        lastAssistant.content?.substring(0, 100)
+        lastAssistant.content?.substring(0, 100),
+        lastAssistant.sources
       );
     }
   }, [messages, activeSession?.id]);
@@ -254,6 +258,7 @@ function App() {
           statusText: '',
           thinkingSteps: [],
           chainNodes: [],
+          sources: [],
           isStreaming: true,
           timestamp: new Date().toISOString(),
         },
@@ -366,7 +371,13 @@ function App() {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId
-                      ? { ...m, content: assistantContent }
+                      ? {
+                          ...m,
+                          content: assistantContent,
+                          ...(data.sources && data.sources.length > 0
+                            ? { sources: data.sources }
+                            : {}),
+                        }
                       : m
                   )
                 );

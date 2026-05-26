@@ -213,6 +213,60 @@ const renderStepData = (data) => {
   return <span className="thinking-process-detail-text">{str}</span>;
 };
 
+const SourcesList = ({ sources }) => {
+  const [expanded, setExpanded] = useState(false);
+  const visibleSources = expanded ? sources : sources.slice(0, 3);
+  const hasMore = sources.length > 3;
+
+  return (
+    <div className="sources-section">
+      <div
+        className="sources-header"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="sources-icon">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <path d="M6.5 3H3.5C2.67 3 2 3.67 2 4.5V7.5C2 8.33 2.67 9 3.5 9H6.5C7.33 9 8 8.33 8 7.5V4.5C8 3.67 7.33 3 6.5 3Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9.5 7H12.5C13.33 7 14 7.67 14 8.5V11.5C14 12.33 13.33 13 12.5 13H9.5C8.67 13 8 12.33 8 11.5V8.5C8 7.67 8.67 7 9.5 7Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 4.5L8 11.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        </span>
+        <span className="sources-title">参考来源</span>
+        <span className="sources-count">{sources.length}</span>
+        {hasMore && (
+          <span className="sources-toggle">
+            {expanded ? '收起' : `展开全部`}
+          </span>
+        )}
+      </div>
+      <div className="sources-list">
+        {visibleSources.map((s, i) => (
+          <div key={i} className="source-item">
+            <span className="source-index">{i + 1}</span>
+            <a
+              className="source-link"
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={s.url}
+            >
+              {s.title || s.url}
+            </a>
+            {s.title && s.url && (
+              <span className="source-domain">
+                {(() => {
+                  try { return new URL(s.url).hostname.replace(/^www\./, ''); }
+                  catch { return ''; }
+                })()}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const MessageBubble = ({ message, onExport }) => {
   const isUser = message.role === 'user';
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -293,6 +347,9 @@ const MessageBubble = ({ message, onExport }) => {
             {message.content && message.content !== 'null' ? message.content : ''}
           </ReactMarkdown>
         </div>
+        {!isUser && message.sources && message.sources.length > 0 && !message.isStreaming && (
+          <SourcesList sources={message.sources} />
+        )}
         {!isUser && message.content && !message.isStreaming && (
           <div className="message-actions">
             <button className="message-action-btn" onClick={() => onExport?.(message)}>

@@ -2294,6 +2294,116 @@
   color: var(--text-secondary);
 }
 
+/* ========== 搜索来源列表 ========== */
+.sources-section {
+  margin-top: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.sources-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.sources-header:hover {
+  background: var(--bg-hover);
+}
+
+.sources-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sources-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.sources-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0 6px;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.sources-toggle {
+  font-size: 11px;
+  color: var(--accent-color);
+  margin-left: auto;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.sources-list {
+  border-top: 1px solid var(--border-color);
+  padding: 4px 0;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  transition: background 0.12s;
+}
+
+.source-item:hover {
+  background: var(--bg-hover);
+}
+
+.source-index {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 14px;
+  text-align: center;
+}
+
+.source-link {
+  font-size: 13px;
+  color: var(--text-link);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.source-link:hover {
+  text-decoration: underline;
+}
+
+.source-domain {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .source-domain {
+    display: none;
+  }
+}
+
 /* ========== 导出弹窗 ========== */
 .export-dialog-overlay {
   position: fixed;
