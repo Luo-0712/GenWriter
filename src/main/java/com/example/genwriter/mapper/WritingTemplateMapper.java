@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.WritingTemplate;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 写作模板数据访问层
  */
 @Mapper
-public interface WritingTemplateMapper {
+public interface WritingTemplateMapper extends BaseMapper<WritingTemplate> {
 
     /**
      * 插入新模板

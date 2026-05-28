@@ -1,5 +1,8 @@
 package com.example.genwriter.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Builder;
 import lombok.Data;
 
@@ -14,11 +17,13 @@ import java.util.Arrays;
  */
 @Data
 @Builder
+@TableName("knowledge_chunk")
 public class KnowledgeChunk {
 
     /**
      * 片段唯一标识符(UUID)
      */
+    @TableId(value = "id", type = IdType.ASSIGN_UUID)
     private String id;
 
     /**

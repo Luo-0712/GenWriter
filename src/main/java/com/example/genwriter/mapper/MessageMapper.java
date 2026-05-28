@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.Message;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 消息数据访问层
  */
 @Mapper
-public interface MessageMapper {
+public interface MessageMapper extends BaseMapper<Message> {
 
     /**
      * 插入新消息

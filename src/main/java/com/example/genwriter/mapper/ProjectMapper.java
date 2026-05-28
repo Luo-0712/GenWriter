@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.Project;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 项目数据访问层
  */
 @Mapper
-public interface ProjectMapper {
+public interface ProjectMapper extends BaseMapper<Project> {
 
     /**
      * 插入新项目

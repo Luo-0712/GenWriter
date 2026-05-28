@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.KnowledgeChunk;
 import com.example.genwriter.typehandler.PgVectorTypeHandler;
 import org.apache.ibatis.annotations.*;
@@ -12,7 +13,7 @@ import java.util.List;
  * 支持向量存储和相似度搜索
  */
 @Mapper
-public interface KnowledgeChunkMapper {
+public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
 
     /**
      * 插入新知识片段

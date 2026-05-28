@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.TaskSession;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 任务会话数据访问层
  */
 @Mapper
-public interface TaskSessionMapper {
+public interface TaskSessionMapper extends BaseMapper<TaskSession> {
 
     /**
      * 插入新会话

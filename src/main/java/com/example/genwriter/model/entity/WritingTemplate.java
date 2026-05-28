@@ -1,5 +1,8 @@
 package com.example.genwriter.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,11 +16,13 @@ import java.time.LocalDateTime;
  */
 @Data
 @Builder
+@TableName("writing_template")
 public class WritingTemplate {
 
     /**
      * 模板唯一标识符(UUID)
      */
+    @TableId(value = "id", type = IdType.ASSIGN_UUID)
     private String id;
 
     /**

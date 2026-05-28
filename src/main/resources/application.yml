@@ -55,7 +55,7 @@ spring:
           max-idle: 8
           min-idle: 0
 
-mybatis:
+mybatis-plus:
   type-aliases-package: com.example.genwriter.model.entity
   type-handlers-package: com.example.genwriter.typehandler
   configuration:

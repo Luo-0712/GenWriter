@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.KnowledgeBase;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 知识库数据访问层
  */
 @Mapper
-public interface KnowledgeBaseMapper {
+public interface KnowledgeBaseMapper extends BaseMapper<KnowledgeBase> {
 
     /**
      * 插入新知识库

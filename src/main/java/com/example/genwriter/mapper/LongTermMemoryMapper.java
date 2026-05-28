@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.LongTermMemory;
 import com.example.genwriter.typehandler.PgVectorTypeHandler;
 import org.apache.ibatis.annotations.*;
@@ -8,7 +9,7 @@ import org.apache.ibatis.type.JdbcType;
 import java.util.List;
 
 @Mapper
-public interface LongTermMemoryMapper {
+public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
 
     @Insert("INSERT INTO long_term_memory " +
             "(content, memory_type, scope, project_id, session_id, " +

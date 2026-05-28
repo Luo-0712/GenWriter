@@ -1,5 +1,6 @@
 package com.example.genwriter.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.example.genwriter.model.entity.Document;
 import org.apache.ibatis.annotations.*;
 
@@ -9,7 +10,7 @@ import java.util.List;
  * 文档数据访问层
  */
 @Mapper
-public interface DocumentMapper {
+public interface DocumentMapper extends BaseMapper<Document> {
 
     /**
      * 插入新文档

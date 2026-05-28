@@ -1,5 +1,8 @@
 package com.example.genwriter.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,8 +11,10 @@ import java.util.Arrays;
 
 @Data
 @Builder
+@TableName("long_term_memory")
 public class LongTermMemory {
 
+    @TableId(value = "id", type = IdType.ASSIGN_UUID)
     private String id;
     private String content;
     private String memoryType;
