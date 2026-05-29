@@ -23,6 +23,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ChatModelFactory {
 
+    private final LLMConfig llmConfig;
+
     /**
      * 根据供应商配置创建 ChatModel
      */
@@ -40,6 +42,28 @@ public class ChatModelFactory {
             case "anthropic" -> createAnthropic(config);
             default -> throw new IllegalArgumentException("不支持的供应商类型: " + type);
         };
+    }
+
+    /**
+     * 判断给定配置是否为推理模型（支持 reasoning_content）
+     */
+    public boolean isReasoningModel(LLMConfig.ProviderConfig config) {
+        return config != null && config.isReasoning();
+    }
+
+    /**
+     * 根据模型名称查找 ProviderConfig
+     * @param modelKey 格式: "type:activeModel" 或直接 provider type
+     */
+    public LLMConfig.ProviderConfig findProviderConfig(String modelKey) {
+        if (modelKey == null || !modelKey.contains(":")) return null;
+        String providerType = modelKey.split(":", 2)[0];
+        String modelName = modelKey.split(":", 2)[1];
+        return llmConfig.getProviders().stream()
+                .filter(p -> p.getType().equals(providerType))
+                .filter(p -> p.getModels().contains(modelName))
+                .findFirst()
+                .orElse(null);
     }
 
     private ChatModel createDashScope(LLMConfig.ProviderConfig config) {

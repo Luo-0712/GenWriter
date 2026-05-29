@@ -52,6 +52,10 @@ public class ThoughtChainPublisher {
     }
 
     public void publishComplete(String sessionId, String nodeId, Object output) {
+        publishComplete(sessionId, nodeId, output, null);
+    }
+
+    public void publishComplete(String sessionId, String nodeId, Object output, String reasoningContent) {
         Long startTime = startTimes.remove(nodeId);
         long duration = startTime != null ? System.currentTimeMillis() - startTime : 0;
 
@@ -59,11 +63,30 @@ public class ThoughtChainPublisher {
                 .nodeId(nodeId)
                 .status(ChainNode.Status.COMPLETED.name())
                 .output(output)
+                .reasoningContent(reasoningContent)
                 .duration(duration)
                 .timestamp(System.currentTimeMillis())
                 .build();
 
         publishChainNode(sessionId, chainNode);
+    }
+
+    /**
+     * 推送模型推理内容 chunk（实时）
+     */
+    public void publishReasoningChunk(String sessionId, String nodeId, String chunk) {
+        if (sessionId == null || sessionId.isBlank()) return;
+        try {
+            sseService.publish(sessionId, SseMessage.builder()
+                    .type(SseMessage.Type.AI_THINKING)
+                    .payload(SseMessage.Payload.builder()
+                            .data(Map.of("nodeId", nodeId, "reasoningChunk", chunk))
+                            .statusText("模型思考中...")
+                            .build())
+                    .build());
+        } catch (Exception e) {
+            log.debug("Reasoning chunk publish failed: {}", e.getMessage());
+        }
     }
 
     public void publishError(String sessionId, String nodeId, String error) {

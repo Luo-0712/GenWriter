@@ -121,6 +121,7 @@ genwriter:
         api-key: your-deepseek-key
         base-url: https://api.deepseek.com
         api-compatibility: openai_compatible
+        reasoning: true
         models:
           - deepseek-chat
           - deepseek-reasoner

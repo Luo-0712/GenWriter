@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
@@ -48,6 +49,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
+    private final ReasoningStreamHelper reasoningStreamHelper;
 
     private ChatClient chatClient;
 
@@ -104,6 +106,7 @@ public class DirectAnswerWorker implements WorkerAgent {
         String conversationId = sessionId + ":direct";
 
         StringBuilder contentBuilder = new StringBuilder();
+        String reasoningContent = null;
         SessionContextHolder.set(sessionId);
         try {
             var promptSpec = chatClient.prompt()
@@ -121,14 +124,24 @@ public class DirectAnswerWorker implements WorkerAgent {
                         sessionId));
             }
 
-            promptSpec.stream()
-                    .content()
-                    .doOnNext(chunk -> {
-                        contentBuilder.append(chunk);
-                        publishContentChunk(sessionId, chunk);
-                    })
-                    .then(Mono.just(contentBuilder.toString()))
-                    .block(Duration.ofMinutes(5));
+            if (reasoningStreamHelper.isReasoningModel()) {
+                var result = reasoningStreamHelper.stream(sessionId, nodeId,
+                        skill.systemPrompt(), userPrompt, TEMPERATURE,
+                        chunk -> {
+                            contentBuilder.append(chunk);
+                            publishContentChunk(sessionId, chunk);
+                        });
+                reasoningContent = result.reasoningContent();
+            } else {
+                promptSpec.stream()
+                        .content()
+                        .doOnNext(chunk -> {
+                            contentBuilder.append(chunk);
+                            publishContentChunk(sessionId, chunk);
+                        })
+                        .then(Mono.just(contentBuilder.toString()))
+                        .block(Duration.ofMinutes(5));
+            }
         } catch (Exception e) {
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             SessionContextHolder.clear();
@@ -140,7 +153,7 @@ public class DirectAnswerWorker implements WorkerAgent {
         String fullResponse = contentBuilder.toString();
         log.info("[DirectAnswerWorker] 回答完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", fullResponse.length()));
+                Map.of("length", fullResponse.length()), reasoningContent);
         return Map.of("finalOutput", fullResponse);
     }
 

@@ -22,6 +22,7 @@ public class ChainNode {
     private Long timestamp;
     private Integer stepIndex;
     private String error;
+    private String reasoningContent;
 
     public enum Type {
         PLANNING,

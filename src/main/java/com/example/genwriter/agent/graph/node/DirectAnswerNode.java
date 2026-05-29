@@ -2,11 +2,14 @@ package com.example.genwriter.agent.graph.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
+import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.tool.KnowledgeBaseTool;
 import com.example.genwriter.agent.tool.TavilyWebSearchTool;
+import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
@@ -34,6 +37,8 @@ public class DirectAnswerNode implements NodeAction {
     private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final SseService sseService;
+    private final ThoughtChainPublisher chainPublisher;
+    private final ReasoningStreamHelper reasoningStreamHelper;
 
     private ChatClient chatClient;
 
@@ -78,24 +83,43 @@ public class DirectAnswerNode implements NodeAction {
         String conversationId = sessionId + ":direct";
 
         StringBuilder contentBuilder = new StringBuilder();
-        chatClient.prompt()
-                .system(skill.systemPrompt())
-                .user(userPrompt)
-                .advisors(new MessageChatMemoryAdvisor(chatMemory))
-                .advisors(a -> a.param(
-                        AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                        conversationId))
-                .stream()
-                .content()
-                .doOnNext(chunk -> {
-                    contentBuilder.append(chunk);
-                    publishContentChunk(sessionId, chunk);
-                })
-                .then(Mono.just(contentBuilder.toString()))
-                .block();
+        String reasoningContent = null;
+        String nodeId = null;
+
+        if (reasoningStreamHelper.isReasoningModel()) {
+            nodeId = chainPublisher.publishStart(sessionId, "直接回答",
+                    ChainNode.Type.EXECUTION, null, Map.of());
+            var result = reasoningStreamHelper.stream(sessionId, nodeId,
+                    skill.systemPrompt(), userPrompt, TEMPERATURE,
+                    chunk -> {
+                        contentBuilder.append(chunk);
+                        publishContentChunk(sessionId, chunk);
+                    });
+            reasoningContent = result.reasoningContent();
+        } else {
+            chatClient.prompt()
+                    .system(skill.systemPrompt())
+                    .user(userPrompt)
+                    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .advisors(a -> a.param(
+                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                            conversationId))
+                    .stream()
+                    .content()
+                    .doOnNext(chunk -> {
+                        contentBuilder.append(chunk);
+                        publishContentChunk(sessionId, chunk);
+                    })
+                    .then(Mono.just(contentBuilder.toString()))
+                    .block();
+        }
 
         String fullResponse = contentBuilder.toString();
         log.debug("通用问答完成: responseLength={}", fullResponse.length());
+        if (nodeId != null) {
+            chainPublisher.publishComplete(sessionId, nodeId,
+                    Map.of("length", fullResponse.length()), reasoningContent);
+        }
         publishStatus(sessionId, "【直接回答】完成，长度=" + fullResponse.length() + " 字符");
 
         return Map.of(

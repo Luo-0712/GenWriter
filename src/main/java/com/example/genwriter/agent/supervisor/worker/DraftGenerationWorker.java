@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.DraftSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -43,6 +44,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final ThoughtChainPublisher chainPublisher;
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final SaveSettingDetailTool saveSettingDetailTool;
+    private final ReasoningStreamHelper reasoningStreamHelper;
 
     private ChatClient chatClient;
 
@@ -113,15 +115,26 @@ public class DraftGenerationWorker implements WorkerAgent {
         }
 
         SessionContextHolder.set(sessionId);
+        String reasoningContent = null;
         try {
-            promptSpec.stream()
-                    .content()
-                    .doOnNext(chunk -> {
-                        contentBuilder.append(chunk);
-                        publishContentChunk(sessionId, chunk);
-                    })
-                    .then(Mono.just(contentBuilder.toString()))
-                    .block();
+            if (reasoningStreamHelper.isReasoningModel()) {
+                var result = reasoningStreamHelper.stream(sessionId, nodeId,
+                        skill.systemPrompt(), userPrompt, TEMPERATURE,
+                        chunk -> {
+                            contentBuilder.append(chunk);
+                            publishContentChunk(sessionId, chunk);
+                        });
+                reasoningContent = result.reasoningContent();
+            } else {
+                promptSpec.stream()
+                        .content()
+                        .doOnNext(chunk -> {
+                            contentBuilder.append(chunk);
+                            publishContentChunk(sessionId, chunk);
+                        })
+                        .then(Mono.just(contentBuilder.toString()))
+                        .block();
+            }
         } catch (Exception e) {
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
@@ -132,7 +145,7 @@ public class DraftGenerationWorker implements WorkerAgent {
         String fullResponse = contentBuilder.toString();
         log.info("正文写作完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", fullResponse.length()));
+                Map.of("length", fullResponse.length()), reasoningContent);
         return Map.of("draft", fullResponse);
     }
 

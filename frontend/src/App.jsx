@@ -335,6 +335,28 @@ function App() {
             return;
           }
 
+          // Reasoning content chunks from reasoning models (DeepSeek-R1 etc.)
+          if (payload.type === 'AI_THINKING' && data && typeof data === 'object' && data.nodeId && data.reasoningChunk) {
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id !== assistantMsgId) return m;
+                const existingNodes = m.chainNodes || [];
+                const nodeIndex = existingNodes.findIndex((n) => n.nodeId === data.nodeId);
+                if (nodeIndex >= 0) {
+                  const newNodes = [...existingNodes];
+                  const existing = newNodes[nodeIndex];
+                  newNodes[nodeIndex] = {
+                    ...existing,
+                    reasoningContent: (existing.reasoningContent || '') + data.reasoningChunk,
+                  };
+                  return { ...m, chainNodes: newNodes };
+                }
+                return m;
+              })
+            );
+            return;
+          }
+
           if (st && st !== statusText) {
             statusText = st;
             setMessages((prev) =>

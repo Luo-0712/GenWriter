@@ -136,7 +136,7 @@ const ChainNodeItem = ({ node, isLast }) => {
   const [expanded, setExpanded] = useState(false);
   const typeConfig = NODE_TYPE_CONFIG[node.nodeType] || NODE_TYPE_CONFIG.EXECUTION;
   const statusConfig = STATUS_CONFIG[node.status] || STATUS_CONFIG.STARTED;
-  const hasDetails = node.input || node.output || node.error;
+  const hasDetails = node.input || node.output || node.error || node.reasoningContent;
   const isRunning = node.status === 'STARTED' || node.status === 'RUNNING';
   const outputSummary = getOutputSummary(node);
 
@@ -238,6 +238,12 @@ const ChainNodeItem = ({ node, isLast }) => {
               <div className="chain-node-detail-section">
                 <span className="chain-node-detail-label">输出结果</span>
                 <div className="chain-node-detail-body">{formatOutput(node.output)}</div>
+              </div>
+            )}
+            {node.reasoningContent && (
+              <div className="chain-node-detail-section chain-node-reasoning">
+                <span className="chain-node-detail-label">模型思考过程</span>
+                <div className="chain-node-reasoning-body">{node.reasoningContent}</div>
               </div>
             )}
           </div>

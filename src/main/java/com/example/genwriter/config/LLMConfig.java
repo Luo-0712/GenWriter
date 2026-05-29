@@ -122,6 +122,10 @@ public class LLMConfig {
          * 当前选中的模型
          */
         private String activeModel;
+        /**
+         * 是否为推理模型（如 DeepSeek-R1），支持 reasoning_content 流式输出
+         */
+        private boolean reasoning = false;
     }
 
     /**
