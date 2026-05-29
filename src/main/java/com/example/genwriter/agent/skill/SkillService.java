@@ -8,11 +8,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -96,6 +95,105 @@ public class SkillService {
         saveState();
     }
 
+    // ---- CRUD ----
+
+    public SkillVO createSkill(String name, String displayName, String description,
+                               String category, List<String> tags, String content,
+                               Boolean disableModelInvocation, Boolean userInvocable,
+                               List<String> allowedTools, String argumentHint) {
+        SkillValidator.validateForCreate(name, description, content, category);
+
+        if (skillLoader.get(name) != null) {
+            throw new IllegalArgumentException("技能名称 '" + name + "' 已存在");
+        }
+
+        String safeName = (displayName != null && !displayName.isBlank()) ? displayName : name;
+        String safeCategory = (category != null && !category.isBlank()) ? category : "writing";
+        List<String> safeTags = (tags != null) ? tags : List.of();
+        String version = "1.0.0";
+
+        String markdown = SkillLoader.generateMarkdown(name, safeName, description, safeCategory, safeTags, version, content,
+                disableModelInvocation, userInvocable, allowedTools, argumentHint);
+
+        Path filePath = skillLoader.getSkillsDir().resolve(name + ".md");
+        try {
+            Files.createDirectories(skillLoader.getSkillsDir());
+            Files.writeString(filePath, markdown);
+        } catch (IOException e) {
+            throw new RuntimeException("创建技能文件失败: " + e.getMessage(), e);
+        }
+
+        skillLoader.reload();
+        enabledState.putIfAbsent(name, true);
+        saveState();
+
+        log.info("[SkillService] 创建技能: {}", name);
+        return getSkill(name);
+    }
+
+    public SkillVO updateSkill(String name, String displayName, String description,
+                               String category, List<String> tags, String content, Boolean enabled,
+                               Boolean disableModelInvocation, Boolean userInvocable,
+                               List<String> allowedTools, String argumentHint) {
+        SkillResource existing = skillLoader.get(name);
+        if (existing == null) {
+            throw new IllegalArgumentException("未找到名为 '" + name + "' 的技能");
+        }
+
+        SkillValidator.validateForUpdate(description, content, category);
+
+        String newDisplayName = (displayName != null) ? displayName : existing.getDisplayName();
+        String newDescription = (description != null) ? description : existing.getDescription();
+        String newCategory = (category != null) ? category : existing.getCategory();
+        List<String> newTags = (tags != null) ? tags : existing.getTags();
+        String newContent = (content != null) ? content : existing.getContent();
+        String version = existing.getVersion();
+        Boolean newDisableModelInvocation = (disableModelInvocation != null) ? disableModelInvocation : existing.getDisableModelInvocation();
+        Boolean newUserInvocable = (userInvocable != null) ? userInvocable : existing.getUserInvocable();
+        List<String> newAllowedTools = (allowedTools != null) ? allowedTools : existing.getAllowedTools();
+        String newArgumentHint = (argumentHint != null) ? argumentHint : existing.getArgumentHint();
+
+        String markdown = SkillLoader.generateMarkdown(name, newDisplayName, newDescription, newCategory, newTags, version, newContent,
+                newDisableModelInvocation, newUserInvocable, newAllowedTools, newArgumentHint);
+
+        Path filePath = skillLoader.getSkillsDir().resolve(name + ".md");
+        try {
+            Files.writeString(filePath, markdown);
+        } catch (IOException e) {
+            throw new RuntimeException("更新技能文件失败: " + e.getMessage(), e);
+        }
+
+        skillLoader.reload();
+
+        if (enabled != null) {
+            enabledState.put(name, enabled);
+            saveState();
+        }
+
+        log.info("[SkillService] 更新技能: {}", name);
+        return getSkill(name);
+    }
+
+    public void deleteSkill(String name) {
+        SkillResource existing = skillLoader.get(name);
+        if (existing == null) {
+            throw new IllegalArgumentException("未找到名为 '" + name + "' 的技能");
+        }
+
+        Path filePath = skillLoader.getSkillsDir().resolve(existing.getSourceFile());
+        try {
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            throw new RuntimeException("删除技能文件失败: " + e.getMessage(), e);
+        }
+
+        skillLoader.reload();
+        enabledState.remove(name);
+        saveState();
+
+        log.info("[SkillService] 删除技能: {}", name);
+    }
+
     // ---- Supervisor 集成 ----
 
     public String getEnabledSkillsSummary() {
@@ -162,8 +260,11 @@ public class SkillService {
                 .content(skill.getContent())
                 .contentPreview(skill.getContentPreview())
                 .enabled(isEnabled(skill.getName()))
-                .builtIn(skill.isBuiltIn())
                 .sourceFile(skill.getSourceFile())
+                .disableModelInvocation(skill.getDisableModelInvocation())
+                .userInvocable(skill.getUserInvocable())
+                .allowedTools(skill.getAllowedTools())
+                .argumentHint(skill.getArgumentHint())
                 .build();
     }
 }

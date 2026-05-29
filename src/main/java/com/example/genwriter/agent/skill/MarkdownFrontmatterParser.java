@@ -39,6 +39,10 @@ public class MarkdownFrontmatterParser {
 
             if (value.startsWith("[") && value.endsWith("]")) {
                 result.put(key, parseYamlArray(value));
+            } else if ("true".equals(value)) {
+                result.put(key, Boolean.TRUE);
+            } else if ("false".equals(value)) {
+                result.put(key, Boolean.FALSE);
             } else {
                 String unquoted = unquote(value);
                 result.put(key, unquoted);

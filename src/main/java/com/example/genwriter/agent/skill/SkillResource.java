@@ -18,5 +18,8 @@ public class SkillResource {
     private String content;
     private String contentPreview;
     private String sourceFile;
-    private boolean builtIn;
+    private Boolean disableModelInvocation;
+    private Boolean userInvocable;
+    private List<String> allowedTools;
+    private String argumentHint;
 }

@@ -2,6 +2,8 @@ package com.example.genwriter.controller;
 
 import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.model.common.ApiResponse;
+import com.example.genwriter.model.dto.request.SkillCreateRequest;
+import com.example.genwriter.model.dto.request.SkillUpdateRequest;
 import com.example.genwriter.model.vo.SkillVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,44 @@ public class SkillController {
             return ApiResponse.error("404", "未找到 skill: " + name);
         }
         return ApiResponse.success(skill);
+    }
+
+    @PostMapping
+    public ApiResponse<SkillVO> create(@RequestBody SkillCreateRequest request) {
+        try {
+            SkillVO skill = skillService.createSkill(
+                    request.getName(), request.getDisplayName(), request.getDescription(),
+                    request.getCategory(), request.getTags(), request.getContent(),
+                    request.getDisableModelInvocation(), request.getUserInvocable(),
+                    request.getAllowedTools(), request.getArgumentHint());
+            return ApiResponse.success(skill);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error("400", e.getMessage());
+        }
+    }
+
+    @PutMapping("/{name}")
+    public ApiResponse<SkillVO> update(@PathVariable String name, @RequestBody SkillUpdateRequest request) {
+        try {
+            SkillVO skill = skillService.updateSkill(
+                    name, request.getDisplayName(), request.getDescription(),
+                    request.getCategory(), request.getTags(), request.getContent(), request.getEnabled(),
+                    request.getDisableModelInvocation(), request.getUserInvocable(),
+                    request.getAllowedTools(), request.getArgumentHint());
+            return ApiResponse.success(skill);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error("400", e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{name}")
+    public ApiResponse<Void> delete(@PathVariable String name) {
+        try {
+            skillService.deleteSkill(name);
+            return ApiResponse.success(null);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error("404", e.getMessage());
+        }
     }
 
     @PostMapping("/{name}/toggle")
