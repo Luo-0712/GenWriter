@@ -83,13 +83,19 @@ public class RAGPipelineServiceImpl implements RAGPipelineService {
 
     @Override
     public List<KnowledgeChunkDTO> searchAndRetrieve(String query, String kbId, int topK) {
+        return searchAndRetrieve(query, kbId, topK, null);
+    }
+
+    @Override
+    public List<KnowledgeChunkDTO> searchAndRetrieve(String query, String kbId, int topK, Double threshold) {
         log.debug("Searching knowledge base: {} with query: {}, topK: {}", kbId, query, topK);
 
+        double effectiveThreshold = threshold != null ? threshold : similarityThreshold;
         SearchKnowledgeChunkRequest request = SearchKnowledgeChunkRequest.builder()
                 .kbId(kbId)
                 .query(query)
                 .limit(topK)
-                .threshold(similarityThreshold)
+                .threshold(effectiveThreshold)
                 .build();
 
         return chunkService.searchSimilarChunks(request);

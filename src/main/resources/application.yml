@@ -134,7 +134,7 @@ genwriter:
     batch-size: 100
     default-search-limit: 5
     similarity-threshold: 0.7
-    use-db-vector-search: true
+    use-db-vector-search: false
   memory:
     key-prefix: "genwriter:chat:memory:"
     ttl-hours: 24

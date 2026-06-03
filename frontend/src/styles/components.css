@@ -651,6 +651,50 @@
   font-size: 14px;
 }
 
+/* 联网搜索切换按钮 */
+.websearch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  margin-left: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  line-height: 1;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.websearch-toggle:hover {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+  opacity: 0.9;
+}
+
+.websearch-toggle.active {
+  border-color: var(--accent-color);
+  background: rgba(194, 133, 74, 0.12);
+  color: var(--accent-color);
+  font-weight: 500;
+  opacity: 1;
+}
+
+.websearch-toggle-icon {
+  display: flex;
+  align-items: center;
+}
+
+.websearch-toggle-label {
+  font-size: 12px;
+}
+
 .typing-indicator {
   display: flex;
   gap: 4px;

@@ -125,9 +125,10 @@ public class StateGraphRunner {
      * @param userInput  用户输入
      * @param kbId       知识库 ID
      * @param writingType 写作类型（可选，用于兼容旧流程）
+     * @param webSearch  是否启用联网搜索
      */
-    public void run(String sessionId, String documentId, String userInput, String kbId, String writingType) {
-        log.info("StateGraph 执行开始: sessionId={}, type={}", sessionId, writingType);
+    public void run(String sessionId, String documentId, String userInput, String kbId, String writingType, boolean webSearch) {
+        log.info("StateGraph 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
@@ -141,7 +142,8 @@ public class StateGraphRunner {
                     "userInput", userInput,
                     "kbId", kbId != null ? kbId : "",
                     "writingType", writingType != null ? writingType : "AUTO",
-                    "context", context
+                    "context", context,
+                    "webSearch", String.valueOf(webSearch)
             );
 
             RunnableConfig config = RunnableConfig.builder()

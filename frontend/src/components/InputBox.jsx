@@ -9,9 +9,10 @@ const MODES = [
   { value: 'KNOWLEDGE_QA', label: '知识问答', icon: '?' },
 ];
 
-const InputBox = ({ onSend, disabled, isLoading }) => {
+const InputBox = ({ onSend, disabled, isLoading, kbId = '' }) => {
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState('AUTO');
+  const [webSearch, setWebSearch] = useState(true);
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -24,7 +25,7 @@ const InputBox = ({ onSend, disabled, isLoading }) => {
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
     if (trimmed && !isLoading && !disabled) {
-      onSend(trimmed, mode);
+      onSend(trimmed, mode, webSearch, kbId);
       setInputValue('');
     }
   };
@@ -61,17 +62,33 @@ const InputBox = ({ onSend, disabled, isLoading }) => {
         </button>
       </div>
       <div className="mode-selector">
-        {MODES.map((m) => (
-          <button
-            key={m.value}
-            className={`mode-pill${mode === m.value ? ' active' : ''}`}
-            onClick={() => setMode(m.value)}
-            type="button"
-          >
-            <span className="mode-pill-icon">{m.icon}</span>
-            {m.label}
-          </button>
-        ))}
+        <div className="mode-pills">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              className={`mode-pill${mode === m.value ? ' active' : ''}`}
+              onClick={() => setMode(m.value)}
+              type="button"
+            >
+              <span className="mode-pill-icon">{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <button
+          className={`websearch-toggle${webSearch ? ' active' : ''}`}
+          onClick={() => setWebSearch(!webSearch)}
+          type="button"
+          title={webSearch ? '联网搜索已开启' : '联网搜索已关闭'}
+        >
+          <span className="websearch-toggle-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <span className="websearch-toggle-label">联网搜索</span>
+        </button>
       </div>
       <p className="input-hint">按 Enter 发送，Shift + Enter 换行</p>
     </div>

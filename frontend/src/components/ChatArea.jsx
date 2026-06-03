@@ -4,7 +4,7 @@ import InputBox from './InputBox';
 import WelcomeScreen from './WelcomeScreen';
 import '../styles/global.css';
 
-const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, hasContentStarted, loadingMessages, isSessionLoading }) => {
+const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, hasContentStarted, loadingMessages, isSessionLoading, selectedKbId = '' }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, ha
           <div ref={messagesEndRef} />
         </div>
       )}
-      <InputBox onSend={onSend} disabled={isSessionLoading} isLoading={isLoading} />
+      <InputBox onSend={onSend} disabled={isSessionLoading} isLoading={isLoading} kbId={selectedKbId} />
     </div>
   );
 };

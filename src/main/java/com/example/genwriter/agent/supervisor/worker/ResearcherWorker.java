@@ -51,17 +51,15 @@ public class ResearcherWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
 
-    private ChatClient chatClient;
-
     @PostConstruct
     void init() {
-        ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                        webSearchTool)
-                .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
-                .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                .build();
+        registry.register(this);
+    }
 
+    /**
+     * 根据是否启用联网搜索创建 ChatClient
+     */
+    private ChatClient createChatClient(boolean webSearchEnabled) {
         ToolCallback kbSearchCallback = FunctionToolCallback
                 .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
                         knowledgeBaseTool)
@@ -69,11 +67,23 @@ public class ResearcherWorker implements WorkerAgent {
                 .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
                 .build();
 
-        this.chatClient = chatClientFactory.create(TEMPERATURE)
-                .mutate()
-                .defaultTools(webSearchCallback, kbSearchCallback)
-                .build();
-        registry.register(this);
+        if (webSearchEnabled) {
+            ToolCallback webSearchCallback = FunctionToolCallback
+                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                            webSearchTool)
+                    .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
+                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
+                    .build();
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(webSearchCallback, kbSearchCallback)
+                    .build();
+        } else {
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(kbSearchCallback)
+                    .build();
+        }
     }
 
     @Override
@@ -92,6 +102,9 @@ public class ResearcherWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
+        Object webSearchObj = state.getOrDefault("webSearch", true);
+        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
+        ChatClient chatClient = createChatClient(webSearchEnabled);
 
         String nodeId = chainPublisher.publishStart(sessionId, "网络调研",
                 ChainNode.Type.TOOL_CALL, null,

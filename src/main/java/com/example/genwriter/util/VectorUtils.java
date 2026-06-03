@@ -110,17 +110,17 @@ public class VectorUtils {
      */
     public static String arrayToVectorString(float[] vector) {
         if (vector == null || vector.length == 0) {
-            return "[]";
+            return "{}";
         }
 
-        StringBuilder sb = new StringBuilder("[");
+        StringBuilder sb = new StringBuilder("{");
         for (int i = 0; i < vector.length; i++) {
             sb.append(vector[i]);
             if (i < vector.length - 1) {
                 sb.append(",");
             }
         }
-        sb.append("]");
+        sb.append("}");
 
         return sb.toString();
     }

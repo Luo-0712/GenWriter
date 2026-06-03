@@ -47,10 +47,12 @@ public class MessageController {
     public ApiResponse<Void> chat(
             @PathVariable String sessionId,
             @RequestParam(defaultValue = "AUTO") ChatEvent.WritingType type,
+            @RequestParam(defaultValue = "true") boolean webSearch,
+            @RequestParam(required = false) String kbId,
             @RequestBody(required = false) String userInput) {
-        log.debug("聊天请求：sessionId={}, type={}", sessionId, type);
+        log.debug("聊天请求：sessionId={}, type={}, webSearch={}, kbId={}", sessionId, type, webSearch, kbId);
         // 发布聊天事件，由 @EventListener 异步处理并通过 SSE 推送结果
-        chatService.submitChatTask(sessionId, userInput, type);
+        chatService.submitChatTask(sessionId, userInput, type, webSearch, kbId);
         return ApiResponse.success(null);
     }
 

@@ -51,17 +51,12 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
 
-    private ChatClient chatClient;
-
     @PostConstruct
     void init() {
-        ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                        webSearchTool)
-                .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
-                .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                .build();
+        registry.register(this);
+    }
 
+    private ChatClient createChatClient(boolean webSearchEnabled) {
         ToolCallback kbSearchCallback = FunctionToolCallback
                 .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
                         knowledgeBaseTool)
@@ -69,11 +64,23 @@ public class DirectAnswerWorker implements WorkerAgent {
                 .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
                 .build();
 
-        this.chatClient = chatClientFactory.create(TEMPERATURE)
-                .mutate()
-                .defaultTools(webSearchCallback, kbSearchCallback)
-                .build();
-        registry.register(this);
+        if (webSearchEnabled) {
+            ToolCallback webSearchCallback = FunctionToolCallback
+                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                            webSearchTool)
+                    .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
+                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
+                    .build();
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(webSearchCallback, kbSearchCallback)
+                    .build();
+        } else {
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(kbSearchCallback)
+                    .build();
+        }
     }
 
     @Override
@@ -92,10 +99,13 @@ public class DirectAnswerWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
+        Object webSearchObj = state.getOrDefault("webSearch", true);
+        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
 
         String nodeId = chainPublisher.publishStart(sessionId, "直接回答",
                 ChainNode.Type.EXECUTION, null,
-                Map.of("userInput", truncate(userInput, 200), "hasKbId", !kbId.isBlank()));
+                Map.of("userInput", truncate(userInput, 200), "hasKbId", !kbId.isBlank(),
+                        "webSearch", webSearchEnabled));
 
         String userPrompt = skill.buildUserPrompt(Map.of(
                 "userInput", userInput,
@@ -109,21 +119,6 @@ public class DirectAnswerWorker implements WorkerAgent {
         String reasoningContent = null;
         SessionContextHolder.set(sessionId);
         try {
-            var promptSpec = chatClient.prompt()
-                    .system(skill.systemPrompt())
-                    .user(userPrompt)
-                    .advisors(new MessageChatMemoryAdvisor(chatMemory))
-                    .advisors(a -> a.param(
-                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                            conversationId));
-
-            if (longTermMemoryProperties.isEnabled()) {
-                promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
-                        memoryService,
-                        List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
-                        sessionId));
-            }
-
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         skill.systemPrompt(), userPrompt, TEMPERATURE,
@@ -133,6 +128,22 @@ public class DirectAnswerWorker implements WorkerAgent {
                         });
                 reasoningContent = result.reasoningContent();
             } else {
+                ChatClient chatClient = createChatClient(webSearchEnabled);
+                var promptSpec = chatClient.prompt()
+                        .system(skill.systemPrompt())
+                        .user(userPrompt)
+                        .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                        .advisors(a -> a.param(
+                                AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                                conversationId));
+
+                if (longTermMemoryProperties.isEnabled()) {
+                    promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                            memoryService,
+                            List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
+                            sessionId));
+                }
+
                 promptSpec.stream()
                         .content()
                         .doOnNext(chunk -> {

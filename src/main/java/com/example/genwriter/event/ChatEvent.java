@@ -44,6 +44,11 @@ public class ChatEvent {
     private WritingType type;
 
     /**
+     * 是否启用联网搜索
+     */
+    private boolean webSearch = true;
+
+    /**
      * 写作类型枚举
      */
     public enum WritingType {

@@ -94,6 +94,9 @@ public class SupervisorNode implements NodeAction {
         accumulated.put("kbId", state.value("kbId", String.class).orElse(""));
         accumulated.put("writingType", state.value("writingType", String.class).orElse("CREATE"));
         accumulated.put("context", state.value("context", String.class).orElse(""));
+        String webSearchStr = state.value("webSearch", String.class).orElse("true");
+        boolean webSearch = !"false".equalsIgnoreCase(webSearchStr);
+        accumulated.put("webSearch", webSearch);
 
         String supervisorNodeId = chainPublisher.publishStart(sessionId, "任务规划",
                 ChainNode.Type.PLANNING, null,

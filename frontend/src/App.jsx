@@ -62,6 +62,7 @@ function App() {
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [view, setView] = useState('chat');
   const [exportDialogMessage, setExportDialogMessage] = useState(null);
+  const [selectedKbId, setSelectedKbId] = useState('');
 
   const abortRef = useRef(null);
 
@@ -193,7 +194,7 @@ function App() {
   }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
-    async (content, mode = 'AUTO') => {
+    async (content, mode = 'AUTO', webSearch = true, kbId = '') => {
       if (isLoading) return;
 
       let project = activeProject;
@@ -266,7 +267,7 @@ function App() {
 
       const doChat = async () => {
         try {
-          await messagesApi.chat(sessionId, content, mode);
+          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId);
         } catch (e) {
           setIsLoading(false);
           setError('触发聊天失败: ' + e.message);
@@ -634,6 +635,7 @@ function App() {
             hasContentStarted={hasContentStarted}
             loadingMessages={loadingMessages}
             isSessionLoading={isSessionLoading}
+            selectedKbId={selectedKbId}
           />
         ) : view === 'knowledge-bases' ? (
           <KnowledgeBasePanel onBack={() => setView('chat')} />

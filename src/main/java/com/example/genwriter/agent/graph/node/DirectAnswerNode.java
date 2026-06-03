@@ -40,17 +40,7 @@ public class DirectAnswerNode implements NodeAction {
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
 
-    private ChatClient chatClient;
-
-    @PostConstruct
-    void initChatClient() {
-        ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                        webSearchTool)
-                .description("Search the web for information.")
-                .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                .build();
-
+    private ChatClient createChatClient(boolean webSearchEnabled) {
         ToolCallback kbSearchCallback = FunctionToolCallback
                 .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
                         knowledgeBaseTool)
@@ -58,10 +48,23 @@ public class DirectAnswerNode implements NodeAction {
                 .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
                 .build();
 
-        this.chatClient = chatClientFactory.create(TEMPERATURE)
-                .mutate()
-                .defaultTools(webSearchCallback, kbSearchCallback)
-                .build();
+        if (webSearchEnabled) {
+            ToolCallback webSearchCallback = FunctionToolCallback
+                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                            webSearchTool)
+                    .description("Search the web for information.")
+                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
+                    .build();
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(webSearchCallback, kbSearchCallback)
+                    .build();
+        } else {
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(kbSearchCallback)
+                    .build();
+        }
     }
 
     @Override
@@ -70,6 +73,8 @@ public class DirectAnswerNode implements NodeAction {
         String userInput = state.value("userInput", String.class).orElse("");
         String context = state.value("context", String.class).orElse("");
         String kbId = state.value("kbId", String.class).orElse("");
+        String webSearchStr = state.value("webSearch", String.class).orElse("true");
+        boolean webSearchEnabled = !"false".equalsIgnoreCase(webSearchStr);
 
         log.debug("通用问答: userInput={}, contextLength={}", userInput, context.length());
         publishStatus(sessionId, "【直接回答】正在生成回答...");
@@ -97,6 +102,7 @@ public class DirectAnswerNode implements NodeAction {
                     });
             reasoningContent = result.reasoningContent();
         } else {
+            ChatClient chatClient = createChatClient(webSearchEnabled);
             chatClient.prompt()
                     .system(skill.systemPrompt())
                     .user(userPrompt)

@@ -17,13 +17,12 @@ public class PgVectorTypeHandler extends BaseTypeHandler<float[]> {
 
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, float[] parameter, JdbcType jdbcType) throws SQLException {
-        StringBuilder sb = new StringBuilder();
-        sb.append('[');
+        StringBuilder sb = new StringBuilder("{");
         for (int j = 0; j < parameter.length; j++) {
             sb.append(parameter[j]);
             if (j < parameter.length - 1) sb.append(',');
         }
-        sb.append(']');
+        sb.append('}');
         ps.setObject(i, sb.toString(), Types.OTHER);
     }
 
@@ -50,8 +49,9 @@ public class PgVectorTypeHandler extends BaseTypeHandler<float[]> {
      */
     private float[] parse(String vectorText) {
         if (vectorText == null) return null;
-        // 去掉 "[ ]"
-        vectorText = vectorText.replace("[", "").replace("]", "");
+        // pgvector 输出 {x,y,z} 格式，兼容 [x,y,z] 格式
+        vectorText = vectorText.replace("[", "").replace("]", "")
+                               .replace("{", "").replace("}", "");
         if (vectorText.isBlank()) return new float[0];
         String[] parts = vectorText.split(",");
         float[] arr = new float[parts.length];

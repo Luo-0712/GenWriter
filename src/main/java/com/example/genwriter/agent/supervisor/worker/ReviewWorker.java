@@ -53,22 +53,26 @@ public class ReviewWorker implements WorkerAgent {
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
 
-    private ChatClient chatClient;
-
     @PostConstruct
     void init() {
-        ToolCallback webSearchCallback = FunctionToolCallback
-                .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                        webSearchTool)
-                .description("Search the web to verify facts, data, statistics, or any factual claims in the article.")
-                .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                .build();
-
-        this.chatClient = chatClientFactory.create(TEMPERATURE)
-                .mutate()
-                .defaultTools(webSearchCallback)
-                .build();
         registry.register(this);
+    }
+
+    private ChatClient createChatClient(boolean webSearchEnabled) {
+        if (webSearchEnabled) {
+            ToolCallback webSearchCallback = FunctionToolCallback
+                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
+                            webSearchTool)
+                    .description("Search the web to verify facts, data, statistics, or any factual claims in the article.")
+                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
+                    .build();
+            return chatClientFactory.create(TEMPERATURE)
+                    .mutate()
+                    .defaultTools(webSearchCallback)
+                    .build();
+        } else {
+            return chatClientFactory.create(TEMPERATURE);
+        }
     }
 
     @Override
@@ -88,6 +92,8 @@ public class ReviewWorker implements WorkerAgent {
         String outline = (String) state.getOrDefault("outline", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         int reviewCount = getInt(state, "reviewCount", 0);
+        Object webSearchObj = state.getOrDefault("webSearch", true);
+        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
 
         if (reviewCount >= MAX_REVIEW_ROUNDS) {
             log.warn("[ReviewWorker] 评审轮次已达上限({})，强制通过", MAX_REVIEW_ROUNDS);
@@ -110,6 +116,8 @@ public class ReviewWorker implements WorkerAgent {
         ));
 
         String conversationId = sessionId + ":review";
+
+        ChatClient chatClient = createChatClient(webSearchEnabled);
 
         SessionContextHolder.set(sessionId);
         String response;

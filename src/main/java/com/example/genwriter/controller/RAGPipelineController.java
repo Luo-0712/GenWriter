@@ -98,7 +98,7 @@ public class RAGPipelineController {
 
         int topK = request.getTopK() != null ? request.getTopK() : 5;
         List<KnowledgeChunkDTO> results = ragPipelineService.searchAndRetrieve(
-                request.getQuery(), request.getKbId(), topK);
+                request.getQuery(), request.getKbId(), topK, request.getThreshold());
 
         return ApiResponse.success(results);
     }
@@ -143,6 +143,7 @@ public class RAGPipelineController {
         private String query;
         @Min(value = 1, message = "TopK must be at least 1")
         private Integer topK;
+        private Double threshold;
     }
 
     @Data
