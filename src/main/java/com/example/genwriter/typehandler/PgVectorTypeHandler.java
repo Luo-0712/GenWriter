@@ -17,12 +17,12 @@ public class PgVectorTypeHandler extends BaseTypeHandler<float[]> {
 
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, float[] parameter, JdbcType jdbcType) throws SQLException {
-        StringBuilder sb = new StringBuilder("{");
+        StringBuilder sb = new StringBuilder("[");
         for (int j = 0; j < parameter.length; j++) {
             sb.append(parameter[j]);
             if (j < parameter.length - 1) sb.append(',');
         }
-        sb.append('}');
+        sb.append(']');
         ps.setObject(i, sb.toString(), Types.OTHER);
     }
 
