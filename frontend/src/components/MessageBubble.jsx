@@ -275,9 +275,11 @@ const MessageBubble = ({ message, onExport }) => {
   const [viewerUrl, setViewerUrl] = useState(null);
   const thinkingSteps = message.thinkingSteps || [];
   const chainNodes = message.chainNodes || [];
+  const traceEvents = message.traceEvents || [];
+  const hasTraceEvents = traceEvents.length > 0;
   const hasChainNodes = chainNodes.length > 0;
   const hasThinkingSteps = thinkingSteps.length > 0;
-  const hasThinking = hasChainNodes || hasThinkingSteps;
+  const hasThinking = hasTraceEvents || hasChainNodes || hasThinkingSteps;
   const latestStep = hasThinkingSteps ? thinkingSteps[thinkingSteps.length - 1].text : '';
 
   return (
@@ -299,13 +301,14 @@ const MessageBubble = ({ message, onExport }) => {
             </div>
           </div>
         )}
-        {hasChainNodes && (
+        {(hasTraceEvents || hasChainNodes) && (
           <ThinkingPanel
+            traceEvents={traceEvents}
             chainNodes={chainNodes}
             isStreaming={message.isStreaming}
           />
         )}
-        {!hasChainNodes && hasThinkingSteps && (
+        {!hasTraceEvents && !hasChainNodes && hasThinkingSteps && (
           <div className="thinking-process">
             <div
               className="thinking-process-header"
@@ -314,7 +317,7 @@ const MessageBubble = ({ message, onExport }) => {
               <span className="thinking-process-arrow">
                 {thinkingExpanded ? '▲' : '▼'}
               </span>
-              <span className="thinking-process-label">思考过程</span>
+              <span className="thinking-process-label">工作过程</span>
               {!thinkingExpanded && (
                 <span className="thinking-process-latest">
                   {(() => {

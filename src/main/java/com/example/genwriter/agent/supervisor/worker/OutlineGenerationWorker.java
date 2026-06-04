@@ -9,6 +9,7 @@ import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SaveSettingDetailTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
@@ -91,10 +92,16 @@ public class OutlineGenerationWorker implements WorkerAgent {
         }
 
         String response;
-        SessionContextHolder.set(sessionId);
+        SessionContextHolder.set(sessionId, nodeId, name());
+        String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型生成大纲",
+                AgentTraceEvent.Kind.LLM, nodeId,
+                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE), null);
         try {
             response = promptSpec.call().content();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
+            chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
         } finally {

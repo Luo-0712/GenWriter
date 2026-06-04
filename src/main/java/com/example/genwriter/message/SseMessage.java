@@ -89,6 +89,11 @@ public class SseMessage {
 
         AI_CHAIN_EVENT,
 
+        /**
+         * 结构化执行轨迹事件，用于展示子智能体、工具调用和关键工作步骤。
+         */
+        AI_TRACE_EVENT,
+
         AI_DONE,
 
         /**

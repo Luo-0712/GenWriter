@@ -11,6 +11,7 @@ import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.KnowledgeBaseTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.TavilyWebSearchTool;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.enums.MemoryType;
@@ -121,7 +122,12 @@ public class ResearcherWorker implements WorkerAgent {
 
         String conversationId = sessionId + ":researcher";
 
-        SessionContextHolder.set(sessionId);
+        SessionContextHolder.set(sessionId, nodeId, name());
+        String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型调研与综合",
+                AgentTraceEvent.Kind.LLM, nodeId,
+                Map.of("promptLength", userPrompt.length(), "webSearch", webSearchEnabled,
+                        "hasKbId", !kbId.isBlank()), null);
+        SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         String response;
         try {
             var promptSpec = chatClient.prompt()
@@ -140,9 +146,19 @@ public class ResearcherWorker implements WorkerAgent {
             }
 
             final var finalPromptSpec = promptSpec;
-            response = CompletableFuture.supplyAsync(() -> finalPromptSpec.call().content())
+            response = CompletableFuture.supplyAsync(() -> {
+                        SessionContextHolder.restore(contextSnapshot);
+                        try {
+                            return finalPromptSpec.call().content();
+                        } finally {
+                            SessionContextHolder.clear();
+                        }
+                    })
                     .get(5, TimeUnit.MINUTES);
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
+            chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             SessionContextHolder.clear();
             throw e;

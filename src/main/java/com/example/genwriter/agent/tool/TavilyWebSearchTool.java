@@ -2,7 +2,7 @@ package com.example.genwriter.agent.tool;
 
 import com.example.genwriter.config.ResearcherProperties;
 import com.example.genwriter.config.WebSearchProperties;
-import com.example.genwriter.agent.tool.SessionContextHolder;
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.service.SseService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -39,6 +40,7 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
     private final ObjectMapper objectMapper;
     private final ResearcherProperties properties;
     private final SseService sseService;
+    private final ThoughtChainPublisher chainPublisher;
 
     private RestTemplate restTemplate;
 
@@ -66,8 +68,19 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
 
     @Override
     public String apply(WebSearchInput input) {
-        if (input.query() == null || input.query().isBlank()) {
-            return ToolResult.fail("搜索关键词不能为空，请提供具体的搜索关键词").toJson();
+        String sessionId = SessionContextHolder.get();
+        String traceSpanId = null;
+        if (sessionId != null && !sessionId.isBlank()) {
+            Map<String, Object> traceInput = new LinkedHashMap<>();
+            traceInput.put("query", input != null ? input.query() : "");
+            traceInput.put("topK", input != null ? input.topK() : null);
+            traceSpanId = chainPublisher.publishToolStart(sessionId, "web_search", traceInput);
+        }
+
+        if (input == null || input.query() == null || input.query().isBlank()) {
+            String result = ToolResult.fail("搜索关键词不能为空，请提供具体的搜索关键词").toJson();
+            publishToolError(sessionId, traceSpanId, "搜索关键词不能为空");
+            return result;
         }
 
         log.info("[WebSearchTool] 执行搜索: query={}, topK={}", input.query(), input.topK());
@@ -77,10 +90,16 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
             int effectiveTopK = Math.min(input.topK(), properties.getMaxSearchResultsPerQuery());
             List<WebSearchResult> results = search(input.query(), effectiveTopK);
             publishSearchStatus(input.query(), "completed");
+            publishToolComplete(sessionId, traceSpanId, Map.of(
+                    "query", input.query(),
+                    "total", results != null ? results.size() : 0,
+                    "topSources", summarizeSources(results)
+            ));
             return formatResults(results);
         } catch (Exception e) {
             log.error("[WebSearchTool] 搜索失败: query={}", input.query(), e);
             publishSearchStatus(input.query(), "failed");
+            publishToolError(sessionId, traceSpanId, e.getMessage());
             return ToolResult.fail("搜索失败: " + e.getMessage()).toJson();
         }
     }
@@ -160,6 +179,27 @@ public class TavilyWebSearchTool implements WebSearchTool, Function<TavilyWebSea
         } catch (Exception e) {
             log.debug("SSE 搜索状态推送失败: {}", e.getMessage());
         }
+    }
+
+    private void publishToolComplete(String sessionId, String traceSpanId, Object output) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        chainPublisher.publishToolComplete(sessionId, traceSpanId, "web_search", output);
+    }
+
+    private void publishToolError(String sessionId, String traceSpanId, String error) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        chainPublisher.publishToolError(sessionId, traceSpanId, "web_search", error);
+    }
+
+    private List<Map<String, String>> summarizeSources(List<WebSearchResult> results) {
+        if (results == null || results.isEmpty()) return List.of();
+        return results.stream()
+                .limit(5)
+                .map(r -> Map.of(
+                        "title", r.title() != null ? r.title() : "",
+                        "url", r.url() != null ? r.url() : ""
+                ))
+                .toList();
     }
 
     private List<WebSearchResult> parseResults(String responseBody) {

@@ -1,14 +1,15 @@
 package com.example.genwriter.agent.tool;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.model.dto.response.KnowledgeChunkDTO;
 import com.example.genwriter.service.RAGPipelineService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -20,6 +21,10 @@ import java.util.function.Function;
 @Component
 @RequiredArgsConstructor
 public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSearchInput, String> {
+
+    private final RAGPipelineService ragPipelineService;
+    private final ObjectMapper objectMapper;
+    private final ThoughtChainPublisher chainPublisher;
 
     // -------------------------------------------------------------------------
     // Function calling 输入参数
@@ -34,25 +39,37 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
 
     @Override
     public String apply(KnowledgeSearchInput input) {
-        if (input.kbId() == null || input.kbId().isBlank()) {
+        String sessionId = SessionContextHolder.get();
+        String traceSpanId = null;
+        if (sessionId != null && !sessionId.isBlank()) {
+            Map<String, Object> traceInput = new LinkedHashMap<>();
+            traceInput.put("query", input != null ? input.query() : "");
+            traceInput.put("kbId", input != null ? input.kbId() : "");
+            traceInput.put("topK", input != null ? input.topK() : null);
+            traceSpanId = chainPublisher.publishToolStart(sessionId, "knowledge_base_search", traceInput);
+        }
+
+        if (input == null || input.kbId() == null || input.kbId().isBlank()) {
+            publishToolError(sessionId, traceSpanId, "知识库ID不能为空");
             return ToolResult.fail("知识库ID不能为空，请确认是否有可用的知识库").toJson();
         }
         if (input.query() == null || input.query().isBlank()) {
+            publishToolError(sessionId, traceSpanId, "检索关键词不能为空");
             return ToolResult.fail("检索关键词不能为空，请提供具体的检索关键词").toJson();
         }
 
         log.info("[KnowledgeBaseTool] 检索知识库: kbId={}, query={}, topK={}", input.kbId(), input.query(), input.topK());
 
         try {
-            return searchKnowledgeBase(input.query(), input.kbId(), input.topK());
+            String result = searchKnowledgeBase(input.query(), input.kbId(), input.topK());
+            publishToolResult(sessionId, traceSpanId, input, result);
+            return result;
         } catch (Exception e) {
             log.error("[KnowledgeBaseTool] 知识库检索失败: kbId={}, query={}", input.kbId(), input.query(), e);
+            publishToolError(sessionId, traceSpanId, e.getMessage());
             return ToolResult.fail("知识库检索失败: " + e.getMessage()).toJson();
         }
     }
-
-    private final RAGPipelineService ragPipelineService;
-    private final ObjectMapper objectMapper;
 
     /**
      * 搜索知识库
@@ -108,6 +125,31 @@ public class KnowledgeBaseTool implements Function<KnowledgeBaseTool.KnowledgeSe
      */
     public String search(KnowledgeSearchInput input) {
         return apply(input);
+    }
+
+    private void publishToolResult(String sessionId, String traceSpanId, KnowledgeSearchInput input, String resultJson) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        try {
+            ToolResult result = objectMapper.readValue(resultJson, ToolResult.class);
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("query", input.query());
+            output.put("kbId", input.kbId());
+            output.put("success", result.success());
+            output.put("sourcesCount", result.sources() != null ? result.sources().size() : 0);
+            output.put("metadata", result.metadata());
+            if (!result.success()) {
+                output.put("error", result.error());
+            }
+            chainPublisher.publishToolComplete(sessionId, traceSpanId, "knowledge_base_search", output);
+        } catch (Exception e) {
+            chainPublisher.publishToolComplete(sessionId, traceSpanId, "knowledge_base_search",
+                    Map.of("query", input.query(), "kbId", input.kbId(), "resultLength", resultJson.length()));
+        }
+    }
+
+    private void publishToolError(String sessionId, String traceSpanId, String error) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        chainPublisher.publishToolError(sessionId, traceSpanId, "knowledge_base_search", error);
     }
 
 }

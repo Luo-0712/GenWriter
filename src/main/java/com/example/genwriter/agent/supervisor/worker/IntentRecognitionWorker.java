@@ -5,6 +5,8 @@ import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.skill.IntentRecognitionSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.SessionContextHolder;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -57,15 +59,24 @@ public class IntentRecognitionWorker implements WorkerAgent {
 
         String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput));
         String response;
+        SessionContextHolder.set(sessionId, nodeId, name());
+        String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型识别意图",
+                AgentTraceEvent.Kind.LLM, nodeId,
+                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE), null);
         try {
             response = chatClient.prompt()
                     .system(skill.systemPrompt())
                     .user(userPrompt)
                     .call()
                     .content();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
+            chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
+        } finally {
+            SessionContextHolder.clear();
         }
 
         try {

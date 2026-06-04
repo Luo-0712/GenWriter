@@ -38,6 +38,7 @@ build/
 .env
 /uploads/
 /.claude/
+/docs/
 /logs/
 /logs/
 /logs/
