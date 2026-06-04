@@ -8,9 +8,8 @@ import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ResearcherSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
-import com.example.genwriter.agent.tool.KnowledgeBaseTool;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
@@ -25,8 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -42,8 +39,6 @@ public class ResearcherWorker implements WorkerAgent {
 
     private final ChatClientFactory chatClientFactory;
     private final ResearcherSkill skill;
-    private final TavilyWebSearchTool webSearchTool;
-    private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -55,36 +50,6 @@ public class ResearcherWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         registry.register(this);
-    }
-
-    /**
-     * 根据是否启用联网搜索创建 ChatClient
-     */
-    private ChatClient createChatClient(boolean webSearchEnabled) {
-        ToolCallback kbSearchCallback = FunctionToolCallback
-                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
-                        knowledgeBaseTool)
-                .description("Search the knowledge base for relevant content. Use this tool when a knowledge base ID (kbId) is provided and the question relates to the knowledge base content.")
-                .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
-                .build();
-
-        if (webSearchEnabled) {
-            ToolCallback webSearchCallback = FunctionToolCallback
-                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                            webSearchTool)
-                    .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
-                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                    .build();
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(webSearchCallback, kbSearchCallback)
-                    .build();
-        } else {
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(kbSearchCallback)
-                    .build();
-        }
     }
 
     @Override
@@ -103,9 +68,8 @@ public class ResearcherWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String existingContext = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
-        Object webSearchObj = state.getOrDefault("webSearch", true);
-        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
-        ChatClient chatClient = createChatClient(webSearchEnabled);
+        boolean webSearchEnabled = AgentToolSupport.isWebSearchEnabled(state.get("webSearch"));
+        ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
 
         String nodeId = chainPublisher.publishStart(sessionId, "网络调研",
                 ChainNode.Type.TOOL_CALL, null,
@@ -119,6 +83,7 @@ public class ResearcherWorker implements WorkerAgent {
                 "context", existingContext,
                 "kbId", kbId
         ));
+        userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         String conversationId = sessionId + ":researcher";
 
@@ -132,8 +97,12 @@ public class ResearcherWorker implements WorkerAgent {
         try {
             var promptSpec = chatClient.prompt()
                     .system(systemPrompt)
-                    .user(userPrompt)
-                    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .user(userPrompt);
+
+            promptSpec = AgentToolSupport.applyToolVisibility(
+                    promptSpec, webSearchEnabled, !kbId.isBlank());
+
+            promptSpec = promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
                     .advisors(a -> a.param(
                             AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
                             conversationId));

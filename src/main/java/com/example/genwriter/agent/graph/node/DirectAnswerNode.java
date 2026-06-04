@@ -6,9 +6,8 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
-import com.example.genwriter.agent.tool.KnowledgeBaseTool;
-import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
@@ -22,8 +21,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.model.Media;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Mono;
@@ -38,40 +35,11 @@ public class DirectAnswerNode implements NodeAction {
 
     private final ChatClientFactory chatClientFactory;
     private final DirectAnswerSkill skill;
-    private final TavilyWebSearchTool webSearchTool;
-    private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final SseService sseService;
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
     private final FileStorageService fileStorageService;
-
-    private ChatClient createChatClient(boolean webSearchEnabled) {
-        ToolCallback kbSearchCallback = FunctionToolCallback
-                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
-                        knowledgeBaseTool)
-                .description("Search the knowledge base for relevant content.")
-                .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
-                .build();
-
-        if (webSearchEnabled) {
-            ToolCallback webSearchCallback = FunctionToolCallback
-                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                            webSearchTool)
-                    .description("Search the web for information.")
-                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                    .build();
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(webSearchCallback, kbSearchCallback)
-                    .build();
-        } else {
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(kbSearchCallback)
-                    .build();
-        }
-    }
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -94,6 +62,7 @@ public class DirectAnswerNode implements NodeAction {
                 "context", context,
                 "kbId", kbId
         ));
+        userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         // Inject document content into prompt
         if (multimodalContent != null && multimodalContent.hasDocuments()) {
@@ -134,7 +103,7 @@ public class DirectAnswerNode implements NodeAction {
                     });
             reasoningContent = result.reasoningContent();
         } else {
-            ChatClient chatClient = createChatClient(webSearchEnabled);
+            ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
             var baseSpec = chatClient.prompt()
                     .system(skill.systemPrompt());
 
@@ -161,6 +130,9 @@ public class DirectAnswerNode implements NodeAction {
             } else {
                 promptSpec = baseSpec.user(finalUserPrompt);
             }
+
+            promptSpec = AgentToolSupport.applyToolVisibility(
+                    promptSpec, webSearchEnabled, !kbId.isBlank());
 
             promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
                     .advisors(a -> a.param(

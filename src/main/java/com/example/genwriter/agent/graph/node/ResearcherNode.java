@@ -26,6 +26,7 @@ public class ResearcherNode implements NodeAction {
         state.value("intent", String.class).ifPresent(v -> stateMap.put("intent", v));
         state.value("writingType", String.class).ifPresent(v -> stateMap.put("writingType", v));
         state.value("context", String.class).ifPresent(v -> stateMap.put("context", v));
+        state.value("webSearch", String.class).ifPresent(v -> stateMap.put("webSearch", v));
 
         Map<String, Object> result = researcherWorker.execute(stateMap);
 

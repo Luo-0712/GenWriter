@@ -10,8 +10,8 @@ import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ReviewSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
@@ -24,8 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -45,7 +43,6 @@ public class ReviewWorker implements WorkerAgent {
     private final ChatClientFactory chatClientFactory;
     private final ObjectMapper objectMapper;
     private final ReviewSkill skill;
-    private final TavilyWebSearchTool webSearchTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -57,23 +54,6 @@ public class ReviewWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         registry.register(this);
-    }
-
-    private ChatClient createChatClient(boolean webSearchEnabled) {
-        if (webSearchEnabled) {
-            ToolCallback webSearchCallback = FunctionToolCallback
-                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                            webSearchTool)
-                    .description("Search the web to verify facts, data, statistics, or any factual claims in the article.")
-                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                    .build();
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(webSearchCallback)
-                    .build();
-        } else {
-            return chatClientFactory.create(TEMPERATURE);
-        }
     }
 
     @Override
@@ -93,8 +73,7 @@ public class ReviewWorker implements WorkerAgent {
         String outline = (String) state.getOrDefault("outline", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         int reviewCount = getInt(state, "reviewCount", 0);
-        Object webSearchObj = state.getOrDefault("webSearch", true);
-        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
+        boolean webSearchEnabled = AgentToolSupport.isWebSearchEnabled(state.get("webSearch"));
 
         if (reviewCount >= MAX_REVIEW_ROUNDS) {
             log.warn("[ReviewWorker] 评审轮次已达上限({})，强制通过", MAX_REVIEW_ROUNDS);
@@ -115,10 +94,11 @@ public class ReviewWorker implements WorkerAgent {
                 "userInput", userInput,
                 "reviewCount", reviewCount
         ));
+        userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         String conversationId = sessionId + ":review";
 
-        ChatClient chatClient = createChatClient(webSearchEnabled);
+        ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
 
         SessionContextHolder.set(sessionId, nodeId, name());
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型评审",
@@ -130,8 +110,12 @@ public class ReviewWorker implements WorkerAgent {
         try {
             var promptSpec = chatClient.prompt()
                     .system(skill.systemPrompt())
-                    .user(userPrompt)
-                    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .user(userPrompt);
+
+            promptSpec = AgentToolSupport.applyToolVisibility(
+                    promptSpec, webSearchEnabled, false);
+
+            promptSpec = promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
                     .advisors(a -> a.param(
                             AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
                             conversationId));

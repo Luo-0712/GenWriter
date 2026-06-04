@@ -9,9 +9,8 @@ import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.DirectAnswerSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
-import com.example.genwriter.agent.tool.KnowledgeBaseTool;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SessionContextHolder;
-import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
@@ -28,8 +27,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.model.Media;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Mono;
@@ -47,8 +44,6 @@ public class DirectAnswerWorker implements WorkerAgent {
 
     private final ChatClientFactory chatClientFactory;
     private final DirectAnswerSkill skill;
-    private final TavilyWebSearchTool webSearchTool;
-    private final KnowledgeBaseTool knowledgeBaseTool;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -61,33 +56,6 @@ public class DirectAnswerWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         registry.register(this);
-    }
-
-    private ChatClient createChatClient(boolean webSearchEnabled) {
-        ToolCallback kbSearchCallback = FunctionToolCallback
-                .builder("knowledge_base_search", (java.util.function.Function<KnowledgeBaseTool.KnowledgeSearchInput, String>)
-                        knowledgeBaseTool)
-                .description("Search the knowledge base for relevant content. Use this tool when a knowledge base ID (kbId) is provided and the question relates to the knowledge base content.")
-                .inputType(KnowledgeBaseTool.KnowledgeSearchInput.class)
-                .build();
-
-        if (webSearchEnabled) {
-            ToolCallback webSearchCallback = FunctionToolCallback
-                    .builder("web_search", (java.util.function.Function<TavilyWebSearchTool.WebSearchInput, String>)
-                            webSearchTool)
-                    .description("Search the web for information. Use this tool when you need to find current information, facts, data, or any content from the internet.")
-                    .inputType(TavilyWebSearchTool.WebSearchInput.class)
-                    .build();
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(webSearchCallback, kbSearchCallback)
-                    .build();
-        } else {
-            return chatClientFactory.create(TEMPERATURE)
-                    .mutate()
-                    .defaultTools(kbSearchCallback)
-                    .build();
-        }
     }
 
     @Override
@@ -106,8 +74,7 @@ public class DirectAnswerWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
         String kbId = (String) state.getOrDefault("kbId", "");
-        Object webSearchObj = state.getOrDefault("webSearch", true);
-        boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
+        boolean webSearchEnabled = AgentToolSupport.isWebSearchEnabled(state.get("webSearch"));
 
         // 获取多模态内容
         Object mcObj = state.get("multimodalContent");
@@ -123,6 +90,7 @@ public class DirectAnswerWorker implements WorkerAgent {
                 "context", context,
                 "kbId", kbId
         ));
+        userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         // Inject document content into prompt
         if (multimodalContent != null && multimodalContent.hasDocuments()) {
@@ -169,7 +137,7 @@ public class DirectAnswerWorker implements WorkerAgent {
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
                                 "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
             } else {
-                ChatClient chatClient = createChatClient(webSearchEnabled);
+                ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
                 var baseSpec = chatClient.prompt()
                         .system(skill.systemPrompt());
 
@@ -196,6 +164,9 @@ public class DirectAnswerWorker implements WorkerAgent {
                 } else {
                     promptSpec = baseSpec.user(finalUserPrompt);
                 }
+
+                promptSpec = AgentToolSupport.applyToolVisibility(
+                        promptSpec, webSearchEnabled, !kbId.isBlank());
 
                 promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
                         .advisors(a -> a.param(

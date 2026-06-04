@@ -9,10 +9,15 @@ import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.function.FunctionCallback;
+import org.springframework.ai.model.function.FunctionCallbackResolver;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.ai.retry.RetryUtils;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * 动态 ChatModel 工厂
@@ -24,6 +29,8 @@ import org.springframework.stereotype.Component;
 public class ChatModelFactory {
 
     private final LLMConfig llmConfig;
+    private final FunctionCallbackResolver functionCallbackResolver;
+    private final List<FunctionCallback> functionCallbacks;
 
     /**
      * 根据供应商配置创建 ChatModel
@@ -71,7 +78,8 @@ public class ChatModelFactory {
         DashScopeChatOptions options = DashScopeChatOptions.builder()
                 .withModel(config.getActiveModel())
                 .build();
-        return new DashScopeChatModel(api, options);
+        return new DashScopeChatModel(api, options, functionCallbackResolver, functionCallbacks,
+                RetryUtils.DEFAULT_RETRY_TEMPLATE);
     }
 
     private ChatModel createOpenAi(LLMConfig.ProviderConfig config) {
@@ -81,7 +89,8 @@ public class ChatModelFactory {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(config.getActiveModel())
                 .build();
-        return new OpenAiChatModel(api, options);
+        return new OpenAiChatModel(api, options, functionCallbackResolver, functionCallbacks,
+                RetryUtils.DEFAULT_RETRY_TEMPLATE);
     }
 
     private ChatModel createOpenAiCompatible(LLMConfig.ProviderConfig config) {
@@ -96,7 +105,8 @@ public class ChatModelFactory {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(config.getActiveModel())
                 .build();
-        return new OpenAiChatModel(api, options);
+        return new OpenAiChatModel(api, options, functionCallbackResolver, functionCallbacks,
+                RetryUtils.DEFAULT_RETRY_TEMPLATE);
     }
 
     private ChatModel createAnthropic(LLMConfig.ProviderConfig config) {
@@ -104,9 +114,7 @@ public class ChatModelFactory {
         AnthropicChatOptions options = AnthropicChatOptions.builder()
                 .model(config.getActiveModel())
                 .build();
-        return AnthropicChatModel.builder()
-                .anthropicApi(api)
-                .defaultOptions(options)
-                .build();
+        return new AnthropicChatModel(api, options, RetryUtils.DEFAULT_RETRY_TEMPLATE,
+                functionCallbackResolver, functionCallbacks);
     }
 }
