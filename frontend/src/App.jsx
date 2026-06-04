@@ -13,7 +13,7 @@ import * as projectsApi from './api/projects';
 import { connectSSE } from './api/sse';
 import './styles/global.css';
 
-/* ---------- sessionStorage 思维链缓存 ---------- */
+/* ---------- sessionStorage 执行轨迹缓存 ---------- */
 const chainStorageKey = (sessionId) => `genwriter_chain_${sessionId}`;
 
 const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix, sources) => {
@@ -120,11 +120,12 @@ function App() {
               content: m.content || '',
               timestamp: m.createdAt,
             };
-            // 从后端 metadata 恢复思维链（支持长期持久化）
+            // 从后端 metadata 恢复执行轨迹（预留长期持久化能力）
             if (m.metadata) {
               try {
                 const meta = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
                 if (meta.chainNodes) msg.chainNodes = meta.chainNodes;
+                if (meta.traceEvents) msg.traceEvents = meta.traceEvents;
                 if (meta.thinkingSteps) msg.thinkingSteps = meta.thinkingSteps;
                 if (meta.sources) msg.sources = meta.sources;
               } catch (e) {
@@ -134,7 +135,7 @@ function App() {
             return msg;
           });
 
-          // 从 sessionStorage 恢复最新的思维链（覆盖后端数据，因为 sessionStorage 更实时）
+          // 从 sessionStorage 恢复最新的执行轨迹（覆盖后端数据，因为 sessionStorage 更实时）
           const cached = loadChainFromStorage(activeSession.id);
           if (cached && cached.chainNodes?.length > 0) {
             const lastAssistantIdx = mapped.reduce((last, m, i) =>
@@ -177,12 +178,16 @@ function App() {
     };
   }, []);
 
-  /* ---------- 自动将思维链缓存到 sessionStorage ---------- */
+  /* ---------- 自动将执行轨迹缓存到 sessionStorage ---------- */
   useEffect(() => {
     if (!activeSession?.id) return;
     const msgs = [...messages];
     const lastAssistant = msgs.reverse().find((m) => m.role === 'assistant');
-    if (lastAssistant && (lastAssistant.chainNodes?.length > 0 || lastAssistant.thinkingSteps?.length > 0 || lastAssistant.sources?.length > 0)) {
+    if (lastAssistant && (
+      lastAssistant.chainNodes?.length > 0 ||
+      lastAssistant.thinkingSteps?.length > 0 ||
+      lastAssistant.sources?.length > 0
+    )) {
       saveChainToStorage(
         activeSession.id,
         lastAssistant.chainNodes,
@@ -228,7 +233,7 @@ function App() {
 
       const sessionId = session.id;
 
-      // 发送新消息前清除旧的思维链缓存
+      // 发送新消息前清除旧的执行轨迹缓存
       clearChainStorage(sessionId);
 
       const userMsg = {
@@ -260,6 +265,7 @@ function App() {
           statusText: '',
           thinkingSteps: [],
           chainNodes: [],
+          traceEvents: [],
           sources: [],
           isStreaming: true,
           timestamp: new Date().toISOString(),
@@ -307,6 +313,22 @@ function App() {
             setActiveSession((prev) =>
               prev?.id === sessionId ? { ...prev, title: newTitle } : prev
             );
+            return;
+          }
+
+          if (payload.type === 'AI_TRACE_EVENT') {
+            if (data && typeof data === 'object') {
+              const traceEvent = data;
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id !== assistantMsgId) return m;
+                  return {
+                    ...m,
+                    traceEvents: [...(m.traceEvents || []), traceEvent],
+                  };
+                })
+              );
+            }
             return;
           }
 

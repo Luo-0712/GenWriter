@@ -11,6 +11,7 @@ import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.UpdateWritingSkillTool;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
@@ -172,7 +173,11 @@ public class PolishWorker implements WorkerAgent {
                     queries));
         }
 
-        SessionContextHolder.set(sessionId);
+        SessionContextHolder.set(sessionId, nodeId, name());
+        String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型润色",
+                AgentTraceEvent.Kind.LLM, nodeId,
+                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
+                        "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
         String reasoningContent = null;
         try {
             if (reasoningStreamHelper.isReasoningModel()) {
@@ -183,6 +188,9 @@ public class PolishWorker implements WorkerAgent {
                             publishContentChunk(sessionId, chunk);
                         });
                 reasoningContent = result.reasoningContent();
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", result.content() != null ? result.content().length() : 0,
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
             } else {
                 promptSpec.stream()
                         .content()
@@ -192,8 +200,11 @@ public class PolishWorker implements WorkerAgent {
                         })
                         .then(Mono.just(contentBuilder.toString()))
                         .block();
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", contentBuilder.length()));
             }
         } catch (Exception e) {
+            chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             throw e;
         } finally {

@@ -12,6 +12,7 @@ import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.agent.supervisor.SupervisorSystemPromptProvider;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.response.MemoryVO;
@@ -80,8 +81,27 @@ public class SupervisorNode implements NodeAction {
     }
 
     private String readSkillDetail(ReadSkillInput input) {
-        log.info("[Supervisor] 读取 skill 详情: {}", input.name());
-        return skillService.readSkillDetail(input.name());
+        String skillName = input != null && input.name() != null ? input.name() : "";
+        log.info("[Supervisor] 读取 skill 详情: {}", skillName);
+        String sessionId = SessionContextHolder.get();
+        String spanId = null;
+        if (sessionId != null && !sessionId.isBlank()) {
+            spanId = chainPublisher.publishToolStart(sessionId, "read_skill_detail",
+                    Map.of("name", skillName));
+        }
+        try {
+            String detail = skillService.readSkillDetail(skillName);
+            if (spanId != null) {
+                chainPublisher.publishToolComplete(sessionId, spanId, "read_skill_detail",
+                        Map.of("name", skillName, "contentLength", detail != null ? detail.length() : 0));
+            }
+            return detail;
+        } catch (Exception e) {
+            if (spanId != null) {
+                chainPublisher.publishToolError(sessionId, spanId, "read_skill_detail", e.getMessage());
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -102,7 +122,13 @@ public class SupervisorNode implements NodeAction {
                 ChainNode.Type.PLANNING, null,
                 Map.of("userInput", truncate((String) accumulated.getOrDefault("userInput", ""), 200)));
 
-        ExecutionPlan plan = generatePlan(state, accumulated);
+        ExecutionPlan plan;
+        SessionContextHolder.set(sessionId, supervisorNodeId, "supervisor");
+        try {
+            plan = generatePlan(state, accumulated);
+        } finally {
+            SessionContextHolder.clear();
+        }
         if (plan == null) {
             if (accumulated.containsKey("finalOutput") && !((String) accumulated.get("finalOutput")).isBlank()) {
                 chainPublisher.publishComplete(sessionId, supervisorNodeId,
@@ -141,7 +167,13 @@ public class SupervisorNode implements NodeAction {
                         ChainNode.Type.PLANNING, supervisorNodeId,
                         Map.of("reason", accumulated.get("reviewResult")));
 
-                ExecutionPlan newPlan = replan(state, accumulated);
+                ExecutionPlan newPlan;
+                SessionContextHolder.set(sessionId, replanNodeId, "supervisor");
+                try {
+                    newPlan = replan(state, accumulated);
+                } finally {
+                    SessionContextHolder.clear();
+                }
                 if (newPlan != null) {
                     steps = new ArrayList<>(newPlan.steps());
                     planIndex = Math.min(newPlan.restartFrom(), newPlan.steps().size() - 1);
@@ -174,7 +206,13 @@ public class SupervisorNode implements NodeAction {
             log.info("[SupervisorNode] 执行 Worker: name={}, step={}/{}", workerName, planIndex + 1, steps.size());
 
             try {
-                Map<String, Object> result = worker.execute(new HashMap<>(accumulated));
+                Map<String, Object> result;
+                SessionContextHolder.set(sessionId, workerNodeId, workerName);
+                try {
+                    result = worker.execute(new HashMap<>(accumulated));
+                } finally {
+                    SessionContextHolder.clear();
+                }
                 accumulated.putAll(result);
 
                 if ("intent_recognition".equals(workerName)) {

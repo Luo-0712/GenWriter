@@ -12,6 +12,7 @@ import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.KnowledgeBaseTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.TavilyWebSearchTool;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
@@ -149,7 +150,12 @@ public class DirectAnswerWorker implements WorkerAgent {
 
         StringBuilder contentBuilder = new StringBuilder();
         String reasoningContent = null;
-        SessionContextHolder.set(sessionId);
+        SessionContextHolder.set(sessionId, nodeId, name());
+        String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型直接回答",
+                AgentTraceEvent.Kind.LLM, nodeId,
+                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
+                        "webSearch", webSearchEnabled, "hasKbId", !kbId.isBlank(),
+                        "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
         try {
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
@@ -159,6 +165,9 @@ public class DirectAnswerWorker implements WorkerAgent {
                             publishContentChunk(sessionId, chunk);
                         });
                 reasoningContent = result.reasoningContent();
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", result.content() != null ? result.content().length() : 0,
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
             } else {
                 ChatClient chatClient = createChatClient(webSearchEnabled);
                 var baseSpec = chatClient.prompt()
@@ -208,8 +217,11 @@ public class DirectAnswerWorker implements WorkerAgent {
                         })
                         .then(Mono.just(contentBuilder.toString()))
                         .block(Duration.ofMinutes(5));
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", contentBuilder.length()));
             }
         } catch (Exception e) {
+            chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
             SessionContextHolder.clear();
             throw e;

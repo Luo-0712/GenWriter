@@ -4,6 +4,7 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.dto.response.LearningResultVO;
 import com.example.genwriter.service.WritingSkillLearningService;
@@ -54,6 +55,9 @@ public class WritingSkillExtractorWorker implements WorkerAgent {
                 ChainNode.Type.EXECUTION, null,
                 Map.of("userInputLength", userInput.length()));
 
+        String serviceSpanId = chainPublisher.publishTraceStart(sessionId, "分析并保存写作技巧",
+                AgentTraceEvent.Kind.WORKER, nodeId,
+                Map.of("userInputLength", userInput.length()), null);
         try {
             LearningResultVO result = learningService.analyzeAndStore(
                     userInput,
@@ -77,6 +81,10 @@ public class WritingSkillExtractorWorker implements WorkerAgent {
                 chainPublisher.publishComplete(sessionId, nodeId,
                         Map.of("success", false, "message", result.getMessage()));
             }
+            chainPublisher.publishTraceComplete(sessionId, serviceSpanId,
+                    Map.of("success", result.isSuccess(),
+                            "storedCount", result.getStoredCount(),
+                            "extractedCount", result.getExtractedCount()));
 
             return Map.of(
                     "learningReport", result.getMessage(),
@@ -85,6 +93,7 @@ public class WritingSkillExtractorWorker implements WorkerAgent {
             );
         } catch (Exception e) {
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
+            chainPublisher.publishTraceError(sessionId, serviceSpanId, e.getMessage());
             log.error("[WritingSkillExtractorWorker] 执行失败: sessionId={}", sessionId, e);
             return Map.of(
                     "learningReport", "提取失败: " + e.getMessage(),

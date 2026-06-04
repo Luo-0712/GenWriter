@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.tool;
 
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.mapper.TaskSessionMapper;
 import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
@@ -16,6 +17,7 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
 
     private final LongTermMemoryService memoryService;
     private final TaskSessionMapper taskSessionMapper;
+    private final ThoughtChainPublisher chainPublisher;
 
     public record UpdateWritingSkillInput(
             String skillName,
@@ -30,21 +32,33 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
     }
 
     public UpdateWritingSkillTool(LongTermMemoryService memoryService,
-                                  TaskSessionMapper taskSessionMapper) {
+                                  TaskSessionMapper taskSessionMapper,
+                                  ThoughtChainPublisher chainPublisher) {
         this.memoryService = memoryService;
         this.taskSessionMapper = taskSessionMapper;
+        this.chainPublisher = chainPublisher;
     }
 
     @Override
     public String apply(UpdateWritingSkillInput input) {
-        if (input.skillName() == null || input.skillName().isBlank()
+        String sessionId = SessionContextHolder.get();
+        String traceSpanId = null;
+        if (sessionId != null && !sessionId.isBlank()) {
+            traceSpanId = chainPublisher.publishToolStart(sessionId, "update_writing_skill",
+                    Map.of("skillName", input != null ? safe(input.skillName()) : "",
+                            "category", input != null ? safe(input.category()) : "",
+                            "importance", input != null ? safe(input.importance()) : ""));
+        }
+
+        if (input == null || input.skillName() == null || input.skillName().isBlank()
                 || input.rule() == null || input.rule().isBlank()) {
+            publishToolError(sessionId, traceSpanId, "技巧名称和规则不能为空");
             return ToolResult.fail("技巧名称和规则不能为空").toJson();
         }
 
-        String sessionId = SessionContextHolder.get();
         if (sessionId == null || sessionId.isBlank()) {
             log.warn("[UpdateWritingSkillTool] 无法获取 sessionId，跳过存储");
+            publishToolError(sessionId, traceSpanId, "无法获取当前会话ID");
             return ToolResult.fail("无法获取当前会话ID").toJson();
         }
 
@@ -59,10 +73,17 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
 
             memoryService.storeMemory(content, MemoryType.WRITING_TECHNIQUE, scope, projectId, sessionId, importance);
 
+            publishToolComplete(sessionId, traceSpanId, Map.of(
+                    "skillName", input.skillName(),
+                    "category", safe(input.category()),
+                    "scope", scope,
+                    "importance", importance
+            ));
             return ToolResult.ok("写作技巧已保存", null,
                     Map.of("skillName", input.skillName())).toJson();
         } catch (Exception e) {
             log.error("[UpdateWritingSkillTool] 保存失败: skillName={}", input.skillName(), e);
+            publishToolError(sessionId, traceSpanId, e.getMessage());
             return ToolResult.fail("保存失败: " + e.getMessage()).toJson();
         }
     }
@@ -105,6 +126,20 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
             log.debug("解析projectId失败: sessionId={}", sessionId, e);
             return null;
         }
+    }
+
+    private void publishToolComplete(String sessionId, String traceSpanId, Object output) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        chainPublisher.publishToolComplete(sessionId, traceSpanId, "update_writing_skill", output);
+    }
+
+    private void publishToolError(String sessionId, String traceSpanId, String error) {
+        if (sessionId == null || sessionId.isBlank() || traceSpanId == null) return;
+        chainPublisher.publishToolError(sessionId, traceSpanId, "update_writing_skill", error);
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
 }
