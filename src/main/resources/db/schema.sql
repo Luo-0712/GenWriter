@@ -469,5 +469,47 @@ GROUP BY kb.id, kb.name, kb.type, kb.created_at, kb.updated_at;
 COMMENT ON VIEW v_knowledge_base_stats IS '知识库统计视图,包含片段数量';
 
 -- ========================================================
+-- 12. 创建消息附件表
+-- ========================================================
+CREATE TABLE IF NOT EXISTS message_attachment (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID,
+    session_id UUID NOT NULL,
+    original_filename VARCHAR(500) NOT NULL,
+    stored_filename VARCHAR(500) NOT NULL,
+    file_path VARCHAR(1000) NOT NULL,
+    file_size BIGINT NOT NULL,
+    mime_type VARCHAR(200),
+    attachment_type VARCHAR(50) NOT NULL DEFAULT 'FILE',
+    width INTEGER,
+    height INTEGER,
+    thumbnail_path VARCHAR(1000),
+    extracted_text TEXT,
+    processing_status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attachment_message FOREIGN KEY (message_id) REFERENCES message(id) ON DELETE CASCADE,
+    CONSTRAINT fk_attachment_session FOREIGN KEY (session_id) REFERENCES task_session(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachment_message ON message_attachment(message_id);
+CREATE INDEX IF NOT EXISTS idx_attachment_session ON message_attachment(session_id);
+CREATE INDEX IF NOT EXISTS idx_attachment_status ON message_attachment(processing_status);
+
+CREATE TRIGGER update_message_attachment_updated_at
+    BEFORE UPDATE ON message_attachment
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE message_attachment IS '消息附件表,存储用户上传的图片和文档附件';
+COMMENT ON COLUMN message_attachment.id IS '附件唯一标识符(UUID)';
+COMMENT ON COLUMN message_attachment.message_id IS '关联消息ID,外键关联message表';
+COMMENT ON COLUMN message_attachment.session_id IS '所属会话ID,外键关联task_session表';
+COMMENT ON COLUMN message_attachment.attachment_type IS '附件类型: IMAGE(图片), DOCUMENT(文档), FILE(其他文件)';
+COMMENT ON COLUMN message_attachment.processing_status IS '处理状态: PENDING(待处理), PROCESSING(处理中), COMPLETED(已完成), FAILED(失败)';
+COMMENT ON COLUMN message_attachment.extracted_text IS '文档提取的文本内容(仅文档类型)';
+
+-- ========================================================
 -- 完成
 -- ========================================================

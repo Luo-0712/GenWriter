@@ -49,7 +49,7 @@ public class ChatEventListener {
         log.info("接收到聊天事件：sessionId={}, type={}, documentId={}, supervisor={}, graph={}",
                 event.getSessionId(), event.getType(), event.getDocumentId(), supervisorEnabled, graphEnabled);
 
-        titleGenerationService.generateAndSetTitle(event.getSessionId(), event.getUserInput());
+        titleGenerationService.generateAndSetTitle(event.getSessionId(), event.getUserInputText());
 
         if (supervisorEnabled) {
             handleWithStateGraph(event);

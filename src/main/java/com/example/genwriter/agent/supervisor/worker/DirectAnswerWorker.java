@@ -14,7 +14,10 @@ import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.TavilyWebSearchTool;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.dto.MultimodalContent;
+import com.example.genwriter.model.entity.MessageAttachment;
 import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.service.FileStorageService;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
@@ -23,9 +26,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.model.Media;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -50,6 +55,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
+    private final FileStorageService fileStorageService;
 
     @PostConstruct
     void init() {
@@ -102,6 +108,10 @@ public class DirectAnswerWorker implements WorkerAgent {
         Object webSearchObj = state.getOrDefault("webSearch", true);
         boolean webSearchEnabled = !"false".equals(String.valueOf(webSearchObj));
 
+        // 获取多模态内容
+        Object mcObj = state.get("multimodalContent");
+        MultimodalContent multimodalContent = mcObj instanceof MultimodalContent ? (MultimodalContent) mcObj : null;
+
         String nodeId = chainPublisher.publishStart(sessionId, "直接回答",
                 ChainNode.Type.EXECUTION, null,
                 Map.of("userInput", truncate(userInput, 200), "hasKbId", !kbId.isBlank(),
@@ -113,7 +123,29 @@ public class DirectAnswerWorker implements WorkerAgent {
                 "kbId", kbId
         ));
 
+        // Inject document content into prompt
+        if (multimodalContent != null && multimodalContent.hasDocuments()) {
+            StringBuilder docContent = new StringBuilder();
+            for (var docRef : multimodalContent.getDocumentAttachments()) {
+                try {
+                    MessageAttachment att = fileStorageService.getById(docRef.getAttachmentId());
+                    if (att != null && "COMPLETED".equals(att.getProcessingStatus()) && att.getExtractedText() != null) {
+                        docContent.append("\n[附件文档: ").append(docRef.getFileName()).append("]\n");
+                        docContent.append(att.getExtractedText()).append("\n[/附件文档]\n");
+                    } else if (att != null && !"COMPLETED".equals(att.getProcessingStatus())) {
+                        docContent.append("\n[附件文档: ").append(docRef.getFileName()).append(" - 文档正在处理中，暂无法使用其内容]\n");
+                    }
+                } catch (Exception e) {
+                    log.debug("查询附件文档内容失败: {}", e.getMessage());
+                }
+            }
+            if (docContent.length() > 0) {
+                userPrompt = userPrompt + "\n\n--- 附件文档内容 ---\n" + docContent;
+            }
+        }
+
         String conversationId = sessionId + ":direct";
+        final String finalUserPrompt = userPrompt;
 
         StringBuilder contentBuilder = new StringBuilder();
         String reasoningContent = null;
@@ -129,10 +161,34 @@ public class DirectAnswerWorker implements WorkerAgent {
                 reasoningContent = result.reasoningContent();
             } else {
                 ChatClient chatClient = createChatClient(webSearchEnabled);
-                var promptSpec = chatClient.prompt()
-                        .system(skill.systemPrompt())
-                        .user(userPrompt)
-                        .advisors(new MessageChatMemoryAdvisor(chatMemory))
+                var baseSpec = chatClient.prompt()
+                        .system(skill.systemPrompt());
+
+                // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
+                ChatClient.ChatClientRequestSpec promptSpec;
+                if (multimodalContent != null && multimodalContent.hasImages()) {
+                    try {
+                        Media[] mediaArr = multimodalContent.getImageAttachments().stream()
+                                .map(a -> {
+                                    try {
+                                        return new Media(
+                                                MimeType.valueOf(a.getMimeType()),
+                                                new java.net.URI(a.getFileUrl()).toURL());
+                                    } catch (Exception ex) {
+                                        throw new RuntimeException("Invalid URL: " + a.getFileUrl(), ex);
+                                    }
+                                })
+                                .toArray(Media[]::new);
+                        promptSpec = baseSpec.user(u -> u.text(finalUserPrompt).media(mediaArr));
+                    } catch (Exception e) {
+                        log.warn("构建多模态消息失败，降级为纯文本: {}", e.getMessage());
+                        promptSpec = baseSpec.user(finalUserPrompt);
+                    }
+                } else {
+                    promptSpec = baseSpec.user(finalUserPrompt);
+                }
+
+                promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
                         .advisors(a -> a.param(
                                 AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
                                 conversationId));

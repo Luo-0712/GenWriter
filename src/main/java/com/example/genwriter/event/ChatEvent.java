@@ -1,5 +1,6 @@
 package com.example.genwriter.event;
 
+import com.example.genwriter.model.dto.MultimodalContent;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -29,9 +30,16 @@ public class ChatEvent {
     private String documentId;
 
     /**
-     * 用户输入的原始文本内容或指令
+     * 用户输入的多模态内容（文本 + 附件）
      */
-    private String userInput;
+    private MultimodalContent userInput;
+
+    /**
+     * 便捷方法：获取用户输入的纯文本
+     */
+    public String getUserInputText() {
+        return userInput != null ? userInput.getTextOnly() : "";
+    }
 
     /**
      * 知识库ID（知识库问答时使用）

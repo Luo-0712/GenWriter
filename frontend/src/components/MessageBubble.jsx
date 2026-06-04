@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ThinkingPanel from './ThinkingPanel';
+import FileViewerModal from './FileViewerModal';
+import { getAttachmentUrl, getThumbnailUrl } from '../api/attachments';
 import '../styles/global.css';
 
 const renderOutlineDetail = (data) => (
@@ -270,6 +272,7 @@ const SourcesList = ({ sources }) => {
 const MessageBubble = ({ message, onExport }) => {
   const isUser = message.role === 'user';
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState(null);
   const thinkingSteps = message.thinkingSteps || [];
   const chainNodes = message.chainNodes || [];
   const hasChainNodes = chainNodes.length > 0;
@@ -347,6 +350,31 @@ const MessageBubble = ({ message, onExport }) => {
             {message.content && message.content !== 'null' ? message.content : ''}
           </ReactMarkdown>
         </div>
+        {isUser && message.attachments && message.attachments.length > 0 && (
+          <div className="message-attachments">
+            {message.attachments.map((att, i) => {
+              if (att.attachmentType === 'IMAGE') {
+                return (
+                  <img
+                    key={i}
+                    className="message-image"
+                    src={att.thumbnailUrl || (att.attachmentId ? getThumbnailUrl(att.attachmentId) : '')}
+                    alt={att.originalFilename || '图片'}
+                    onClick={() => setViewerUrl(att.attachmentId ? getAttachmentUrl(att.attachmentId) : att.thumbnailUrl)}
+                  />
+                );
+              }
+              return (
+                <div key={i} className="message-attachment-doc">
+                  <span>{att.originalFilename || '文档'}</span>
+                  {att.attachmentId && (
+                    <a href={getAttachmentUrl(att.attachmentId)} target="_blank" rel="noopener noreferrer">下载</a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {!isUser && message.sources && message.sources.length > 0 && !message.isStreaming && (
           <SourcesList sources={message.sources} />
         )}
@@ -358,6 +386,7 @@ const MessageBubble = ({ message, onExport }) => {
           </div>
         )}
       </div>
+      <FileViewerModal imageUrl={viewerUrl} onClose={() => setViewerUrl(null)} />
     </div>
   );
 };

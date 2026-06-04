@@ -67,7 +67,13 @@ public class BizException extends RuntimeException {
         MEMORY_NOT_FOUND("1009", "记忆不存在"),
         MEMORY_DUPLICATE("1010", "相似记忆已存在"),
         MEMORY_SCOPE_INVALID("1011", "scope 与 projectId 不一致"),
-        
+        ATTACHMENT_NOT_FOUND("1012", "附件不存在"),
+        ATTACHMENT_TYPE_NOT_ALLOWED("1013", "不支持的文件类型"),
+        ATTACHMENT_SIZE_EXCEEDED("1014", "文件大小超出限制"),
+        ATTACHMENT_SESSION_MISMATCH("1015", "附件不属于当前会话"),
+        ATTACHMENT_QUOTA_EXCEEDED("1016", "会话存储配额已满"),
+        ATTACHMENT_UPLOAD_LIMIT("1017", "上传频率超限"),
+
         // 数据操作错误
         DB_INSERT_ERROR("2001", "数据插入失败"),
         DB_UPDATE_ERROR("2002", "数据更新失败"),

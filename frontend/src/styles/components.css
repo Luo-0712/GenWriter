@@ -536,6 +536,8 @@
 
 .input-wrapper {
   position: relative;
+  display: flex;
+  align-items: flex-end;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -549,8 +551,9 @@
 }
 
 .input-textarea {
+  flex: 1;
   width: 100%;
-  padding: 12px 50px 12px 16px;
+  padding: 12px 50px 12px 4px;
   border: none;
   outline: none;
   resize: none;
@@ -3930,4 +3933,293 @@
   margin-top: 4px;
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+/* ========== Attachment Styles ========== */
+
+/* Attachment button */
+.attachment-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.attachment-btn:hover {
+  background: var(--bg-tertiary, #f3f4f6);
+  color: var(--text-primary, #374151);
+}
+
+/* Attachment preview area */
+.attachment-preview-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
+}
+
+/* Single preview item */
+.attachment-preview-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  overflow: hidden;
+  background: var(--bg-primary, #fff);
+  transition: box-shadow 0.15s ease;
+}
+.attachment-preview-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.attachment-preview-item.has-error {
+  border-color: #ef4444;
+}
+
+/* Image preview */
+.attachment-preview-image {
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+}
+.attachment-preview-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Document preview */
+.attachment-preview-doc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-width: 160px;
+}
+.attachment-doc-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.attachment-doc-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.attachment-doc-name {
+  font-size: 12px;
+  color: var(--text-primary, #374151);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.attachment-doc-size {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+/* Remove button */
+.attachment-preview-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.attachment-preview-item:hover .attachment-preview-remove {
+  opacity: 1;
+}
+
+/* Upload progress */
+.attachment-progress {
+  width: 60px;
+  height: 4px;
+  background: var(--bg-tertiary, #e5e7eb);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.attachment-progress-bar {
+  height: 100%;
+  background: var(--accent-primary, #6366f1);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+.attachment-progress-text {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+/* Loading/placeholder */
+.attachment-loading {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-tertiary, #f3f4f6);
+  color: var(--text-tertiary, #9ca3af);
+  font-size: 11px;
+}
+.attachment-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-light, #e5e7eb);
+  border-top-color: var(--accent-primary, #6366f1);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.attachment-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #ef4444;
+  background: #fef2f2;
+}
+.attachment-retry-btn {
+  border: none;
+  background: none;
+  color: var(--accent-primary, #6366f1);
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+/* Drag-over state */
+.input-wrapper.drag-over {
+  border-color: var(--accent-primary, #6366f1);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Message attachments */
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.message-image {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  border: 1px solid var(--border-light, #e5e7eb);
+}
+.message-image:hover {
+  opacity: 0.85;
+}
+.message-attachment-doc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  background: var(--bg-secondary, #f9fafb);
+  font-size: 13px;
+  color: var(--text-primary, #374151);
+}
+.message-attachment-doc a {
+  color: var(--accent-primary, #6366f1);
+  text-decoration: none;
+}
+.message-attachment-doc a:hover {
+  text-decoration: underline;
+}
+
+/* File viewer modal */
+.file-viewer-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-viewer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.85);
+}
+.file-viewer-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  color: #fff;
+}
+.file-viewer-toolbar button {
+  border: none;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.file-viewer-toolbar button:hover {
+  background: rgba(255,255,255,0.35);
+}
+.file-viewer-toolbar span {
+  font-size: 13px;
+  min-width: 40px;
+  text-align: center;
+}
+.file-viewer-image {
+  position: relative;
+  z-index: 10000;
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.1s ease;
 }

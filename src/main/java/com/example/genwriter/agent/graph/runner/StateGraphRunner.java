@@ -13,16 +13,19 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
 import com.example.genwriter.service.WritingSkillExtractionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.model.Media;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 
 import java.util.List;
 import java.util.Map;
@@ -122,24 +125,25 @@ public class StateGraphRunner {
      *
      * @param sessionId  会话 ID
      * @param documentId 文档 ID
-     * @param userInput  用户输入
+     * @param userInput  用户输入（多模态内容）
      * @param kbId       知识库 ID
      * @param writingType 写作类型（可选，用于兼容旧流程）
      * @param webSearch  是否启用联网搜索
      */
-    public void run(String sessionId, String documentId, String userInput, String kbId, String writingType, boolean webSearch) {
+    public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
         log.info("StateGraph 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
-            messageService.createMessage(sessionId, "user", userInput);
+            messageService.createMessage(sessionId, "user", userInput.getTextOnly());
 
             String context = buildContextFromMemory(sessionId);
 
             Map<String, Object> inputs = Map.of(
                     "sessionId", sessionId,
                     "documentId", documentId != null ? documentId : "",
-                    "userInput", userInput,
+                    "userInput", userInput.getTextOnly(),
+                    "multimodalContent", userInput,
                     "kbId", kbId != null ? kbId : "",
                     "writingType", writingType != null ? writingType : "AUTO",
                     "context", context,
@@ -165,13 +169,13 @@ public class StateGraphRunner {
 
                     if (longTermMemoryProperties.isEnabled()) {
                         try {
-                            memoryExtractionService.extractAsync(sessionId, userInput, finalOutput);
+                            memoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput);
                         } catch (Exception e) {
                             log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
                         }
                         if (longTermMemoryProperties.getWritingSkillExtraction().isEnabled()) {
                             try {
-                                writingSkillExtractionService.extractAsync(sessionId, userInput, finalOutput, writingType);
+                                writingSkillExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput, writingType);
                             } catch (Exception e) {
                                 log.warn("触发写作技巧提取失败: sessionId={}", sessionId, e);
                             }
@@ -199,8 +203,14 @@ public class StateGraphRunner {
             sb.append("以下为本次会话的历史对话记录：\n");
             for (Message msg : history) {
                 String role = msg.getMessageType().getValue();
+                String text = msg.getText();
+                // 如果 UserMessage 包含媒体，追加标记
+                if (msg instanceof UserMessage userMessage
+                        && userMessage.getMedia() != null && !userMessage.getMedia().isEmpty()) {
+                    text += "[包含 " + userMessage.getMedia().size() + " 张图片]";
+                }
                 sb.append("[").append(role).append("]: ")
-                        .append(msg.getText()).append("\n");
+                        .append(text).append("\n");
             }
             return sb.toString();
         } catch (Exception e) {
@@ -209,10 +219,27 @@ public class StateGraphRunner {
         }
     }
 
-    private void saveToMemory(String sessionId, String userInput, String assistantOutput) {
+    private void saveToMemory(String sessionId, MultimodalContent userInput, String assistantOutput) {
         try {
+            UserMessage userMessage;
+            if (userInput.hasImages()) {
+                List<Media> mediaList = userInput.getImageAttachments().stream()
+                        .map(a -> {
+                            try {
+                                return new Media(
+                                        MimeType.valueOf(a.getMimeType()),
+                                        new org.springframework.core.io.UrlResource(a.getFileUrl()));
+                            } catch (Exception ex) {
+                                throw new RuntimeException("Invalid URL: " + a.getFileUrl(), ex);
+                            }
+                        })
+                        .toList();
+                userMessage = new UserMessage(userInput.getTextOnly(), mediaList);
+            } else {
+                userMessage = new UserMessage(userInput.getTextOnly());
+            }
             List<Message> messages = List.of(
-                    new UserMessage(userInput),
+                    userMessage,
                     new AssistantMessage(assistantOutput)
             );
             chatMemory.add(sessionId, messages);

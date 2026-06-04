@@ -97,6 +97,11 @@ public class SseMessage {
         TITLE_UPDATED,
 
         /**
+         * 附件处理状态更新（文本提取、缩略图生成等）
+         */
+        ATTACHMENT_PROCESSING,
+
+        /**
          * 错误信息
          */
         ERROR,

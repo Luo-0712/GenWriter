@@ -7,6 +7,7 @@ import com.example.genwriter.agent.writerflow.PolishAgent;
 import com.example.genwriter.agent.writerflow.WritingAgent;
 import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SseService;
 import lombok.AllArgsConstructor;
@@ -35,14 +36,18 @@ public class AgentEngine {
      * @param type 聊天类型
      */
     public void run(String userInput, ChatEvent.WritingType type) {
-        run(userInput, type, null);
+        run(MultimodalContent.ofText(userInput), type, null);
     }
 
     public void run(String userInput, ChatEvent.WritingType type, String kbId) {
+        run(MultimodalContent.ofText(userInput), type, kbId);
+    }
+
+    public void run(MultimodalContent userInput, ChatEvent.WritingType type, String kbId) {
         log.info("Agent 引擎启动：sessionId={}, type={}, kbId={}", sessionId, type, kbId);
 
         try {
-            messageService.createMessage(sessionId, "user", userInput);
+            messageService.createMessage(sessionId, "user", userInput.getTextOnly());
 
             publishStatusMessage(SseMessage.Type.AI_THINKING, "正在处理您的请求...", false);
 

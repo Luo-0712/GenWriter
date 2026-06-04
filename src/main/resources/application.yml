@@ -1,6 +1,8 @@
 spring:
   application:
     name: GenWriter
+  aop:
+    proxy-target-class: true
   autoconfigure:
     exclude:
       - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
@@ -32,6 +34,10 @@ spring:
   #   init:
   #     mode: always
   #     schema-locations: classpath:db/schema.sql
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
   datasource:
     url: jdbc:postgresql://localhost:5432/genwriter_db
     username: postgres
@@ -102,6 +108,13 @@ app:
     chunk-overlap: 100
   upload:
     path: uploads
+  attachment:
+    max-image-size: 20971520
+    max-document-size: 52428800
+    max-attachments-per-message: 10
+    max-session-storage: 209715200
+    allowed-image-extensions: jpg,jpeg,png,gif,webp
+    allowed-document-extensions: pdf,doc,docx,txt,md,csv,json,xml
 
 genwriter:
   llm:
@@ -109,6 +122,19 @@ genwriter:
     default-model: qwen-plus
     default-temperature: 0.7
     default-max-tokens: 65535
+    models:
+      - name: qwen-plus
+        supportsVision: false
+      - name: qwen-max
+        supportsVision: false
+      - name: qwen-turbo
+        supportsVision: false
+      - name: qwen-vl-plus
+        supportsVision: true
+      - name: deepseek-chat
+        supportsVision: false
+      - name: deepseek-reasoner
+        supportsVision: false
     providers:
       - type: dashscope
         display-name: 通义千问

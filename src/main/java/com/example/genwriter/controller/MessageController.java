@@ -2,10 +2,13 @@ package com.example.genwriter.controller;
 
 import com.example.genwriter.event.ChatEvent;
 import com.example.genwriter.model.common.ApiResponse;
+import com.example.genwriter.model.dto.MultimodalContent;
+import com.example.genwriter.model.dto.request.ChatRequest;
 import com.example.genwriter.model.dto.request.CreateMessageRequest;
 import com.example.genwriter.model.dto.request.UpdateMessageRequest;
 import com.example.genwriter.model.dto.response.MessageDTO;
 import com.example.genwriter.model.vo.MessageVO;
+import com.example.genwriter.service.FileStorageService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.ChatService;
 import jakarta.validation.Valid;
@@ -27,6 +30,7 @@ public class MessageController {
 
     private final MessageService messageService;
     private final ChatService chatService;
+    private final FileStorageService fileStorageService;
 
     /**
      * 创建消息
@@ -49,10 +53,15 @@ public class MessageController {
             @RequestParam(defaultValue = "AUTO") ChatEvent.WritingType type,
             @RequestParam(defaultValue = "true") boolean webSearch,
             @RequestParam(required = false) String kbId,
-            @RequestBody(required = false) String userInput) {
+            @RequestBody(required = false) ChatRequest request) {
         log.debug("聊天请求：sessionId={}, type={}, webSearch={}, kbId={}", sessionId, type, webSearch, kbId);
-        // 发布聊天事件，由 @EventListener 异步处理并通过 SSE 推送结果
-        chatService.submitChatTask(sessionId, userInput, type, webSearch, kbId);
+        MultimodalContent content;
+        if (request != null) {
+            content = request.toMultimodalContent(sessionId, fileStorageService);
+        } else {
+            content = MultimodalContent.ofText("");
+        }
+        chatService.submitChatTask(sessionId, content, type, webSearch, kbId);
         return ApiResponse.success(null);
     }
 

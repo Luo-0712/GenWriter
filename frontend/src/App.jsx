@@ -194,7 +194,7 @@ function App() {
   }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
-    async (content, mode = 'AUTO', webSearch = true, kbId = '') => {
+    async (content, mode = 'AUTO', webSearch = true, kbId = '', attachmentIds = []) => {
       if (isLoading) return;
 
       let project = activeProject;
@@ -236,6 +236,7 @@ function App() {
         role: 'user',
         content,
         timestamp: new Date().toISOString(),
+        attachments: attachmentIds.length > 0 ? attachmentIds.map(id => ({ attachmentId: id })) : undefined,
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
@@ -267,7 +268,7 @@ function App() {
 
       const doChat = async () => {
         try {
-          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId);
+          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId, attachmentIds);
         } catch (e) {
           setIsLoading(false);
           setError('触发聊天失败: ' + e.message);
@@ -636,6 +637,7 @@ function App() {
             loadingMessages={loadingMessages}
             isSessionLoading={isSessionLoading}
             selectedKbId={selectedKbId}
+            sessionId={activeSession?.id || ''}
           />
         ) : view === 'knowledge-bases' ? (
           <KnowledgeBasePanel onBack={() => setView('chat')} />

@@ -2,6 +2,7 @@ package com.example.genwriter.agent.core;
 
 import com.example.genwriter.agent.AgentState;
 import com.example.genwriter.agent.AgentType;
+import com.example.genwriter.model.dto.MultimodalContent;
 import lombok.Getter;
 
 /**
@@ -20,11 +21,20 @@ public class AgentExecutionContext {
     private AgentState state;
     private String kbId;
     private String sessionId;
+    private MultimodalContent multimodalContent;
 
     public AgentExecutionContext(AgentType agentType, String originalInput) {
         this.agentType = agentType;
         this.originalInput = originalInput;
         this.currentInput = originalInput;
+        this.state = AgentState.IDLE;
+    }
+
+    public AgentExecutionContext(AgentType agentType, String originalInput, MultimodalContent multimodalContent) {
+        this.agentType = agentType;
+        this.originalInput = originalInput;
+        this.currentInput = originalInput;
+        this.multimodalContent = multimodalContent;
         this.state = AgentState.IDLE;
     }
 
@@ -34,6 +44,14 @@ public class AgentExecutionContext {
 
     public void setKbId(String kbId) {
         this.kbId = kbId;
+    }
+
+    public void setMultimodalContent(MultimodalContent multimodalContent) {
+        this.multimodalContent = multimodalContent;
+    }
+
+    public String getCurrentInputText() {
+        return currentInput;
     }
 
     public String getKbId() {

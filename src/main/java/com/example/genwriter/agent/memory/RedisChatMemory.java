@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.model.Media;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -14,6 +15,7 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -143,6 +145,17 @@ public class RedisChatMemory implements ChatMemory {
                 }
             }
 
+            if (message instanceof UserMessage userMessage) {
+                if (userMessage.getMedia() != null && !userMessage.getMedia().isEmpty()) {
+                    record.setMediaList(userMessage.getMedia().stream()
+                            .map(media -> MediaRecord.builder()
+                                    .mimeType(media.getMimeType().toString())
+                                    .url(media.getData() != null ? media.getData().toString() : "")
+                                    .build())
+                            .collect(Collectors.toList()));
+                }
+            }
+
             if (message instanceof ToolResponseMessage toolResponseMessage) {
                 if (toolResponseMessage.getResponses() != null) {
                     record.setToolResponses(toolResponseMessage.getResponses().stream()
@@ -164,7 +177,26 @@ public class RedisChatMemory implements ChatMemory {
             MessageType type = MessageType.fromValue(record.getMessageType());
 
             return switch (type) {
-                case USER -> new UserMessage(record.getContent());
+                case USER -> {
+                    if (record.getMediaList() != null && !record.getMediaList().isEmpty()) {
+                        List<Media> mediaList = record.getMediaList().stream()
+                                .filter(mr -> mr.getUrl() != null && !mr.getUrl().isEmpty())
+                                .map(mr -> {
+                                    try {
+                                        return new Media(
+                                                MimeType.valueOf(mr.getMimeType()),
+                                                new org.springframework.core.io.UrlResource(mr.getUrl()));
+                                    } catch (Exception e) {
+                                        log.warn("Failed to create media resource: {}", e.getMessage());
+                                        return null;
+                                    }
+                                })
+                                .filter(java.util.Objects::nonNull)
+                                .collect(Collectors.toList());
+                        yield new UserMessage(record.getContent(), mediaList);
+                    }
+                    yield new UserMessage(record.getContent());
+                }
                 case SYSTEM -> new SystemMessage(record.getContent());
                 case ASSISTANT -> {
                     List<AssistantMessage.ToolCall> toolCalls = Collections.emptyList();
@@ -206,6 +238,7 @@ public class RedisChatMemory implements ChatMemory {
         private Map<String, Object> metadata;
         private List<ToolCallRecord> toolCalls;
         private List<ToolResponseRecord> toolResponses;
+        private List<MediaRecord> mediaList;
     }
 
     @lombok.Data
@@ -227,5 +260,14 @@ public class RedisChatMemory implements ChatMemory {
         private String id;
         private String name;
         private String responseData;
+    }
+
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    @lombok.Builder
+    private static class MediaRecord {
+        private String mimeType;
+        private String url;
     }
 }
