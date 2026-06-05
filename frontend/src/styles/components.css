@@ -622,16 +622,16 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border: 1px solid var(--border-color);
-  border-radius: 20px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
   font-family: var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   line-height: 1;
 }
 
@@ -659,17 +659,17 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   margin-left: auto;
   border: 1px solid var(--border-color);
-  border-radius: 20px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-tertiary);
   font-size: 13px;
   font-family: var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   line-height: 1;
   opacity: 0.6;
   flex-shrink: 0;
