@@ -134,52 +134,6 @@ public class LLMConfig {
     @Data
     public static class PromptTemplates {
 
-        /**
-         * 写作助手系统提示词
-         */
-        private String writingSystemPrompt = """
-            你是一位专业的写作助手，擅长根据用户的需求提供高质量的写作建议和内容生成。
-            请根据用户的输入，提供有帮助、准确且富有创意的回复。
-            """;
-
-        /**
-         * 文档续写提示词模板
-         */
-        private String documentContinuationPrompt = """
-            请根据以下文档内容继续写作，保持原有风格和语气：
-
-            已有内容：
-            {content}
-
-            请继续：
-            """;
-
-        /**
-         * 文档润色提示词模板
-         */
-        private String documentPolishPrompt = """
-            请对以下文档进行润色优化，提升表达质量，保持原意不变：
-
-            原文：
-            {content}
-
-            润色后：
-            """;
-
-        /**
-         * 知识库问答提示词模板
-         */
-        private String knowledgeQaPrompt = """
-            基于以下知识库内容回答问题：
-
-            知识库内容：
-            {context}
-
-            用户问题：{question}
-
-            请根据知识库内容提供准确、简洁的回答。如果知识库中没有相关信息，请明确说明。
-            """;
-
         // ============================================================
         // Graph Node Skill Prompts (可配置覆盖)
         // ============================================================

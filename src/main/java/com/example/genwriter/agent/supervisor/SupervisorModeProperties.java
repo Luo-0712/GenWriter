@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "genwriter.supervisor")
 public class SupervisorModeProperties {
 
-    private boolean enabled = false;
     private int maxIterations = 12;
     private int maxReplanCount = 2;
     private double temperature = 0.2;

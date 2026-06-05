@@ -11,7 +11,6 @@ import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
 import com.example.genwriter.agent.memory.MemoryProperties;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
-import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.service.MemoryExtractionService;
@@ -32,17 +31,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * StateGraph 执行器
- * 封装 Graph 的编译、调用和错误处理
- * 执行过程中通过 SSE 实时推送各阶段状态给前端
+ * StateGraph 执行器（Supervisor 模式专用）
+ * 编译 Supervisor Graph 并通过 SSE 实时推送各阶段状态给前端
  */
 @Slf4j
 @Component
 public class StateGraphRunner {
 
-    private final StateGraph intentRouterGraph;
     private final StateGraph supervisorGraph;
-    private final SupervisorModeProperties supervisorProperties;
     private final SseService sseService;
     private final MessageService messageService;
     private final RedisCheckpointSaver checkpointSaver;
@@ -53,12 +49,9 @@ public class StateGraphRunner {
     private final WritingSkillExtractionService writingSkillExtractionService;
     private final LongTermMemoryProperties longTermMemoryProperties;
 
-    private volatile CompiledGraph compiledGraph;
     private volatile CompiledGraph compiledSupervisorGraph;
 
-    public StateGraphRunner(@Qualifier("intentRouterGraph") StateGraph intentRouterGraph,
-                            @Qualifier("supervisorGraph") StateGraph supervisorGraph,
-                            SupervisorModeProperties supervisorProperties,
+    public StateGraphRunner(@Qualifier("supervisorGraph") StateGraph supervisorGraph,
                             SseService sseService,
                             MessageService messageService,
                             RedisCheckpointSaver checkpointSaver,
@@ -68,9 +61,7 @@ public class StateGraphRunner {
                             MemoryExtractionService memoryExtractionService,
                             WritingSkillExtractionService writingSkillExtractionService,
                             LongTermMemoryProperties longTermMemoryProperties) {
-        this.intentRouterGraph = intentRouterGraph;
         this.supervisorGraph = supervisorGraph;
-        this.supervisorProperties = supervisorProperties;
         this.sseService = sseService;
         this.messageService = messageService;
         this.checkpointSaver = checkpointSaver;
@@ -82,17 +73,11 @@ public class StateGraphRunner {
         this.longTermMemoryProperties = longTermMemoryProperties;
     }
 
-    private StateGraph activeGraph() {
-        return supervisorProperties.isEnabled() ? supervisorGraph : intentRouterGraph;
-    }
-
     private CompiledGraph getCompiledGraph() throws Exception {
-        CompiledGraph target = activeGraph() == supervisorGraph ? compiledSupervisorGraph : compiledGraph;
-        StateGraph source = activeGraph();
-
+        CompiledGraph target = compiledSupervisorGraph;
         if (target == null) {
             synchronized (this) {
-                target = activeGraph() == supervisorGraph ? compiledSupervisorGraph : compiledGraph;
+                target = compiledSupervisorGraph;
                 if (target == null) {
                     if (checkpointProperties.isEnabled()) {
                         SaverConfig saverConfig = SaverConfig.builder()
@@ -101,18 +86,12 @@ public class StateGraphRunner {
                         CompileConfig compileConfig = CompileConfig.builder()
                                 .saverConfig(saverConfig)
                                 .build();
-                        target = source.compile(compileConfig);
+                        target = supervisorGraph.compile(compileConfig);
                     } else {
-                        target = source.compile();
+                        target = supervisorGraph.compile();
                     }
-
-                    if (activeGraph() == supervisorGraph) {
-                        compiledSupervisorGraph = target;
-                    } else {
-                        compiledGraph = target;
-                    }
-                    log.info("CompiledGraph 已初始化: mode={}, checkpoint={}",
-                            activeGraph() == supervisorGraph ? "supervisor" : "workflow",
+                    compiledSupervisorGraph = target;
+                    log.info("Supervisor CompiledGraph 已初始化, checkpoint={}",
                             checkpointProperties.isEnabled());
                 }
             }
@@ -121,17 +100,17 @@ public class StateGraphRunner {
     }
 
     /**
-     * 执行 StateGraph
+     * 执行 Supervisor StateGraph
      *
-     * @param sessionId  会话 ID
-     * @param documentId 文档 ID
-     * @param userInput  用户输入（多模态内容）
-     * @param kbId       知识库 ID
-     * @param writingType 写作类型（可选，用于兼容旧流程）
-     * @param webSearch  是否启用联网搜索
+     * @param sessionId   会话 ID
+     * @param documentId  文档 ID
+     * @param userInput   用户输入（多模态内容）
+     * @param kbId        知识库 ID
+     * @param writingType 写作类型（用于兼容旧流程事件类型）
+     * @param webSearch   是否启用联网搜索
      */
     public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
-        log.info("StateGraph 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
+        log.info("Supervisor 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
@@ -187,7 +166,7 @@ public class StateGraphRunner {
             }
 
         } catch (Exception e) {
-            log.error("StateGraph 执行失败: sessionId={}, error={}", sessionId, e.getMessage(), e);
+            log.error("Supervisor 执行失败: sessionId={}, error={}", sessionId, e.getMessage(), e);
             publishStatus(sessionId, "【任务失败】" + e.getMessage());
             sendErrorMessage(sessionId, "处理失败：" + e.getMessage());
         }
@@ -204,7 +183,6 @@ public class StateGraphRunner {
             for (Message msg : history) {
                 String role = msg.getMessageType().getValue();
                 String text = msg.getText();
-                // 如果 UserMessage 包含媒体，追加标记
                 if (msg instanceof UserMessage userMessage
                         && userMessage.getMedia() != null && !userMessage.getMedia().isEmpty()) {
                     text += "[包含 " + userMessage.getMedia().size() + " 张图片]";

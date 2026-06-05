@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "genwriter.graph.checkpoint")
+@ConfigurationProperties(prefix = "genwriter.checkpoint")
 public class GraphCheckpointProperties {
 
     /**
