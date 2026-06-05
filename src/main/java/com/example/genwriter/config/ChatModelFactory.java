@@ -3,7 +3,6 @@ package com.example.genwriter.config;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
@@ -15,6 +14,8 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.retry.RetryUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -25,12 +26,25 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ChatModelFactory {
 
     private final LLMConfig llmConfig;
     private final FunctionCallbackResolver functionCallbackResolver;
-    private final List<FunctionCallback> functionCallbacks;
+
+    /**
+     * 使用 @Lazy 延迟加载 FunctionCallback 列表，打破与 ChatModelConfig 的循环依赖：
+     * ChatModelConfig → ChatModelFactory → List<FunctionCallback> → KnowledgeBaseTool
+     * → RAGPipelineService → KnowledgeChunkService → EmbeddingService
+     * → DashScopeEmbeddingModel → RestClient.Builder → ChatModelConfig
+     */
+    @Autowired
+    @Lazy
+    private List<FunctionCallback> functionCallbacks;
+
+    public ChatModelFactory(LLMConfig llmConfig, FunctionCallbackResolver functionCallbackResolver) {
+        this.llmConfig = llmConfig;
+        this.functionCallbackResolver = functionCallbackResolver;
+    }
 
     /**
      * 根据供应商配置创建 ChatModel
