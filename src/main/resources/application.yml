@@ -18,7 +18,7 @@ spring:
       chat:
         enabled: true
         options:
-          model: qwen-plus
+          model: qwen3.7-plus
           temperature: 0.7
       embedding:
         enabled: true
@@ -123,7 +123,7 @@ genwriter:
     default-temperature: 0.7
     default-max-tokens: 65535
     models:
-      - name: qwen-plus
+      - name: qwen3.7-plus
         supportsVision: false
       - name: qwen-max
         supportsVision: false
@@ -140,10 +140,10 @@ genwriter:
         display-name: 通义千问
         api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
         models:
-          - qwen-plus
+          - qwen3.7-plus
           - qwen-max
           - qwen-turbo
-        active-model: qwen-plus
+        active-model: qwen3.7-plus
       - type: deepseek
         display-name: DeepSeek
         api-key: your-deepseek-key

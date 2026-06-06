@@ -27,7 +27,7 @@ public class LLMConfig {
     /**
      * 默认模型名称
      */
-    private String defaultModel = "qwen-plus";
+    private String defaultModel = "qwen3.7-plus";
 
     /**
      * 请求超时时间

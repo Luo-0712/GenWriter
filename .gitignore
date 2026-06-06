@@ -1,11 +1,12 @@
+### Spring Boot ###
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-!**/logs
+logs/
 
-### STS ###
+### IDE: STS ###
 .apt_generated
 .classpath
 .factorypath
@@ -14,13 +15,13 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
+### IDE: IntelliJ IDEA ###
 .idea
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
+### IDE: NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -32,15 +33,15 @@ build/
 
 ### VS Code ###
 .vscode/
-/temp/
 
-### Docker ###
+### Docker & Misc ###
 .env
-/uploads/
-/.claude/
-/docs/
-/logs/
-/logs/
-/logs/
-/test-docs/
-/test-docs/
+.uploads/
+.temp/
+.test-docs/
+
+### Writing / Docs ###
+.writing/
+
+### Claude Code ###
+.claude/
