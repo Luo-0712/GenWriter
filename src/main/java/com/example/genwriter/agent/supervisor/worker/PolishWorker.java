@@ -8,6 +8,7 @@ import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.skill.PolishSkill;
+import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
@@ -19,6 +20,7 @@ import com.example.genwriter.model.entity.MessageAttachment;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.FileStorageService;
 import com.example.genwriter.service.LongTermMemoryService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,7 @@ public class PolishWorker implements WorkerAgent {
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final ReasoningStreamHelper reasoningStreamHelper;
     private final FileStorageService fileStorageService;
+    private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
 
@@ -87,6 +90,10 @@ public class PolishWorker implements WorkerAgent {
         String draft = (String) state.getOrDefault("draft", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String reviewFeedback = (String) state.getOrDefault("reviewFeedback", "");
+        String writingGenre = (String) state.getOrDefault("writingGenre",
+                WritingGenreResolver.resolve(userInput).genre().name());
+        boolean markdownEnabled = getBoolean(state, "markdownEnabled",
+                writingOutputSettingsService.isMarkdownEnabled());
 
         // 获取多模态内容
         Object mcObj = state.get("multimodalContent");
@@ -99,10 +106,15 @@ public class PolishWorker implements WorkerAgent {
                 Map.of("contentLength", contentToPolish.length(),
                         "hasReviewFeedback", !reviewFeedback.isBlank()));
 
-        String userPrompt = skill.buildUserPrompt(Map.of(
+        Map<String, Object> skillContext = Map.of(
                 "content", contentToPolish,
-                "reviewFeedback", reviewFeedback
-        ));
+                "reviewFeedback", reviewFeedback,
+                "userInput", userInput,
+                "writingGenre", writingGenre,
+                "markdownEnabled", markdownEnabled
+        );
+        String systemPrompt = skill.systemPrompt(skillContext);
+        String userPrompt = skill.buildUserPrompt(skillContext);
 
         // Inject document content into prompt
         if (multimodalContent != null && multimodalContent.hasDocuments()) {
@@ -128,7 +140,7 @@ public class PolishWorker implements WorkerAgent {
         final String finalUserPrompt = userPrompt;
         StringBuilder contentBuilder = new StringBuilder();
         var baseSpec = chatClient.prompt()
-                .system(skill.systemPrompt());
+                .system(systemPrompt);
 
         // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
         ChatClient.ChatClientRequestSpec promptSpec;
@@ -182,7 +194,7 @@ public class PolishWorker implements WorkerAgent {
         try {
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        skill.systemPrompt(), userPrompt, TEMPERATURE,
+                        systemPrompt, userPrompt, TEMPERATURE,
                         contentBuilder::append);
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
@@ -210,5 +222,12 @@ public class PolishWorker implements WorkerAgent {
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
         return Map.of("polishedContent", fullResponse);
+    }
+
+    private boolean getBoolean(Map<String, Object> state, String key, boolean defaultValue) {
+        Object value = state.get(key);
+        if (value instanceof Boolean b) return b;
+        if (value instanceof String s) return Boolean.parseBoolean(s);
+        return defaultValue;
     }
 }

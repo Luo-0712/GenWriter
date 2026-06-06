@@ -8,6 +8,8 @@ import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.skill.SkillService;
+import com.example.genwriter.agent.skill.WritingGenreProfile;
+import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
 import com.example.genwriter.agent.supervisor.SupervisorDecision;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
@@ -21,6 +23,7 @@ import com.example.genwriter.model.dto.response.MemoryVO;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -49,6 +52,7 @@ public class SupervisorNode implements NodeAction {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final SkillService skillService;
+    private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
     private String systemPrompt;
@@ -116,6 +120,12 @@ public class SupervisorNode implements NodeAction {
         String userInput = state.value("userInput", String.class).orElse("");
         accumulated.put("userInput", userInput);
         accumulated.put("kbId", state.value("kbId", String.class).orElse(""));
+        WritingGenreProfile genreProfile = WritingGenreResolver.resolve(userInput);
+        boolean markdownEnabled = writingOutputSettingsService.isMarkdownEnabled();
+        accumulated.put("writingGenre", genreProfile.genre().name());
+        accumulated.put("genreLabel", genreProfile.displayName());
+        accumulated.put("markdownEnabled", markdownEnabled);
+        accumulated.put("outputFormat", writingOutputSettingsService.currentFormat());
         String writingType = state.value("writingType", String.class).orElse("CREATE");
         String forcedWritingType = NovelWritingPromptSupport.forcedWritingType(userInput);
         if (forcedWritingType != null && ("AUTO".equalsIgnoreCase(writingType) || writingType.isBlank())) {
@@ -123,6 +133,16 @@ public class SupervisorNode implements NodeAction {
         }
         accumulated.put("writingType", writingType);
         accumulated.put("context", state.value("context", String.class).orElse(""));
+        accumulated.put("documentId", state.value("documentId", String.class).orElse(""));
+        String selectedDocumentContent = state.value("selectedDocumentContent", String.class).orElse("");
+        if (!selectedDocumentContent.isBlank()) {
+            accumulated.put("selectedDocumentContent", selectedDocumentContent);
+            accumulated.put("draft", state.value("draft", String.class).orElse(selectedDocumentContent));
+        }
+        state.value("selectedDocumentTitle", String.class)
+                .ifPresent(title -> accumulated.put("selectedDocumentTitle", title));
+        state.value("selectedDocumentVersion", Integer.class)
+                .ifPresent(version -> accumulated.put("selectedDocumentVersion", version));
         String webSearchStr = state.value("webSearch", String.class).orElse("true");
         boolean webSearch = !"false".equalsIgnoreCase(webSearchStr);
         accumulated.put("webSearch", webSearch);
@@ -479,6 +499,9 @@ public class SupervisorNode implements NodeAction {
         sb.append("## 当前状态\n");
         sb.append("- userInput: ").append(truncate((String) state.getOrDefault("userInput", ""), 500)).append("\n");
         sb.append("- kbId: ").append(state.getOrDefault("kbId", "")).append("\n");
+        sb.append("- writingGenre: ").append(state.getOrDefault("writingGenre", "UNKNOWN"))
+                .append(" (").append(state.getOrDefault("genreLabel", "通用写作")).append(")\n");
+        sb.append("- outputFormat: ").append(state.getOrDefault("outputFormat", "markdown")).append("\n");
 
         String writingType = (String) state.getOrDefault("writingType", "AUTO");
         sb.append("- writingType: ").append(writingType).append("\n");
@@ -509,6 +532,9 @@ public class SupervisorNode implements NodeAction {
         sb.append("## 当前状态（需要重规划）\n");
         sb.append("- userInput: ").append(truncate((String) state.getOrDefault("userInput", ""), 500)).append("\n");
         sb.append("- kbId: ").append(state.getOrDefault("kbId", "")).append("\n");
+        sb.append("- writingGenre: ").append(state.getOrDefault("writingGenre", "UNKNOWN"))
+                .append(" (").append(state.getOrDefault("genreLabel", "通用写作")).append(")\n");
+        sb.append("- outputFormat: ").append(state.getOrDefault("outputFormat", "markdown")).append("\n");
 
         appendStateSummary(sb, state);
         appendMemoryContext(sb, state);
@@ -537,6 +563,16 @@ public class SupervisorNode implements NodeAction {
         if (state.containsKey("draft")) {
             String draft = (String) state.get("draft");
             sb.append("- draft: ").append(draft != null ? draft.length() + " chars" : "null").append("\n");
+        }
+        if (state.containsKey("selectedDocumentContent")) {
+            String content = (String) state.get("selectedDocumentContent");
+            sb.append("- selectedDocument: ")
+                    .append(state.getOrDefault("selectedDocumentTitle", "未命名文稿"))
+                    .append(" V")
+                    .append(state.getOrDefault("selectedDocumentVersion", "?"))
+                    .append(", ")
+                    .append(content != null ? content.length() + " chars" : "null")
+                    .append("\n");
         }
         if (state.containsKey("polishedContent")) {
             String pc = (String) state.get("polishedContent");

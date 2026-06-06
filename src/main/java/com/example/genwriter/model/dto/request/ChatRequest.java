@@ -10,6 +10,7 @@ import java.util.List;
 @Data
 public class ChatRequest {
     private String text;
+    private String documentId;
     private List<String> attachmentIds;  // 最多 10 个
 
     /** 校验附件并构建 MultimodalContent */

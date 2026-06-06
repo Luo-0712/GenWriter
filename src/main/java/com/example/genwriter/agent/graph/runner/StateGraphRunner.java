@@ -11,8 +11,11 @@ import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
 import com.example.genwriter.agent.memory.MemoryProperties;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
+import com.example.genwriter.exception.BizException;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
+import com.example.genwriter.model.dto.response.DocumentDTO;
+import com.example.genwriter.service.DocumentService;
 import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SettingMemoryExtractionService;
@@ -27,6 +30,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +49,7 @@ public class StateGraphRunner {
     private final StateGraph supervisorGraph;
     private final SseService sseService;
     private final MessageService messageService;
+    private final DocumentService documentService;
     private final RedisCheckpointSaver checkpointSaver;
     private final GraphCheckpointProperties checkpointProperties;
     private final RedisChatMemory chatMemory;
@@ -60,6 +65,7 @@ public class StateGraphRunner {
     public StateGraphRunner(@Qualifier("supervisorGraph") StateGraph supervisorGraph,
                             SseService sseService,
                             MessageService messageService,
+                            DocumentService documentService,
                             RedisCheckpointSaver checkpointSaver,
                             GraphCheckpointProperties checkpointProperties,
                             RedisChatMemory chatMemory,
@@ -71,6 +77,7 @@ public class StateGraphRunner {
         this.supervisorGraph = supervisorGraph;
         this.sseService = sseService;
         this.messageService = messageService;
+        this.documentService = documentService;
         this.checkpointSaver = checkpointSaver;
         this.checkpointProperties = checkpointProperties;
         this.chatMemory = chatMemory;
@@ -136,20 +143,30 @@ public class StateGraphRunner {
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
+            DocumentDTO selectedDocument = loadSelectedDocument(sessionId, documentId);
             messageService.createMessage(sessionId, "user", userInput.getTextOnly());
 
             String context = buildContextFromMemory(sessionId);
+            if (selectedDocument != null) {
+                context = appendSelectedDocumentContext(context, selectedDocument);
+            }
 
-            Map<String, Object> inputs = Map.of(
-                    "sessionId", sessionId,
-                    "documentId", documentId != null ? documentId : "",
-                    "userInput", userInput.getTextOnly(),
-                    "multimodalContent", userInput,
-                    "kbId", kbId != null ? kbId : "",
-                    "writingType", writingType != null ? writingType : "AUTO",
-                    "context", context,
-                    "webSearch", String.valueOf(webSearch)
-            );
+            Map<String, Object> inputs = new LinkedHashMap<>();
+            inputs.put("sessionId", sessionId);
+            inputs.put("documentId", selectedDocument != null ? selectedDocument.getId() : "");
+            inputs.put("userInput", userInput.getTextOnly());
+            inputs.put("multimodalContent", userInput);
+            inputs.put("kbId", kbId != null ? kbId : "");
+            inputs.put("writingType", writingType != null ? writingType : "AUTO");
+            inputs.put("context", context);
+            inputs.put("webSearch", String.valueOf(webSearch));
+            if (selectedDocument != null) {
+                String selectedContent = selectedDocument.getContent() != null ? selectedDocument.getContent() : "";
+                inputs.put("draft", selectedContent);
+                inputs.put("selectedDocumentContent", selectedContent);
+                inputs.put("selectedDocumentTitle", selectedDocument.getTitle());
+                inputs.put("selectedDocumentVersion", selectedDocument.getVersion());
+            }
 
             RunnableConfig config = RunnableConfig.builder()
                     .threadId(sessionId)
@@ -197,6 +214,31 @@ public class StateGraphRunner {
             publishStatus(sessionId, "【任务失败】" + e.getMessage());
             sendErrorMessage(sessionId, "处理失败：" + e.getMessage());
         }
+    }
+
+    private DocumentDTO loadSelectedDocument(String sessionId, String documentId) {
+        if (documentId == null || documentId.isBlank()) {
+            return null;
+        }
+        DocumentDTO document = documentService.getDocumentById(documentId);
+        if (!sessionId.equals(document.getSessionId())) {
+            throw new BizException(BizException.ErrorCode.FORBIDDEN);
+        }
+        return document;
+    }
+
+    private String appendSelectedDocumentContext(String context, DocumentDTO document) {
+        StringBuilder sb = new StringBuilder(context != null ? context : "");
+        if (sb.length() > 0 && sb.charAt(sb.length() - 1) != '\n') {
+            sb.append("\n");
+        }
+        sb.append("\n## 当前选中文稿版本\n")
+                .append("标题: ").append(document.getTitle() != null ? document.getTitle() : "未命名文稿").append("\n")
+                .append("版本: V").append(document.getVersion() != null ? document.getVersion() : 1).append("\n")
+                .append("内容:\n")
+                .append(document.getContent() != null ? document.getContent() : "")
+                .append("\n");
+        return sb.toString();
     }
 
     private String buildContextFromMemory(String sessionId) {

@@ -72,6 +72,7 @@ function App() {
   const [view, setView] = useState('chat');
   const [exportDialogMessage, setExportDialogMessage] = useState(null);
   const [selectedKbId, setSelectedKbId] = useState('');
+  const [documentRefresh, setDocumentRefresh] = useState({ token: 0, documentId: '' });
 
   const abortRef = useRef(null);
 
@@ -208,7 +209,7 @@ function App() {
   }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
-    async (content, mode = 'AUTO', webSearch = true, kbId = '', attachmentIds = []) => {
+    async (content, mode = 'AUTO', webSearch = true, kbId = '', attachmentIds = [], documentId = '') => {
       if (isLoading) return;
 
       let project = activeProject;
@@ -283,7 +284,7 @@ function App() {
 
       const doChat = async () => {
         try {
-          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId, attachmentIds);
+          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId, attachmentIds, documentId);
         } catch (e) {
           setIsLoading(false);
           setError('触发聊天失败: ' + e.message);
@@ -411,6 +412,9 @@ function App() {
             const text = getFinalGeneratedContent(data);
             if (text != null) {
               setHasContentStarted(true);
+              if (data?.document?.id) {
+                setDocumentRefresh({ token: Date.now(), documentId: data.document.id });
+              }
               if (text) {
                 assistantContent = text;
                 setMessages((prev) =>
@@ -475,7 +479,7 @@ function App() {
         },
       });
     },
-    [activeProject, activeSession, isLoading]
+    [activeProject, activeSession, isLoading, selectedKbId]
   );
 
   const handleSelectProject = useCallback(async (project) => {
@@ -659,6 +663,7 @@ function App() {
             isSessionLoading={isSessionLoading}
             selectedKbId={selectedKbId}
             sessionId={activeSession?.id || ''}
+            documentRefresh={documentRefresh}
           />
         ) : view === 'knowledge-bases' ? (
           <KnowledgeBasePanel onBack={() => setView('chat')} />

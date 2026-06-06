@@ -22,12 +22,20 @@ public class ReviewSkill implements AgentSkill {
         return llmConfig.resolvePrompt(llmConfig.getPrompts().getReviewSystemPrompt(), "reviewSystemPrompt");
     }
 
+    public String systemPrompt(Map<String, Object> context) {
+        String userInput = (String) context.getOrDefault("userInput", "");
+        WritingGenreProfile profile = profile(context, userInput);
+        return systemPrompt() + WritingPromptConstraints.systemConstraint(profile);
+    }
+
     @Override
     public String buildUserPrompt(Map<String, Object> context) {
         String polishedContent = (String) context.getOrDefault("polishedContent", "");
         String outline = (String) context.getOrDefault("outline", "");
         String userInput = (String) context.getOrDefault("userInput", "");
         int reviewCount = (int) context.getOrDefault("reviewCount", 0);
+        WritingGenreProfile profile = profile(context, userInput);
+        boolean markdownEnabled = markdownEnabled(context);
 
         StringBuilder sb = new StringBuilder();
         sb.append("## 待评审文章\n\n").append(polishedContent).append("\n\n");
@@ -44,12 +52,21 @@ public class ReviewSkill implements AgentSkill {
         }
 
         sb.append("请对以上文章进行质量评审，按指定 JSON 格式输出评审结果。");
-        sb.append(NovelWritingPromptSupport.reviewConstraint(userInput));
+        sb.append(WritingPromptConstraints.reviewConstraint(profile, markdownEnabled));
         return sb.toString();
     }
 
     @Override
     public String outputFormatDescription() {
         return "JSON 格式：{score, verdict, dimensions, feedback}";
+    }
+
+    private WritingGenreProfile profile(Map<String, Object> context, String userInput) {
+        return WritingGenreResolver.profileFromContext(context.get("writingGenre"), userInput);
+    }
+
+    private boolean markdownEnabled(Map<String, Object> context) {
+        Object value = context.get("markdownEnabled");
+        return !(value instanceof Boolean enabled) || enabled;
     }
 }

@@ -253,6 +253,17 @@ CREATE INDEX IF NOT EXISTS idx_ltm_scope ON long_term_memory(scope);
 CREATE INDEX IF NOT EXISTS idx_ltm_scope_project ON long_term_memory(scope, project_id);
 CREATE INDEX IF NOT EXISTS idx_ltm_embedding ON long_term_memory USING hnsw (embedding vector_cosine_ops);
 
+-- ========================================================
+-- 创建更新时间触发器函数
+-- ========================================================
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER update_long_term_memory_updated_at
     BEFORE UPDATE ON long_term_memory
     FOR EACH ROW
@@ -297,17 +308,6 @@ CREATE INDEX IF NOT EXISTS idx_template_category ON writing_template(category);
 CREATE INDEX IF NOT EXISTS idx_template_is_system ON writing_template(is_system);
 CREATE INDEX IF NOT EXISTS idx_template_usage_count ON writing_template(usage_count DESC);
 CREATE INDEX IF NOT EXISTS idx_template_type_category ON writing_template(type, category);
-
--- ========================================================
--- 9. 创建更新时间触发器函数
--- ========================================================
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 -- 为所有表创建更新时间触发器
 CREATE TRIGGER update_project_updated_at

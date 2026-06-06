@@ -54,14 +54,16 @@ public class MessageController {
             @RequestParam(defaultValue = "true") boolean webSearch,
             @RequestParam(required = false) String kbId,
             @RequestBody(required = false) ChatRequest request) {
-        log.debug("聊天请求：sessionId={}, type={}, webSearch={}, kbId={}", sessionId, type, webSearch, kbId);
+        String documentId = request != null ? request.getDocumentId() : null;
+        log.debug("聊天请求：sessionId={}, type={}, webSearch={}, kbId={}, documentId={}",
+                sessionId, type, webSearch, kbId, documentId);
         MultimodalContent content;
         if (request != null) {
             content = request.toMultimodalContent(sessionId, fileStorageService);
         } else {
             content = MultimodalContent.ofText("");
         }
-        chatService.submitChatTask(sessionId, content, type, webSearch, kbId);
+        chatService.submitChatTask(sessionId, documentId, content, type, webSearch, kbId);
         return ApiResponse.success(null);
     }
 

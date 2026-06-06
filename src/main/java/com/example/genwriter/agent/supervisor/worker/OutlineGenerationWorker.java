@@ -6,6 +6,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.OutlineSkill;
+import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.AgentToolSupport;
@@ -15,6 +16,7 @@ import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final SaveSettingDetailTool saveSettingDetailTool;
+    private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
 
@@ -80,15 +83,25 @@ public class OutlineGenerationWorker implements WorkerAgent {
         String sessionId = (String) state.getOrDefault("sessionId", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String context = (String) state.getOrDefault("context", "");
+        String writingGenre = (String) state.getOrDefault("writingGenre",
+                WritingGenreResolver.resolve(userInput).genre().name());
+        boolean markdownEnabled = getBoolean(state, "markdownEnabled",
+                writingOutputSettingsService.isMarkdownEnabled());
 
         String nodeId = chainPublisher.publishStart(sessionId, "大纲生成",
                 ChainNode.Type.THINKING, null,
                 Map.of("userInput", truncate(userInput, 200), "hasContext", !context.isBlank()));
 
-        String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput, "context", context));
+        Map<String, Object> skillContext = Map.of(
+                "userInput", userInput,
+                "context", context,
+                "writingGenre", writingGenre,
+                "markdownEnabled", markdownEnabled
+        );
+        String userPrompt = skill.buildUserPrompt(skillContext);
 
         var promptSpec = chatClient.prompt()
-                .system(skill.systemPrompt())
+                .system(skill.systemPrompt(skillContext))
                 .user(userPrompt);
 
         if (longTermMemoryProperties.isEnabled()) {
@@ -137,5 +150,12 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private String truncate(String text, int maxLen) {
         if (text == null) return "";
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
+    }
+
+    private boolean getBoolean(Map<String, Object> state, String key, boolean defaultValue) {
+        Object value = state.get(key);
+        if (value instanceof Boolean b) return b;
+        if (value instanceof String s) return Boolean.parseBoolean(s);
+        return defaultValue;
     }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as llmApi from '../api/llmProviders';
+import * as settingsApi from '../api/settings';
 import '../styles/global.css';
 
 const PROVIDER_TYPE_LABEL = {
@@ -27,17 +28,21 @@ const SettingsPanel = () => {
   const [selectedModels, setSelectedModels] = useState({});
   const [testingProvider, setTestingProvider] = useState(null);
   const [testResults, setTestResults] = useState({});
+  const [outputSettings, setOutputSettings] = useState({ markdownEnabled: true, format: 'markdown' });
+  const [savingOutputSettings, setSavingOutputSettings] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [providersData, activeData] = await Promise.all([
+      const [providersData, activeData, outputData] = await Promise.all([
         llmApi.getAllProviders(),
         llmApi.getActiveModel(),
+        settingsApi.getWritingOutputSettings(),
       ]);
       setProviders(providersData || []);
       setActiveModel(activeData || {});
+      setOutputSettings(outputData || { markdownEnabled: true, format: 'markdown' });
 
       // 初始化每个供应商的选中模型
       const models = {};
@@ -90,6 +95,20 @@ const SettingsPanel = () => {
     }
   };
 
+  const handleMarkdownToggle = async () => {
+    const nextValue = !outputSettings.markdownEnabled;
+    setSavingOutputSettings(true);
+    setError(null);
+    try {
+      const updated = await settingsApi.updateWritingOutputSettings(nextValue);
+      setOutputSettings(updated || { markdownEnabled: nextValue, format: nextValue ? 'markdown' : 'plain' });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSavingOutputSettings(false);
+    }
+  };
+
   if (loading && providers.length === 0) {
     return (
       <div className="settings-panel">
@@ -102,7 +121,7 @@ const SettingsPanel = () => {
     <div className="settings-panel">
       <div className="settings-header">
         <div className="settings-header-left">
-          <h1 className="settings-title">模型设置</h1>
+          <h1 className="settings-title">系统设置</h1>
         </div>
       </div>
 
@@ -128,6 +147,42 @@ const SettingsPanel = () => {
 
       {/* 供应商列表 */}
       <div className="settings-provider-list">
+        <div className="settings-provider-card settings-output-card">
+          <div className="settings-provider-header">
+            <div className="settings-provider-title-row">
+              <span className="settings-provider-badge settings-output-badge">输出</span>
+              <h3 className="settings-provider-name">输出格式</h3>
+              <span className="settings-active-tag">
+                {outputSettings.markdownEnabled ? 'Markdown' : '纯文本'}
+              </span>
+            </div>
+            <div className="settings-provider-meta">
+              <span>控制 AI 最终写作结果的格式。</span>
+            </div>
+          </div>
+          <div className="settings-provider-body">
+            <div className="settings-toggle-row">
+              <div>
+                <div className="settings-toggle-title">允许 Markdown 格式</div>
+                <div className="settings-toggle-description">
+                  {outputSettings.markdownEnabled
+                    ? 'AI 可以使用标题、列表和强调等 Markdown 语法。'
+                    : 'AI 将只输出纯文本，适合直接复制到无格式编辑器。'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`settings-toggle ${outputSettings.markdownEnabled ? 'active' : ''}`}
+                onClick={handleMarkdownToggle}
+                disabled={savingOutputSettings}
+                aria-pressed={outputSettings.markdownEnabled}
+              >
+                <span className="settings-toggle-knob" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         {providers.map((provider) => {
           const isActive = provider.isActive;
           const selectedModel = selectedModels[provider.type] || provider.activeModel;
@@ -215,7 +270,7 @@ const SettingsPanel = () => {
 
       <div className="settings-footer">
         <p className="settings-footer-hint">
-          供应商配置通过 application.yml 管理，如需添加新供应商请修改配置文件。
+          供应商配置通过 application.yml 管理；输出格式开关为运行时设置，重启后回到配置默认值。
         </p>
       </div>
     </div>

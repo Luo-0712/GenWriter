@@ -66,6 +66,14 @@ public class ChatService {
     }
 
     /**
+     * 发布聊天事件（MultimodalContent 版本，带文档上下文、webSearch 控制和 kbId）
+     */
+    public void submitChatTask(String sessionId, String documentId, MultimodalContent userInput,
+                               ChatEvent.WritingType type, boolean webSearch, String kbId) {
+        publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, kbId, type, webSearch));
+    }
+
+    /**
      * 发布知识库问答事件
      * @param sessionId 会话 ID
      * @param kbId 知识库 ID

@@ -7,6 +7,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.DraftSkill;
+import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.AgentToolSupport;
@@ -20,6 +21,7 @@ import com.example.genwriter.model.entity.MessageAttachment;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.FileStorageService;
 import com.example.genwriter.service.LongTermMemoryService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +58,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final SaveSettingDetailTool saveSettingDetailTool;
     private final ReasoningStreamHelper reasoningStreamHelper;
     private final FileStorageService fileStorageService;
+    private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
 
@@ -101,6 +104,12 @@ public class DraftGenerationWorker implements WorkerAgent {
         String context = (String) state.getOrDefault("context", "");
         String userInput = (String) state.getOrDefault("userInput", "");
         String reviewFeedback = (String) state.getOrDefault("reviewFeedback", "");
+        String writingType = (String) state.getOrDefault("writingType", "AUTO");
+        String existingDraft = (String) state.getOrDefault("draft", "");
+        String writingGenre = (String) state.getOrDefault("writingGenre",
+                WritingGenreResolver.resolve(userInput).genre().name());
+        boolean markdownEnabled = getBoolean(state, "markdownEnabled",
+                writingOutputSettingsService.isMarkdownEnabled());
 
         // 获取多模态内容
         Object mcObj = state.get("multimodalContent");
@@ -109,14 +118,25 @@ public class DraftGenerationWorker implements WorkerAgent {
         String nodeId = chainPublisher.publishStart(sessionId, "正文写作",
                 ChainNode.Type.EXECUTION, null,
                 Map.of("hasOutline", !outline.isBlank(), "hasContext", !context.isBlank(),
-                        "hasReviewFeedback", !reviewFeedback.isBlank()));
+                        "hasReviewFeedback", !reviewFeedback.isBlank(),
+                        "hasExistingDraft", !existingDraft.isBlank()));
 
-        String userPrompt = skill.buildUserPrompt(Map.of(
+        Map<String, Object> skillContext = Map.of(
                 "outline", outline,
                 "context", context,
                 "userInput", userInput,
-                "reviewFeedback", reviewFeedback
-        ));
+                "reviewFeedback", reviewFeedback,
+                "writingGenre", writingGenre,
+                "markdownEnabled", markdownEnabled
+        );
+        String systemPrompt = skill.systemPrompt(skillContext);
+        String userPrompt = skill.buildUserPrompt(skillContext);
+
+        if ("CONTINUE".equalsIgnoreCase(writingType) && !existingDraft.isBlank()) {
+            userPrompt = userPrompt + "\n\n--- 已有文稿，请在此基础上自然续写 ---\n"
+                    + existingDraft
+                    + "\n\n续写要求：保留已有文稿，不要从头重写；在其后延展内容，并响应用户本次迭代指令。";
+        }
 
         // Inject document content into prompt
         if (multimodalContent != null && multimodalContent.hasDocuments()) {
@@ -142,7 +162,7 @@ public class DraftGenerationWorker implements WorkerAgent {
         final String finalUserPrompt = userPrompt;
         StringBuilder contentBuilder = new StringBuilder();
         var baseSpec = chatClient.prompt()
-                .system(skill.systemPrompt());
+                .system(systemPrompt);
 
         // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
         ChatClient.ChatClientRequestSpec promptSpec;
@@ -189,7 +209,7 @@ public class DraftGenerationWorker implements WorkerAgent {
             if (reasoningStreamHelper.isReasoningModel()) {
                 log.info("[DraftGenerationWorker] Reasoning stream path uses raw streaming client; tool calls are unavailable and setting extraction fallback will persist story settings. sessionId={}", sessionId);
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        skill.systemPrompt(), userPrompt, TEMPERATURE,
+                        systemPrompt, userPrompt, TEMPERATURE,
                         contentBuilder::append);
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
@@ -226,5 +246,12 @@ public class DraftGenerationWorker implements WorkerAgent {
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
         return Map.of("draft", fullResponse);
+    }
+
+    private boolean getBoolean(Map<String, Object> state, String key, boolean defaultValue) {
+        Object value = state.get(key);
+        if (value instanceof Boolean b) return b;
+        if (value instanceof String s) return Boolean.parseBoolean(s);
+        return defaultValue;
     }
 }

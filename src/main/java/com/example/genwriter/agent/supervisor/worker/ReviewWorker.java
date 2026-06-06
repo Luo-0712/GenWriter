@@ -9,6 +9,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.skill.ReviewSkill;
+import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.AgentToolSupport;
@@ -18,6 +19,7 @@ import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.SseService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,7 @@ public class ReviewWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
+    private final WritingOutputSettingsService writingOutputSettingsService;
 
     @PostConstruct
     void init() {
@@ -76,6 +79,10 @@ public class ReviewWorker implements WorkerAgent {
         String userInput = (String) state.getOrDefault("userInput", "");
         int reviewCount = getInt(state, "reviewCount", 0);
         boolean webSearchEnabled = AgentToolSupport.isWebSearchEnabled(state.get("webSearch"));
+        String writingGenre = (String) state.getOrDefault("writingGenre",
+                WritingGenreResolver.resolve(userInput).genre().name());
+        boolean markdownEnabled = getBoolean(state, "markdownEnabled",
+                writingOutputSettingsService.isMarkdownEnabled());
 
         if (reviewCount >= MAX_REVIEW_ROUNDS) {
             log.warn("[ReviewWorker] 评审轮次已达上限({})，强制通过", MAX_REVIEW_ROUNDS);
@@ -90,12 +97,15 @@ public class ReviewWorker implements WorkerAgent {
                 ChainNode.Type.THINKING, null,
                 Map.of("reviewRound", reviewCount + 1, "contentLength", polishedContent.length()));
 
-        String userPrompt = skill.buildUserPrompt(Map.of(
+        Map<String, Object> skillContext = Map.of(
                 "polishedContent", polishedContent,
                 "outline", outline,
                 "userInput", userInput,
-                "reviewCount", reviewCount
-        ));
+                "reviewCount", reviewCount,
+                "writingGenre", writingGenre,
+                "markdownEnabled", markdownEnabled
+        );
+        String userPrompt = skill.buildUserPrompt(skillContext);
         userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         String conversationId = sessionId + ":review";
@@ -111,7 +121,7 @@ public class ReviewWorker implements WorkerAgent {
         String response;
         try {
             var promptSpec = chatClient.prompt()
-                    .system(skill.systemPrompt())
+                    .system(skill.systemPrompt(skillContext))
                     .user(userPrompt);
 
             promptSpec = AgentToolSupport.applyToolVisibility(
@@ -240,6 +250,13 @@ public class ReviewWorker implements WorkerAgent {
         if (val instanceof String s) {
             try { return Integer.parseInt(s); } catch (NumberFormatException e) { return defaultValue; }
         }
+        return defaultValue;
+    }
+
+    private boolean getBoolean(Map<String, Object> state, String key, boolean defaultValue) {
+        Object value = state.get(key);
+        if (value instanceof Boolean b) return b;
+        if (value instanceof String s) return Boolean.parseBoolean(s);
         return defaultValue;
     }
 }

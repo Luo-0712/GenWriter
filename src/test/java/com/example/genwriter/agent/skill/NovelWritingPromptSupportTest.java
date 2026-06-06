@@ -30,7 +30,7 @@ class NovelWritingPromptSupportTest {
         String reviewConstraint = NovelWritingPromptSupport.reviewConstraint("请续写一章科幻小说");
 
         assertTrue(draftConstraint.contains("direct narrative prose"));
-        assertTrue(draftConstraint.contains("Do not output an outline"));
+        assertTrue(draftConstraint.contains("禁止输出大纲"));
         assertTrue(reviewConstraint.contains("REVISE_DRAFT"));
     }
 }
