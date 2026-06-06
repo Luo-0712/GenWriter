@@ -49,6 +49,15 @@ const clearChainStorage = (sessionId) => {
   }
 };
 
+const getFinalGeneratedContent = (data) => {
+  if (!data || typeof data !== 'object' || data.finalContent !== true) {
+    return null;
+  }
+  if (typeof data.content === 'string') return data.content;
+  if (typeof data.text === 'string') return data.text;
+  return '';
+};
+
 function App() {
   const [projects, setProjects] = useState([]);
   const [activeProject, setActiveProject] = useState(null);
@@ -399,19 +408,9 @@ function App() {
           }
 
           if (payload.type === 'AI_GENERATED_CONTENT') {
-            if (typeof data === 'string' && data) {
+            const text = getFinalGeneratedContent(data);
+            if (text != null) {
               setHasContentStarted(true);
-              assistantContent += data;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsgId
-                    ? { ...m, content: assistantContent }
-                    : m
-                )
-              );
-            } else if (data && typeof data === 'object') {
-              setHasContentStarted(true);
-              const text = data.content || data.text || JSON.stringify(data);
               if (text) {
                 assistantContent = text;
                 setMessages((prev) =>

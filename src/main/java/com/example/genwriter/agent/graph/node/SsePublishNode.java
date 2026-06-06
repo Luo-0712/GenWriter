@@ -35,6 +35,7 @@ public class SsePublishNode implements NodeAction {
         if (finalOutput != null && !finalOutput.isBlank()) {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("content", finalOutput);
+            data.put("finalContent", true);
 
             String researchSourcesJson = state.value("researchSources", String.class).orElse(null);
             if (researchSourcesJson != null && !researchSourcesJson.isBlank()) {

@@ -37,7 +37,7 @@ build/
 ### Docker & Misc ###
 .env
 .uploads/
-.temp/
+temp/
 .test-docs/
 
 ### Writing / Docs ###

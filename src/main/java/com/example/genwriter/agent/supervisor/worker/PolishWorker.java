@@ -14,13 +14,11 @@ import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.UpdateWritingSkillTool;
 import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
-import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.model.entity.MessageAttachment;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.FileStorageService;
 import com.example.genwriter.service.LongTermMemoryService;
-import com.example.genwriter.service.SseService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +44,6 @@ public class PolishWorker implements WorkerAgent {
     private final ChatClientFactory chatClientFactory;
     private final PolishSkill skill;
     private final WorkerRegistry registry;
-    private final SseService sseService;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
@@ -186,10 +183,7 @@ public class PolishWorker implements WorkerAgent {
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         skill.systemPrompt(), userPrompt, TEMPERATURE,
-                        chunk -> {
-                            contentBuilder.append(chunk);
-                            publishContentChunk(sessionId, chunk);
-                        });
+                        contentBuilder::append);
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
@@ -197,10 +191,7 @@ public class PolishWorker implements WorkerAgent {
             } else {
                 promptSpec.stream()
                         .content()
-                        .doOnNext(chunk -> {
-                            contentBuilder.append(chunk);
-                            publishContentChunk(sessionId, chunk);
-                        })
+                        .doOnNext(contentBuilder::append)
                         .then(Mono.just(contentBuilder.toString()))
                         .block();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
@@ -219,20 +210,5 @@ public class PolishWorker implements WorkerAgent {
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
         return Map.of("polishedContent", fullResponse);
-    }
-
-    private void publishContentChunk(String sessionId, String chunk) {
-        if (sessionId == null || sessionId.isBlank()) return;
-        try {
-            sseService.publish(sessionId, SseMessage.builder()
-                    .type(SseMessage.Type.AI_GENERATED_CONTENT)
-                    .payload(SseMessage.Payload.builder()
-                            .data(chunk)
-                            .statusText("正在润色优化...")
-                            .build())
-                    .build());
-        } catch (Exception e) {
-            log.debug("SSE content chunk failed: {}", e.getMessage());
-        }
     }
 }

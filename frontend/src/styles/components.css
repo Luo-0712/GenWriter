@@ -530,7 +530,7 @@
 .input-container {
   max-width: var(--max-content-width);
   margin: 0 auto;
-  padding: 12px 24px 20px;
+  padding: 14px 24px 18px;
   width: 100%;
 }
 
@@ -538,6 +538,9 @@
   position: relative;
   display: flex;
   align-items: flex-end;
+  gap: 8px;
+  min-height: 58px;
+  padding: 8px 58px 8px 10px;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -553,13 +556,14 @@
 .input-textarea {
   flex: 1;
   width: 100%;
-  padding: 12px 50px 12px 4px;
+  min-height: 40px;
+  padding: 9px 0;
   border: none;
   outline: none;
   resize: none;
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-primary);
   background: transparent;
   max-height: 200px;
@@ -572,10 +576,10 @@
 
 .send-btn {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 32px;
-  height: 32px;
+  right: 10px;
+  bottom: 10px;
+  width: 38px;
+  height: 38px;
   background: var(--accent-color);
   border: none;
   border-radius: var(--radius-sm);
@@ -598,20 +602,28 @@
 
 .input-hint {
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-tertiary);
-  margin-top: 6px;
+  margin-top: 7px;
+  line-height: 1.4;
 }
 
 /* 模式选择 pill 按钮组 */
 .mode-selector {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
   padding: 0 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: visible;
+}
+
+.mode-pills {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .mode-selector::-webkit-scrollbar {
@@ -622,7 +634,8 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 14px;
+  min-height: 30px;
+  padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: transparent;
@@ -658,8 +671,9 @@
 .websearch-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 12px;
   margin-left: auto;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -4186,8 +4200,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: none;
   background: transparent;
   color: var(--text-secondary, #6b7280);
@@ -4195,6 +4209,11 @@
   border-radius: 8px;
   transition: all 0.15s ease;
   flex-shrink: 0;
+}
+
+.attachment-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 .attachment-btn:hover {
   background: var(--bg-tertiary, #f3f4f6);
@@ -4206,8 +4225,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-light, #e5e7eb);
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary, #f9fafb);
 }
 
 /* Single preview item */
@@ -4361,6 +4383,50 @@
 .input-wrapper.drag-over {
   border-color: var(--accent-primary, #6366f1);
   background: rgba(99, 102, 241, 0.05);
+}
+
+@media (max-width: 768px) {
+  .input-container {
+    padding: 12px 14px 14px;
+  }
+
+  .input-wrapper {
+    min-height: 54px;
+    padding: 7px 54px 7px 8px;
+  }
+
+  .attachment-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .send-btn {
+    right: 8px;
+    bottom: 8px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .mode-selector {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mode-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .mode-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .websearch-toggle {
+    align-self: flex-start;
+    margin-left: 0;
+  }
 }
 
 /* Message attachments */

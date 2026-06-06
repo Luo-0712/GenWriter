@@ -1,5 +1,6 @@
 package com.example.genwriter.agent.graph;
 
+import com.alibaba.cloud.ai.graph.KeyStrategy;
 import com.alibaba.cloud.ai.graph.KeyStrategyFactory;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.example.genwriter.agent.graph.node.SsePublishNode;
@@ -19,6 +20,31 @@ import static com.alibaba.cloud.ai.graph.action.AsyncNodeAction.node_async;
 @Slf4j
 @Configuration
 public class SupervisorGraphConfig {
+
+    @Bean
+    public KeyStrategyFactory keyStrategyFactory() {
+        return KeyStrategy.builder()
+                .defaultStrategy(KeyStrategy.REPLACE)
+                .addStrategy("userInput", KeyStrategy.REPLACE)
+                .addStrategy("sessionId", KeyStrategy.REPLACE)
+                .addStrategy("kbId", KeyStrategy.REPLACE)
+                .addStrategy("writingType", KeyStrategy.REPLACE)
+                .addStrategy("documentId", KeyStrategy.REPLACE)
+                .addStrategy("finalOutput", KeyStrategy.REPLACE)
+                .addStrategy("currentNode", KeyStrategy.REPLACE)
+                .addStrategy("outline", KeyStrategy.REPLACE)
+                .addStrategy("draft", KeyStrategy.REPLACE)
+                .addStrategy("polishedContent", KeyStrategy.REPLACE)
+                .addStrategy("context", KeyStrategy.REPLACE)
+                .addStrategy("researchReport", KeyStrategy.REPLACE)
+                .addStrategy("researchSources", KeyStrategy.REPLACE)
+                .addStrategy("reviewResult", KeyStrategy.REPLACE)
+                .addStrategy("reviewFeedback", KeyStrategy.REPLACE)
+                .addStrategy("reviewCount", KeyStrategy.REPLACE)
+                .addStrategy("learningReport", KeyStrategy.REPLACE)
+                .addStrategy("storedCount", KeyStrategy.REPLACE)
+                .build();
+    }
 
     @Bean
     @Qualifier("supervisorGraph")
