@@ -43,9 +43,12 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt, " +
             "1 - (embedding &lt;=&gt; CAST(#{queryVector} AS vector)) AS similarity " +
             "FROM long_term_memory WHERE " +
+            "<if test='types != null and !types.isEmpty()'>" +
             "memory_type IN " +
             "<foreach item='t' collection='types' open='(' separator=',' close=')'>#{t}</foreach> " +
-            "AND (" +
+            "AND " +
+            "</if>" +
+            "(" +
             "  scope = 'GLOBAL' " +
             "  <if test='projectId != null'>OR (scope = 'PROJECT' AND project_id = CAST(#{projectId} AS uuid))</if> " +
             ") " +

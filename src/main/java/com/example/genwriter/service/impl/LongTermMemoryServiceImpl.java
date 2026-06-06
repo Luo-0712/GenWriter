@@ -113,7 +113,12 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     @Transactional
     public int deleteMemories(List<String> ids) {
         if (ids == null || ids.isEmpty()) return 0;
-        return mapper.deleteByIds(ids);
+        // UUID 格式校验，防止非法值传入 PostgreSQL CAST(? AS uuid)
+        List<String> validIds = ids.stream()
+                .filter(id -> id != null && id.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+                .collect(Collectors.toList());
+        if (validIds.isEmpty()) return 0;
+        return mapper.deleteByIds(validIds);
     }
 
     @Override
