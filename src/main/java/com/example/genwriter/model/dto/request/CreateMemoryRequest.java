@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 @Builder
 public class CreateMemoryRequest {
@@ -19,4 +21,6 @@ public class CreateMemoryRequest {
     private String projectId;
 
     private String importance;
+
+    private Map<String, Object> metadata;
 }

@@ -21,21 +21,25 @@ import java.util.Map;
 public class LongTermMemoryAdvisor implements CallAroundAdvisor {
 
     private final LongTermMemoryService memoryService;
+    private final LongTermMemoryPromptFormatter promptFormatter;
     private final List<MemoryType> memoryTypes;
     private final String sessionId;
     private final List<String> preExtractedQueries;
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
+                                 LongTermMemoryPromptFormatter promptFormatter,
                                  List<MemoryType> memoryTypes,
                                  String sessionId) {
-        this(memoryService, memoryTypes, sessionId, null);
+        this(memoryService, promptFormatter, memoryTypes, sessionId, null);
     }
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
+                                 LongTermMemoryPromptFormatter promptFormatter,
                                  List<MemoryType> memoryTypes,
                                  String sessionId,
                                  List<String> preExtractedQueries) {
         this.memoryService = memoryService;
+        this.promptFormatter = promptFormatter;
         this.memoryTypes = memoryTypes;
         this.sessionId = sessionId;
         this.preExtractedQueries = preExtractedQueries;
@@ -76,9 +80,16 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                 return chain.nextAroundCall(request);
             }
 
-            String memoryContext = formatMemories(new ArrayList<>(merged.values()));
+            String memoryContext = promptFormatter.format(new ArrayList<>(merged.values()));
+            if (memoryContext.isBlank()) {
+                return chain.nextAroundCall(request);
+            }
+            String baseSystemText = request.systemText() != null ? request.systemText() : "";
+            String enhancedSystemText = baseSystemText.isBlank()
+                    ? memoryContext
+                    : baseSystemText + "\n\n" + memoryContext;
             AdvisedRequest enhancedRequest = AdvisedRequest.from(request)
-                    .systemText(request.systemText() + "\n\n" + memoryContext)
+                    .systemText(enhancedSystemText)
                     .build();
 
             return chain.nextAroundCall(enhancedRequest);
@@ -120,12 +131,4 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
         return null;
     }
 
-    private String formatMemories(List<MemoryVO> memories) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[长期记忆] 以下是从历史交互中保存的相关信息，供参考：\n");
-        for (MemoryVO m : memories) {
-            sb.append("- [").append(m.getMemoryType()).append("] ").append(m.getContent()).append("\n");
-        }
-        return sb.toString();
-    }
 }

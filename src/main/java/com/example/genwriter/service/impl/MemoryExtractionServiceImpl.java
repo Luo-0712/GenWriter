@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -64,6 +65,10 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
 
             for (ExtractedMemory em : extracted) {
                 if (stored >= maxMemories) break;
+                if (em.memoryType == null || em.memoryType.isBlank()
+                        || em.content == null || em.content.isBlank()) {
+                    continue;
+                }
 
                 try {
                     String scope = determineScope(em.memoryType, projectId);
@@ -73,7 +78,8 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
                             scope,
                             projectId,
                             sessionId,
-                            em.importance
+                            em.importance,
+                            buildMetadata(em, scope, projectId, sessionId)
                     );
                     stored++;
                 } catch (Exception e) {
@@ -142,6 +148,57 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
             return "PROJECT";
         }
         return "GLOBAL";
+    }
+
+    private Map<String, Object> buildMetadata(ExtractedMemory em,
+                                              String scope,
+                                              String projectId,
+                                              String sessionId) {
+        String importance = em.importance != null && !em.importance.isBlank() ? em.importance : "MEDIUM";
+        return Map.of(
+                "title", titleFor(em),
+                "summary", safe(em.content),
+                "keywords", List.of(labelFor(em.memoryType)),
+                "facets", Map.of(facetKeyFor(em.memoryType), safe(em.content)),
+                "source", Map.of(
+                        "service", "memory_extraction",
+                        "scope", scope,
+                        "projectId", safe(projectId),
+                        "sessionId", safe(sessionId),
+                        "importance", importance
+                )
+        );
+    }
+
+    private String titleFor(ExtractedMemory em) {
+        String label = labelFor(em.memoryType);
+        String content = em.content != null ? em.content.trim() : "";
+        if (content.length() > 36) {
+            content = content.substring(0, 35) + "...";
+        }
+        return content.isBlank() ? label : content;
+    }
+
+    private String labelFor(String memoryType) {
+        return switch (memoryType) {
+            case "WRITING_PREFERENCE" -> "写作偏好";
+            case "CORRECTION_PATTERN" -> "纠错模式";
+            case "DOMAIN_KNOWLEDGE" -> "领域知识";
+            default -> memoryType;
+        };
+    }
+
+    private String facetKeyFor(String memoryType) {
+        return switch (memoryType) {
+            case "WRITING_PREFERENCE" -> "preference";
+            case "CORRECTION_PATTERN" -> "pattern";
+            case "DOMAIN_KNOWLEDGE" -> "knowledge";
+            default -> "details";
+        };
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private List<ExtractedMemory> parseExtractionResult(String response) {

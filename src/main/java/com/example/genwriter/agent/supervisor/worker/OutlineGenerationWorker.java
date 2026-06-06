@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.OutlineSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -35,6 +36,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final OutlineSkill skill;
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
+    private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final SaveSettingDetailTool saveSettingDetailTool;
@@ -86,6 +88,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
         if (longTermMemoryProperties.isEnabled()) {
             promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                     memoryService,
+                    memoryPromptFormatter,
                     List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WORLD_SETTING,
                             MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
                     sessionId));

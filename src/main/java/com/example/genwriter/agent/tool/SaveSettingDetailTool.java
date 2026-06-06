@@ -8,6 +8,7 @@ import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -81,7 +82,7 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
                     ? input.importance() : "MEDIUM";
 
             memoryService.storeMemory(content, MemoryType.valueOf(input.memoryType()),
-                    scope, projectId, sessionId, importance);
+                    scope, projectId, sessionId, importance, buildMetadata(input, scope, projectId, sessionId, importance));
 
             publishToolComplete(sessionId, traceSpanId, Map.of(
                     "memoryType", input.memoryType(),
@@ -104,6 +105,30 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
         sb.append("## 名称\n").append(input.name()).append("\n\n");
         sb.append("## 详情\n").append(input.content());
         return sb.toString().trim();
+    }
+
+    private Map<String, Object> buildMetadata(SaveSettingDetailInput input,
+                                              String scope,
+                                              String projectId,
+                                              String sessionId,
+                                              String importance) {
+        return Map.of(
+                "title", input.name(),
+                "summary", input.content(),
+                "keywords", List.of(input.name(), "设定"),
+                "entities", List.of(input.name()),
+                "facets", Map.of(
+                        "name", input.name(),
+                        "details", input.content()
+                ),
+                "source", Map.of(
+                        "tool", "save_setting_detail",
+                        "scope", scope,
+                        "projectId", safe(projectId),
+                        "sessionId", safe(sessionId),
+                        "importance", importance
+                )
+        );
     }
 
     private String resolveProjectId(String sessionId) {

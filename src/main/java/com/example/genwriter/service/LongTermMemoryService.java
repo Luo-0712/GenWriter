@@ -8,6 +8,7 @@ import com.example.genwriter.model.entity.LongTermMemory;
 import com.example.genwriter.model.enums.MemoryType;
 
 import java.util.List;
+import java.util.Map;
 
 public interface LongTermMemoryService {
 
@@ -17,6 +18,11 @@ public interface LongTermMemoryService {
     LongTermMemory storeMemory(String content, MemoryType type, String scope,
                                String projectId,
                                String sessionId, String importance);
+
+    LongTermMemory storeMemory(String content, MemoryType type, String scope,
+                               String projectId,
+                               String sessionId, String importance,
+                               Map<String, Object> metadata);
 
     void deleteMemory(String id);
 

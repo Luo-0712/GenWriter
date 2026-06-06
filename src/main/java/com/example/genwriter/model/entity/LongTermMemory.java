@@ -1,6 +1,7 @@
 package com.example.genwriter.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -33,6 +34,8 @@ public class LongTermMemory {
     private LocalDateTime lastAccessedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    @TableField(exist = false)
+    private Double similarity;
 
     @Override
     public boolean equals(Object that) {
@@ -52,7 +55,8 @@ public class LongTermMemory {
                 && (this.getAccessCount() == null ? other.getAccessCount() == null : this.getAccessCount().equals(other.getAccessCount()))
                 && (this.getLastAccessedAt() == null ? other.getLastAccessedAt() == null : this.getLastAccessedAt().equals(other.getLastAccessedAt()))
                 && (this.getCreatedAt() == null ? other.getCreatedAt() == null : this.getCreatedAt().equals(other.getCreatedAt()))
-                && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()));
+                && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()))
+                && (this.getSimilarity() == null ? other.getSimilarity() == null : this.getSimilarity().equals(other.getSimilarity()));
     }
 
     @Override
@@ -73,6 +77,7 @@ public class LongTermMemory {
         result = prime * result + ((getLastAccessedAt() == null) ? 0 : getLastAccessedAt().hashCode());
         result = prime * result + ((getCreatedAt() == null) ? 0 : getCreatedAt().hashCode());
         result = prime * result + ((getUpdatedAt() == null) ? 0 : getUpdatedAt().hashCode());
+        result = prime * result + ((getSimilarity() == null) ? 0 : getSimilarity().hashCode());
         return result;
     }
 
@@ -94,6 +99,7 @@ public class LongTermMemory {
                 ", lastAccessedAt=" + lastAccessedAt +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
+                ", similarity=" + similarity +
                 "]";
     }
 }

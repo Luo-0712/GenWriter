@@ -8,6 +8,8 @@ import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -71,7 +73,9 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
             String importance = input.importance() != null && !input.importance().isBlank()
                     ? input.importance() : "MEDIUM";
 
-            memoryService.storeMemory(content, MemoryType.WRITING_TECHNIQUE, scope, projectId, sessionId, importance);
+            memoryService.storeMemory(content, MemoryType.WRITING_TECHNIQUE,
+                    scope, projectId, sessionId, importance,
+                    buildMetadata(input, scope, projectId, sessionId, importance));
 
             publishToolComplete(sessionId, traceSpanId, Map.of(
                     "skillName", input.skillName(),
@@ -115,6 +119,35 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
         }
 
         return sb.toString().trim();
+    }
+
+    private Map<String, Object> buildMetadata(UpdateWritingSkillInput input,
+                                              String scope,
+                                              String projectId,
+                                              String sessionId,
+                                              String importance) {
+        Map<String, Object> facets = new LinkedHashMap<>();
+        facets.put("skillName", input.skillName());
+        facets.put("category", safe(input.category()));
+        facets.put("rule", input.rule());
+        facets.put("applicableScene", safe(input.applicableScene()));
+        facets.put("goodExample", safe(input.goodExample()));
+        facets.put("badExample", safe(input.badExample()));
+        facets.put("sourceContext", safe(input.sourceContext()));
+
+        return Map.of(
+                "title", input.skillName(),
+                "summary", input.rule(),
+                "keywords", List.of(input.skillName(), safe(input.category()), "写作技巧"),
+                "facets", facets,
+                "source", Map.of(
+                        "tool", "update_writing_skill",
+                        "scope", scope,
+                        "projectId", safe(projectId),
+                        "sessionId", safe(sessionId),
+                        "importance", importance
+                )
+        );
     }
 
     private String resolveProjectId(String sessionId) {

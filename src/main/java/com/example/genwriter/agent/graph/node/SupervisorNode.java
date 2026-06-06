@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
+import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
@@ -43,6 +44,7 @@ public class SupervisorNode implements NodeAction {
     private final SseService sseService;
     private final ObjectMapper objectMapper;
     private final LongTermMemoryService memoryService;
+    private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final SkillService skillService;
@@ -554,10 +556,8 @@ public class SupervisorNode implements NodeAction {
                     userInput, List.of(MemoryType.WRITING_PREFERENCE), sessionId);
 
             if (!memories.isEmpty()) {
-                sb.append("\n## 用户写作偏好（长期记忆）\n");
-                for (MemoryVO m : memories) {
-                    sb.append("- ").append(m.getContent()).append("\n");
-                }
+                sb.append("\n## 长期记忆上下文\n");
+                sb.append(memoryPromptFormatter.format(memories)).append("\n");
             }
         } catch (Exception e) {
             log.debug("注入长期记忆到规划prompt失败: {}", e.getMessage());

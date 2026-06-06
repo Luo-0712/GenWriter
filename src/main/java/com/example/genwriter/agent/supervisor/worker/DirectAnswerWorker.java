@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
@@ -48,6 +49,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final WorkerRegistry registry;
     private final SseService sseService;
     private final LongTermMemoryService memoryService;
+    private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
@@ -176,6 +178,7 @@ public class DirectAnswerWorker implements WorkerAgent {
                 if (longTermMemoryProperties.isEnabled()) {
                     promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
                             memoryService,
+                            memoryPromptFormatter,
                             List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
                             sessionId));
                 }

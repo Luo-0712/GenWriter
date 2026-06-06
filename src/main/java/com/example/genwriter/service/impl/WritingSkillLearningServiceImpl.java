@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -63,13 +65,18 @@ public class WritingSkillLearningServiceImpl implements WritingSkillLearningServ
 
             for (ExtractedSkill skill : extracted) {
                 if (stored >= maxSkills) break;
+                if (skill.skillName == null || skill.skillName.isBlank()
+                        || skill.rule == null || skill.rule.isBlank()) {
+                    continue;
+                }
 
                 try {
                     String content = buildSkillContent(skill);
                     String importance = skill.importance != null && !skill.importance.isBlank()
                             ? skill.importance : "MEDIUM";
                     memoryService.storeMemory(content, MemoryType.WRITING_TECHNIQUE,
-                            effectiveScope, effectiveProjectId, sessionId, importance);
+                            effectiveScope, effectiveProjectId, sessionId, importance,
+                            buildSkillMetadata(skill, effectiveScope, effectiveProjectId, sessionId, importance));
                     stored++;
                     skills.add(new LearningResultVO.SkillSummary(skill.skillName, skill.category));
                 } catch (Exception e) {
@@ -168,6 +175,37 @@ public class WritingSkillLearningServiceImpl implements WritingSkillLearningServ
         }
 
         return sb.toString().trim();
+    }
+
+    private Map<String, Object> buildSkillMetadata(ExtractedSkill skill,
+                                                   String scope,
+                                                   String projectId,
+                                                   String sessionId,
+                                                   String importance) {
+        Map<String, Object> facets = new LinkedHashMap<>();
+        facets.put("skillName", skill.skillName);
+        facets.put("category", safe(skill.category));
+        facets.put("rule", skill.rule);
+        facets.put("applicableScene", safe(skill.applicableScene));
+        facets.put("goodExample", safe(skill.goodExample));
+
+        return Map.of(
+                "title", safe(skill.skillName),
+                "summary", safe(skill.rule),
+                "keywords", List.of(safe(skill.skillName), safe(skill.category), "写作技巧"),
+                "facets", facets,
+                "source", Map.of(
+                        "service", "article_skill_learning",
+                        "scope", scope,
+                        "projectId", safe(projectId),
+                        "sessionId", safe(sessionId),
+                        "importance", importance
+                )
+        );
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private String stripMarkdownCodeBlock(String text) {
