@@ -8,7 +8,8 @@ import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.memory.RedisChatMemory;
-import com.example.genwriter.agent.skill.ReviewSkill;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -45,7 +46,7 @@ public class ReviewWorker implements WorkerAgent {
 
     private final ChatClientFactory chatClientFactory;
     private final ObjectMapper objectMapper;
-    private final ReviewSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -105,7 +106,8 @@ public class ReviewWorker implements WorkerAgent {
                 "writingGenre", writingGenre,
                 "markdownEnabled", markdownEnabled
         );
-        String userPrompt = skill.buildUserPrompt(skillContext);
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), skillContext);
+        String userPrompt = renderedPrompt.userPrompt();
         userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         String conversationId = sessionId + ":review";
@@ -121,7 +123,7 @@ public class ReviewWorker implements WorkerAgent {
         String response;
         try {
             var promptSpec = chatClient.prompt()
-                    .system(skill.systemPrompt(skillContext))
+                    .system(renderedPrompt.systemPrompt())
                     .user(userPrompt);
 
             promptSpec = AgentToolSupport.applyToolVisibility(

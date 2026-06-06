@@ -5,7 +5,9 @@ import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
-import com.example.genwriter.agent.skill.OutlineSkill;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
+import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -40,13 +42,14 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private static final double TEMPERATURE = 1.2;
 
     private final ChatClientFactory chatClientFactory;
-    private final OutlineSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final SaveSettingDetailTool saveSettingDetailTool;
+    private final ContentStreamPublisher contentStreamPublisher;
     private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
@@ -98,10 +101,11 @@ public class OutlineGenerationWorker implements WorkerAgent {
                 "writingGenre", writingGenre,
                 "markdownEnabled", markdownEnabled
         );
-        String userPrompt = skill.buildUserPrompt(skillContext);
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), skillContext);
+        String userPrompt = renderedPrompt.userPrompt();
 
         var promptSpec = chatClient.prompt()
-                .system(skill.systemPrompt(skillContext))
+                .system(renderedPrompt.systemPrompt())
                 .user(userPrompt);
 
         if (longTermMemoryProperties.isEnabled()) {
@@ -144,6 +148,8 @@ public class OutlineGenerationWorker implements WorkerAgent {
         log.info("大纲生成完成: length={}", response.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", response.length()));
+        contentStreamPublisher.startStage(sessionId, nodeId, ContentStreamPublisher.Stage.OUTLINE);
+        contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.OUTLINE, response);
         return Map.of("outline", response);
     }
 

@@ -4,9 +4,11 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
+import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
-import com.example.genwriter.agent.skill.DraftSkill;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -48,7 +50,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private static final double TEMPERATURE = 1.5;
 
     private final ChatClientFactory chatClientFactory;
-    private final DraftSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
@@ -57,6 +59,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final SaveSettingDetailTool saveSettingDetailTool;
     private final ReasoningStreamHelper reasoningStreamHelper;
+    private final ContentStreamPublisher contentStreamPublisher;
     private final FileStorageService fileStorageService;
     private final WritingOutputSettingsService writingOutputSettingsService;
 
@@ -120,6 +123,7 @@ public class DraftGenerationWorker implements WorkerAgent {
                 Map.of("hasOutline", !outline.isBlank(), "hasContext", !context.isBlank(),
                         "hasReviewFeedback", !reviewFeedback.isBlank(),
                         "hasExistingDraft", !existingDraft.isBlank()));
+        contentStreamPublisher.startStage(sessionId, nodeId, ContentStreamPublisher.Stage.DRAFT);
 
         Map<String, Object> skillContext = Map.of(
                 "outline", outline,
@@ -129,8 +133,9 @@ public class DraftGenerationWorker implements WorkerAgent {
                 "writingGenre", writingGenre,
                 "markdownEnabled", markdownEnabled
         );
-        String systemPrompt = skill.systemPrompt(skillContext);
-        String userPrompt = skill.buildUserPrompt(skillContext);
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), skillContext);
+        String systemPrompt = renderedPrompt.systemPrompt();
+        String userPrompt = renderedPrompt.userPrompt();
 
         if ("CONTINUE".equalsIgnoreCase(writingType) && !existingDraft.isBlank()) {
             userPrompt = userPrompt + "\n\n--- 已有文稿，请在此基础上自然续写 ---\n"
@@ -210,7 +215,11 @@ public class DraftGenerationWorker implements WorkerAgent {
                 log.info("[DraftGenerationWorker] Reasoning stream path uses raw streaming client; tool calls are unavailable and setting extraction fallback will persist story settings. sessionId={}", sessionId);
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         systemPrompt, userPrompt, TEMPERATURE,
-                        contentBuilder::append);
+                        chunk -> {
+                            contentBuilder.append(chunk);
+                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                    ContentStreamPublisher.Stage.DRAFT, chunk, contentBuilder);
+                        });
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
@@ -222,7 +231,11 @@ public class DraftGenerationWorker implements WorkerAgent {
                             try {
                                 return finalPromptSpec.stream()
                                         .content()
-                                        .doOnNext(contentBuilder::append)
+                                        .doOnNext(chunk -> {
+                                            contentBuilder.append(chunk);
+                                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                                    ContentStreamPublisher.Stage.DRAFT, chunk, contentBuilder);
+                                        })
                                         .then(Mono.just(contentBuilder.toString()))
                                         .block();
                             } finally {
@@ -245,6 +258,7 @@ public class DraftGenerationWorker implements WorkerAgent {
         log.info("正文写作完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
+        contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.DRAFT, fullResponse);
         return Map.of("draft", fullResponse);
     }
 

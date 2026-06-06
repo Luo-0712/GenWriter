@@ -16,13 +16,19 @@ import './styles/global.css';
 /* ---------- sessionStorage 执行轨迹缓存 ---------- */
 const chainStorageKey = (sessionId) => `genwriter_chain_${sessionId}`;
 
-const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix, sources) => {
+const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix, sources, contentState = {}) => {
   try {
     const data = {
       chainNodes: chainNodes || [],
       thinkingSteps: thinkingSteps || [],
       sources: sources || [],
       contentPrefix: contentPrefix || '',
+      contentStage: contentState.contentStage || '',
+      contentStageLabel: contentState.contentStageLabel || '',
+      contentStatus: contentState.contentStatus || '',
+      contentActivityText: contentState.contentActivityText || '',
+      isDraftStreaming: !!contentState.isDraftStreaming,
+      isFinalContent: !!contentState.isFinalContent,
       timestamp: Date.now(),
     };
     sessionStorage.setItem(chainStorageKey(sessionId), JSON.stringify(data));
@@ -49,12 +55,51 @@ const clearChainStorage = (sessionId) => {
   }
 };
 
-const getFinalGeneratedContent = (data) => {
-  if (!data || typeof data !== 'object' || data.finalContent !== true) {
-    return null;
-  }
-  if (typeof data.content === 'string') return data.content;
-  if (typeof data.text === 'string') return data.text;
+const CONTENT_STAGE_LABELS = {
+  outline: '结构草稿',
+  draft: '初稿',
+  polish: '润色稿',
+  direct_answer: '回答',
+  final: '最终稿',
+};
+
+const normalizeGeneratedContentEvent = (data) => {
+  if (!data || typeof data !== 'object') return null;
+
+  const finalContent = data.finalContent === true;
+  const artifact = data.artifact === true || finalContent;
+  if (!artifact) return null;
+
+  const stage = data.stage || (finalContent ? 'final' : '');
+  const mode = data.mode || (finalContent ? 'final' : data.delta != null ? 'delta' : 'snapshot');
+  const content = typeof data.content === 'string'
+    ? data.content
+    : typeof data.text === 'string'
+      ? data.text
+      : '';
+  const delta = typeof data.delta === 'string' ? data.delta : '';
+
+  return {
+    finalContent,
+    stage,
+    stageLabel: data.stageLabel || CONTENT_STAGE_LABELS[stage] || '实时草稿',
+    mode,
+    content,
+    delta,
+    status: data.status || (finalContent ? 'COMPLETED' : 'RUNNING'),
+    revision: typeof data.revision === 'number' ? data.revision : 0,
+    updatedAt: data.updatedAt || Date.now(),
+    document: data.document,
+    sources: Array.isArray(data.sources) ? data.sources : null,
+  };
+};
+
+const getStableContentActivityText = (statusText) => {
+  if (!statusText) return '';
+  if (/调研|检索|搜索|research/i.test(statusText)) return '调研中，正文暂不变更';
+  if (/评审|审核|review/i.test(statusText)) return '评审中，正文暂不变更';
+  if (/规划|计划|planning/i.test(statusText)) return '规划中，正文暂不变更';
+  if (/工具|tool/i.test(statusText)) return '工具处理中，正文暂不变更';
   return '';
 };
 
@@ -157,6 +202,12 @@ function App() {
                 chainNodes: cached.chainNodes,
                 thinkingSteps: cached.thinkingSteps || mapped[lastAssistantIdx].thinkingSteps || [],
                 sources: cached.sources || mapped[lastAssistantIdx].sources || [],
+                contentStage: cached.contentStage || mapped[lastAssistantIdx].contentStage || '',
+                contentStageLabel: cached.contentStageLabel || mapped[lastAssistantIdx].contentStageLabel || '',
+                contentStatus: cached.contentStatus || mapped[lastAssistantIdx].contentStatus || '',
+                contentActivityText: cached.contentActivityText || mapped[lastAssistantIdx].contentActivityText || '',
+                isDraftStreaming: !!cached.isDraftStreaming,
+                isFinalContent: !!cached.isFinalContent,
               };
             }
           }
@@ -203,7 +254,15 @@ function App() {
         lastAssistant.chainNodes,
         lastAssistant.thinkingSteps,
         lastAssistant.content?.substring(0, 100),
-        lastAssistant.sources
+        lastAssistant.sources,
+        {
+          contentStage: lastAssistant.contentStage,
+          contentStageLabel: lastAssistant.contentStageLabel,
+          contentStatus: lastAssistant.contentStatus,
+          contentActivityText: lastAssistant.contentActivityText,
+          isDraftStreaming: lastAssistant.isDraftStreaming,
+          isFinalContent: lastAssistant.isFinalContent,
+        }
       );
     }
   }, [messages, activeSession?.id]);
@@ -277,6 +336,12 @@ function App() {
           chainNodes: [],
           traceEvents: [],
           sources: [],
+          contentStage: '',
+          contentStageLabel: '',
+          contentStatus: '',
+          contentActivityText: '',
+          isDraftStreaming: false,
+          isFinalContent: false,
           isStreaming: true,
           timestamp: new Date().toISOString(),
         },
@@ -397,9 +462,11 @@ function App() {
               prev.map((m) => {
                 if (m.id !== assistantMsgId) return m;
                 const stepEntry = { text: st, data: data || null, timestamp: new Date().toISOString() };
+                const contentActivityText = getStableContentActivityText(st);
                 return {
                   ...m,
                   statusText,
+                  ...(contentActivityText ? { contentActivityText } : {}),
                   thinkingSteps: payload.type === 'AI_THINKING'
                     ? [...(m.thinkingSteps || []), stepEntry]
                     : (m.thinkingSteps || []),
@@ -409,28 +476,39 @@ function App() {
           }
 
           if (payload.type === 'AI_GENERATED_CONTENT') {
-            const text = getFinalGeneratedContent(data);
-            if (text != null) {
+            const event = normalizeGeneratedContentEvent(data);
+            if (event) {
               setHasContentStarted(true);
-              if (data?.document?.id) {
-                setDocumentRefresh({ token: Date.now(), documentId: data.document.id });
+              if (event.document?.id) {
+                setDocumentRefresh({ token: Date.now(), documentId: event.document.id });
               }
-              if (text) {
-                assistantContent = text;
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMsgId
-                      ? {
-                          ...m,
-                          content: assistantContent,
-                          ...(data.sources && data.sources.length > 0
-                            ? { sources: data.sources }
-                            : {}),
-                        }
-                      : m
-                  )
-                );
+
+              if (event.mode === 'stage_start') {
+                assistantContent = '';
+              } else if (event.mode === 'delta') {
+                assistantContent += event.delta;
+              } else {
+                assistantContent = event.content;
               }
+
+              setMessages((prev) =>
+                prev.map((m) => {
+                  if (m.id !== assistantMsgId) return m;
+                  return {
+                    ...m,
+                    content: assistantContent,
+                    contentStage: event.stage,
+                    contentStageLabel: event.stageLabel,
+                    contentStatus: event.status,
+                    contentActivityText: '',
+                    isDraftStreaming: !event.finalContent && event.status !== 'COMPLETED',
+                    isFinalContent: event.finalContent,
+                    ...(event.sources && event.sources.length > 0
+                      ? { sources: event.sources }
+                      : {}),
+                  };
+                })
+              );
             }
           }
 
@@ -438,7 +516,9 @@ function App() {
             setIsLoading(false);
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+                m.id === assistantMsgId
+                  ? { ...m, isStreaming: false, isDraftStreaming: false }
+                  : m
               )
             );
             if (abortRef.current) {
@@ -456,6 +536,9 @@ function App() {
                 ? {
                     ...m,
                     content: m.content || '响应异常，请重试。',
+                    contentStatus: m.content ? 'ERROR' : m.contentStatus,
+                    contentActivityText: m.content ? '未完成草稿' : m.contentActivityText,
+                    isDraftStreaming: false,
                     isStreaming: false,
                   }
                 : m
@@ -470,7 +553,9 @@ function App() {
           setIsLoading(false);
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+              m.id === assistantMsgId
+                ? { ...m, isStreaming: false, isDraftStreaming: false }
+                : m
             )
           );
           if (abortRef.current) {

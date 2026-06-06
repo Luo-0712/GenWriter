@@ -23,14 +23,4 @@ class NovelWritingPromptSupportTest {
         assertNull(NovelWritingPromptSupport.forcedWritingType("解释科幻小说中的曲率引擎概念"));
         assertNull(NovelWritingPromptSupport.forcedWritingType("分析这本科幻小说第一章的结构"));
     }
-
-    @Test
-    void constraints_ShouldAskForNarrativeProseWhenNovelRequested() {
-        String draftConstraint = NovelWritingPromptSupport.draftConstraint("请续写一章科幻小说");
-        String reviewConstraint = NovelWritingPromptSupport.reviewConstraint("请续写一章科幻小说");
-
-        assertTrue(draftConstraint.contains("direct narrative prose"));
-        assertTrue(draftConstraint.contains("禁止输出大纲"));
-        assertTrue(reviewConstraint.contains("REVISE_DRAFT"));
-    }
 }

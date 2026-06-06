@@ -6,7 +6,8 @@ import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
-import com.example.genwriter.agent.skill.ResearcherSkill;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.AgentToolSupport;
@@ -39,7 +40,7 @@ public class ResearcherWorker implements WorkerAgent {
     private static final double TEMPERATURE = 0.3;
 
     private final ChatClientFactory chatClientFactory;
-    private final ResearcherSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final SseService sseService;
@@ -79,12 +80,13 @@ public class ResearcherWorker implements WorkerAgent {
 
         publishStatus(sessionId, SseMessage.Type.AI_PLANNING, "【调研】正在分析需求并制定搜索策略...");
 
-        String systemPrompt = skill.systemPrompt();
-        String userPrompt = skill.buildUserPrompt(Map.of(
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), Map.of(
                 "userInput", userInput,
                 "context", existingContext,
                 "kbId", kbId
         ));
+        String systemPrompt = renderedPrompt.systemPrompt();
+        String userPrompt = renderedPrompt.userPrompt();
         userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         String conversationId = sessionId + ":researcher";

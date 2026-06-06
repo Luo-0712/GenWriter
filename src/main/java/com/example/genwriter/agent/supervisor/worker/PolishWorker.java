@@ -4,10 +4,12 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
+import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
-import com.example.genwriter.agent.skill.PolishSkill;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -44,7 +46,7 @@ public class PolishWorker implements WorkerAgent {
     private static final double TEMPERATURE = 1.0;
 
     private final ChatClientFactory chatClientFactory;
-    private final PolishSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
@@ -53,6 +55,7 @@ public class PolishWorker implements WorkerAgent {
     private final MemoryQueryExtractor memoryQueryExtractor;
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final ReasoningStreamHelper reasoningStreamHelper;
+    private final ContentStreamPublisher contentStreamPublisher;
     private final FileStorageService fileStorageService;
     private final WritingOutputSettingsService writingOutputSettingsService;
 
@@ -105,6 +108,7 @@ public class PolishWorker implements WorkerAgent {
                 ChainNode.Type.EXECUTION, null,
                 Map.of("contentLength", contentToPolish.length(),
                         "hasReviewFeedback", !reviewFeedback.isBlank()));
+        contentStreamPublisher.startStage(sessionId, nodeId, ContentStreamPublisher.Stage.POLISH);
 
         Map<String, Object> skillContext = Map.of(
                 "content", contentToPolish,
@@ -113,8 +117,9 @@ public class PolishWorker implements WorkerAgent {
                 "writingGenre", writingGenre,
                 "markdownEnabled", markdownEnabled
         );
-        String systemPrompt = skill.systemPrompt(skillContext);
-        String userPrompt = skill.buildUserPrompt(skillContext);
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), skillContext);
+        String systemPrompt = renderedPrompt.systemPrompt();
+        String userPrompt = renderedPrompt.userPrompt();
 
         // Inject document content into prompt
         if (multimodalContent != null && multimodalContent.hasDocuments()) {
@@ -195,7 +200,11 @@ public class PolishWorker implements WorkerAgent {
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         systemPrompt, userPrompt, TEMPERATURE,
-                        contentBuilder::append);
+                        chunk -> {
+                            contentBuilder.append(chunk);
+                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                    ContentStreamPublisher.Stage.POLISH, chunk, contentBuilder);
+                        });
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
@@ -203,7 +212,11 @@ public class PolishWorker implements WorkerAgent {
             } else {
                 promptSpec.stream()
                         .content()
-                        .doOnNext(contentBuilder::append)
+                        .doOnNext(chunk -> {
+                            contentBuilder.append(chunk);
+                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                    ContentStreamPublisher.Stage.POLISH, chunk, contentBuilder);
+                        })
                         .then(Mono.just(contentBuilder.toString()))
                         .block();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
@@ -221,6 +234,7 @@ public class PolishWorker implements WorkerAgent {
         log.info("润色完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
+        contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.POLISH, fullResponse);
         return Map.of("polishedContent", fullResponse);
     }
 

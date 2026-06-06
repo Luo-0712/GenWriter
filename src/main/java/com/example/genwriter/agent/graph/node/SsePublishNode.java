@@ -2,7 +2,7 @@ package com.example.genwriter.agent.graph.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.example.genwriter.message.SseMessage;
+import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.model.dto.request.CreateDocumentRequest;
 import com.example.genwriter.model.dto.response.DocumentDTO;
 import com.example.genwriter.service.DocumentService;
@@ -28,6 +28,7 @@ import java.util.Map;
 public class SsePublishNode implements NodeAction {
 
     private final SseService sseService;
+    private final ContentStreamPublisher contentStreamPublisher;
     private final ObjectMapper objectMapper;
     private final DocumentService documentService;
     private final WritingOutputSettingsService writingOutputSettingsService;
@@ -67,17 +68,13 @@ public class SsePublishNode implements NodeAction {
                 }
             }
 
-            SseMessage message = SseMessage.builder()
-                    .type(SseMessage.Type.AI_GENERATED_CONTENT)
-                    .payload(SseMessage.Payload.builder()
-                            .data(data)
-                            .build())
-                    .metadata(SseMessage.Metadata.builder()
-                            .resourceId(generatedDocument != null ? generatedDocument.getId() : documentId)
-                            .build())
-                    .build();
-
-            sseService.publish(sessionId, message);
+            contentStreamPublisher.publishFinal(
+                    sessionId,
+                    finalOutput,
+                    data.get("document"),
+                    data.get("sources"),
+                    generatedDocument != null ? generatedDocument.getId() : documentId
+            );
             log.debug("SSE 内容已发布: sessionId={}, length={}", sessionId, finalOutput.length());
         }
 

@@ -4,10 +4,12 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
-import com.example.genwriter.agent.skill.DirectAnswerSkill;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.AgentToolSupport;
@@ -42,7 +44,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private static final double TEMPERATURE = 0.7;
 
     private final ChatClientFactory chatClientFactory;
-    private final DirectAnswerSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final RedisChatMemory chatMemory;
     private final WorkerRegistry registry;
     private final LongTermMemoryService memoryService;
@@ -50,6 +52,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
+    private final ContentStreamPublisher contentStreamPublisher;
     private final FileStorageService fileStorageService;
 
     @PostConstruct
@@ -83,12 +86,15 @@ public class DirectAnswerWorker implements WorkerAgent {
                 ChainNode.Type.EXECUTION, null,
                 Map.of("userInput", truncate(userInput, 200), "hasKbId", !kbId.isBlank(),
                         "webSearch", webSearchEnabled));
+        contentStreamPublisher.startStage(sessionId, nodeId, ContentStreamPublisher.Stage.DIRECT_ANSWER);
 
-        String userPrompt = skill.buildUserPrompt(Map.of(
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), Map.of(
                 "userInput", userInput,
                 "context", context,
                 "kbId", kbId
         ));
+        String systemPrompt = renderedPrompt.systemPrompt();
+        String userPrompt = renderedPrompt.userPrompt();
         userPrompt = AgentToolSupport.appendWebSearchDisabledNotice(userPrompt, webSearchEnabled);
 
         // Inject document content into prompt
@@ -126,8 +132,12 @@ public class DirectAnswerWorker implements WorkerAgent {
         try {
             if (reasoningStreamHelper.isReasoningModel()) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        skill.systemPrompt(), userPrompt, TEMPERATURE,
-                        contentBuilder::append);
+                        systemPrompt, userPrompt, TEMPERATURE,
+                        chunk -> {
+                            contentBuilder.append(chunk);
+                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                    ContentStreamPublisher.Stage.DIRECT_ANSWER, chunk, contentBuilder);
+                        });
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
@@ -135,7 +145,7 @@ public class DirectAnswerWorker implements WorkerAgent {
             } else {
                 ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
                 var baseSpec = chatClient.prompt()
-                        .system(skill.systemPrompt());
+                        .system(systemPrompt);
 
                 // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
                 ChatClient.ChatClientRequestSpec promptSpec;
@@ -179,7 +189,11 @@ public class DirectAnswerWorker implements WorkerAgent {
 
                 promptSpec.stream()
                         .content()
-                        .doOnNext(contentBuilder::append)
+                        .doOnNext(chunk -> {
+                            contentBuilder.append(chunk);
+                            contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                    ContentStreamPublisher.Stage.DIRECT_ANSWER, chunk, contentBuilder);
+                        })
                         .then(Mono.just(contentBuilder.toString()))
                         .block(Duration.ofMinutes(5));
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
@@ -198,6 +212,7 @@ public class DirectAnswerWorker implements WorkerAgent {
         log.info("[DirectAnswerWorker] 回答完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);
+        contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.DIRECT_ANSWER, fullResponse);
         return Map.of("finalOutput", fullResponse);
     }
 

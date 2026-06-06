@@ -269,6 +269,32 @@ const SourcesList = ({ sources }) => {
   );
 };
 
+const getContentStreamStatus = (message) => {
+  if (!message || message.role === 'user') return null;
+  const hasStage = Boolean(message.contentStage || message.contentStageLabel);
+  const activityText = message.contentActivityText || '';
+  if (!hasStage && !activityText) return null;
+
+  const stageLabel = message.contentStageLabel || '实时草稿';
+  const isRunning = message.isDraftStreaming || message.contentStatus === 'RUNNING';
+  const isError = message.contentStatus === 'ERROR';
+  const mainText = activityText || (
+    message.isFinalContent
+      ? `${stageLabel}已完成`
+      : isRunning
+        ? `${stageLabel}生成中`
+        : `${stageLabel}已生成`
+  );
+
+  return {
+    label: message.isFinalContent ? '正文' : '实时草稿',
+    mainText,
+    isRunning,
+    isError,
+    isFinal: message.isFinalContent,
+  };
+};
+
 const MessageBubble = ({ message, onExport }) => {
   const isUser = message.role === 'user';
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -281,6 +307,9 @@ const MessageBubble = ({ message, onExport }) => {
   const hasThinkingSteps = thinkingSteps.length > 0;
   const hasThinking = hasTraceEvents || hasChainNodes || hasThinkingSteps;
   const latestStep = hasThinkingSteps ? thinkingSteps[thinkingSteps.length - 1].text : '';
+  const contentStreamStatus = getContentStreamStatus(message);
+  const canExport = !isUser && message.content && !message.isStreaming
+    && (message.isFinalContent || !message.contentStage);
 
   return (
     <div className={`message-bubble ${isUser ? 'user' : 'assistant'}`}>
@@ -348,10 +377,18 @@ const MessageBubble = ({ message, onExport }) => {
             )}
           </div>
         )}
-        <div className="message-text">
+        {contentStreamStatus && (
+          <div className={`content-stream-status ${contentStreamStatus.isRunning ? 'is-running' : ''} ${contentStreamStatus.isError ? 'is-error' : ''} ${contentStreamStatus.isFinal ? 'is-final' : ''}`}>
+            <span className="content-stream-label">{contentStreamStatus.label}</span>
+            <span className="content-stream-separator">·</span>
+            <span className="content-stream-text">{contentStreamStatus.mainText}</span>
+          </div>
+        )}
+        <div className={`message-text ${message.isDraftStreaming ? 'message-text-streaming' : ''}`}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {message.content && message.content !== 'null' ? message.content : ''}
           </ReactMarkdown>
+          {message.isDraftStreaming && <span className="content-stream-cursor" aria-hidden="true" />}
         </div>
         {isUser && message.attachments && message.attachments.length > 0 && (
           <div className="message-attachments">
@@ -381,7 +418,7 @@ const MessageBubble = ({ message, onExport }) => {
         {!isUser && message.sources && message.sources.length > 0 && !message.isStreaming && (
           <SourcesList sources={message.sources} />
         )}
-        {!isUser && message.content && !message.isStreaming && (
+        {canExport && (
           <div className="message-actions">
             <button className="message-action-btn" onClick={() => onExport?.(message)}>
               导出

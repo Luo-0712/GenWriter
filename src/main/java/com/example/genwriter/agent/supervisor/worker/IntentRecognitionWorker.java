@@ -2,7 +2,8 @@ package com.example.genwriter.agent.supervisor.worker;
 
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
-import com.example.genwriter.agent.skill.IntentRecognitionSkill;
+import com.example.genwriter.agent.profile.AgentPromptRenderer;
+import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -27,7 +28,7 @@ public class IntentRecognitionWorker implements WorkerAgent {
 
     private final ChatClientFactory chatClientFactory;
     private final ObjectMapper objectMapper;
-    private final IntentRecognitionSkill skill;
+    private final AgentPromptRenderer agentPromptRenderer;
     private final WorkerRegistry registry;
     private final ThoughtChainPublisher chainPublisher;
 
@@ -66,7 +67,8 @@ public class IntentRecognitionWorker implements WorkerAgent {
             return Map.of("intent", "WRITING_TASK", "writingType", forcedWritingType);
         }
 
-        String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput));
+        RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), Map.of("userInput", userInput));
+        String userPrompt = renderedPrompt.userPrompt();
         String response;
         SessionContextHolder.set(sessionId, nodeId, name());
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型识别意图",
@@ -74,7 +76,7 @@ public class IntentRecognitionWorker implements WorkerAgent {
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE), null);
         try {
             response = chatClient.prompt()
-                    .system(skill.systemPrompt())
+                    .system(renderedPrompt.systemPrompt())
                     .user(userPrompt)
                     .call()
                     .content();

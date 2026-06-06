@@ -20,16 +20,4 @@ public final class NovelWritingPromptSupport {
     public static String forcedWritingType(String userInput) {
         return WritingGenreResolver.forcedWritingType(userInput);
     }
-
-    public static String outlineConstraint(String userInput) {
-        return WritingPromptConstraints.outlineConstraint(WritingGenreResolver.resolve(userInput));
-    }
-
-    public static String draftConstraint(String userInput) {
-        return WritingPromptConstraints.draftConstraint(WritingGenreResolver.resolve(userInput));
-    }
-
-    public static String reviewConstraint(String userInput) {
-        return WritingPromptConstraints.reviewConstraint(WritingGenreResolver.resolve(userInput), true);
-    }
 }
