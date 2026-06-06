@@ -44,6 +44,7 @@ public class DraftSkill implements AgentSkill {
         }
 
         sb.append("请根据以上大纲撰写完整的文章正文。");
+        sb.append(NovelWritingPromptSupport.draftConstraint(userInput));
         return sb.toString();
     }
 

@@ -44,6 +44,7 @@ public class ReviewSkill implements AgentSkill {
         }
 
         sb.append("请对以上文章进行质量评审，按指定 JSON 格式输出评审结果。");
+        sb.append(NovelWritingPromptSupport.reviewConstraint(userInput));
         return sb.toString();
     }
 

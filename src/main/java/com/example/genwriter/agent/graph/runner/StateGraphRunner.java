@@ -15,6 +15,7 @@ import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
+import com.example.genwriter.service.SettingMemoryExtractionService;
 import com.example.genwriter.service.SseService;
 import com.example.genwriter.service.WritingSkillExtractionService;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,9 @@ import org.springframework.util.MimeType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * StateGraph 执行器（Supervisor 模式专用）
@@ -46,8 +50,10 @@ public class StateGraphRunner {
     private final RedisChatMemory chatMemory;
     private final MemoryProperties memoryProperties;
     private final MemoryExtractionService memoryExtractionService;
+    private final SettingMemoryExtractionService settingMemoryExtractionService;
     private final WritingSkillExtractionService writingSkillExtractionService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final ConcurrentMap<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
     private volatile CompiledGraph compiledSupervisorGraph;
 
@@ -59,6 +65,7 @@ public class StateGraphRunner {
                             RedisChatMemory chatMemory,
                             MemoryProperties memoryProperties,
                             MemoryExtractionService memoryExtractionService,
+                            SettingMemoryExtractionService settingMemoryExtractionService,
                             WritingSkillExtractionService writingSkillExtractionService,
                             LongTermMemoryProperties longTermMemoryProperties) {
         this.supervisorGraph = supervisorGraph;
@@ -69,6 +76,7 @@ public class StateGraphRunner {
         this.chatMemory = chatMemory;
         this.memoryProperties = memoryProperties;
         this.memoryExtractionService = memoryExtractionService;
+        this.settingMemoryExtractionService = settingMemoryExtractionService;
         this.writingSkillExtractionService = writingSkillExtractionService;
         this.longTermMemoryProperties = longTermMemoryProperties;
     }
@@ -110,6 +118,20 @@ public class StateGraphRunner {
      * @param webSearch   是否启用联网搜索
      */
     public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
+        ReentrantLock lock = sessionLocks.computeIfAbsent(sessionId, ignored -> new ReentrantLock(true));
+        lock.lock();
+        try {
+            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch);
+        } finally {
+            lock.unlock();
+            if (!lock.hasQueuedThreads()) {
+                sessionLocks.remove(sessionId, lock);
+            }
+        }
+    }
+
+    private void runSerial(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
+        sseService.startRun(sessionId);
         log.info("Supervisor 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
@@ -151,6 +173,11 @@ public class StateGraphRunner {
                             memoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput);
                         } catch (Exception e) {
                             log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
+                        }
+                        try {
+                            settingMemoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput);
+                        } catch (Exception e) {
+                            log.warn("Trigger setting memory extraction failed: sessionId={}", sessionId, e);
                         }
                         if (longTermMemoryProperties.getWritingSkillExtraction().isEnabled()) {
                             try {

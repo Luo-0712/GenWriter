@@ -33,6 +33,7 @@ public class OutlineSkill implements AgentSkill {
         }
         sb.append("## 用户需求\n\n").append(userInput).append("\n\n");
         sb.append("请为以上需求设计一份详细的文章大纲。");
+        sb.append(NovelWritingPromptSupport.outlineConstraint(userInput));
         return sb.toString();
     }
 

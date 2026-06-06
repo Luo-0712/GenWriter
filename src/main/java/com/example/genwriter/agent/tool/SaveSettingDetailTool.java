@@ -6,11 +6,14 @@ import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 @Slf4j
@@ -43,6 +46,18 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
 
     @Override
     public String apply(SaveSettingDetailInput input) {
+        return doApply(input);
+    }
+
+    public String applyWithContext(SaveSettingDetailInput input, ToolContext toolContext) {
+        SessionContextHolder.ContextSnapshot toolSnapshot = AgentToolSupport.contextSnapshot(toolContext);
+        if (toolSnapshot != null) {
+            return withContext(toolSnapshot, () -> doApply(input));
+        }
+        return doApply(input);
+    }
+
+    private String doApply(SaveSettingDetailInput input) {
         String sessionId = SessionContextHolder.get();
         String traceSpanId = null;
         if (sessionId != null && !sessionId.isBlank()) {
@@ -100,6 +115,22 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
         }
     }
 
+    private String withContext(SessionContextHolder.ContextSnapshot snapshot, Callable<String> action) {
+        SessionContextHolder.ContextSnapshot previous = SessionContextHolder.snapshot();
+        SessionContextHolder.restore(snapshot);
+        try {
+            return action.call();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (previous != null && previous.sessionId() != null && !previous.sessionId().isBlank()) {
+                SessionContextHolder.restore(previous);
+            } else {
+                SessionContextHolder.clear();
+            }
+        }
+    }
+
     private String buildContent(SaveSettingDetailInput input) {
         StringBuilder sb = new StringBuilder();
         sb.append("## 名称\n").append(input.name()).append("\n\n");
@@ -112,23 +143,29 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
                                               String projectId,
                                               String sessionId,
                                               String importance) {
-        return Map.of(
-                "title", input.name(),
-                "summary", input.content(),
-                "keywords", List.of(input.name(), "设定"),
-                "entities", List.of(input.name()),
-                "facets", Map.of(
-                        "name", input.name(),
-                        "details", input.content()
-                ),
-                "source", Map.of(
-                        "tool", "save_setting_detail",
-                        "scope", scope,
-                        "projectId", safe(projectId),
-                        "sessionId", safe(sessionId),
-                        "importance", importance
-                )
-        );
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("title", input.name());
+        metadata.put("name", input.name());
+        metadata.put("type", input.memoryType());
+        metadata.put("sessionId", safe(sessionId));
+        metadata.put("projectId", safe(projectId));
+        metadata.put("summary", input.content());
+        metadata.put("keywords", List.of(input.name(), "设定"));
+        metadata.put("entities", List.of(input.name()));
+        metadata.put("facets", Map.of(
+                "name", input.name(),
+                "details", input.content()
+        ));
+        metadata.put("source", Map.of(
+                "source", "save_setting_detail",
+                "tool", "save_setting_detail",
+                "scope", scope,
+                "projectId", safe(projectId),
+                "sessionId", safe(sessionId),
+                "importance", importance,
+                "type", input.memoryType()
+        ));
+        return metadata;
     }
 
     private String resolveProjectId(String sessionId) {

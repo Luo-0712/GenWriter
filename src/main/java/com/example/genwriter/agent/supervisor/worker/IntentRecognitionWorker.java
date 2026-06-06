@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.skill.IntentRecognitionSkill;
+import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
@@ -56,6 +57,14 @@ public class IntentRecognitionWorker implements WorkerAgent {
         String nodeId = chainPublisher.publishStart(sessionId, "意图识别",
                 ChainNode.Type.THINKING, null,
                 Map.of("userInput", truncate(userInput, 200)));
+
+        String forcedWritingType = NovelWritingPromptSupport.forcedWritingType(userInput);
+        if (forcedWritingType != null) {
+            chainPublisher.publishComplete(sessionId, nodeId,
+                    Map.of("intent", "WRITING_TASK", "writingType", forcedWritingType,
+                            "reason", "novel_creation_signal", "forced", true));
+            return Map.of("intent", "WRITING_TASK", "writingType", forcedWritingType);
+        }
 
         String userPrompt = skill.buildUserPrompt(Map.of("userInput", userInput));
         String response;

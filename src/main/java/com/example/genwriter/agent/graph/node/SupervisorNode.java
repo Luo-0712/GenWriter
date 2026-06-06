@@ -6,6 +6,7 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
 import com.example.genwriter.agent.supervisor.SupervisorDecision;
@@ -112,9 +113,15 @@ public class SupervisorNode implements NodeAction {
 
         Map<String, Object> accumulated = new HashMap<>();
         accumulated.put("sessionId", sessionId);
-        accumulated.put("userInput", state.value("userInput", String.class).orElse(""));
+        String userInput = state.value("userInput", String.class).orElse("");
+        accumulated.put("userInput", userInput);
         accumulated.put("kbId", state.value("kbId", String.class).orElse(""));
-        accumulated.put("writingType", state.value("writingType", String.class).orElse("CREATE"));
+        String writingType = state.value("writingType", String.class).orElse("CREATE");
+        String forcedWritingType = NovelWritingPromptSupport.forcedWritingType(userInput);
+        if (forcedWritingType != null && ("AUTO".equalsIgnoreCase(writingType) || writingType.isBlank())) {
+            writingType = forcedWritingType;
+        }
+        accumulated.put("writingType", writingType);
         accumulated.put("context", state.value("context", String.class).orElse(""));
         String webSearchStr = state.value("webSearch", String.class).orElse("true");
         boolean webSearch = !"false".equalsIgnoreCase(webSearchStr);

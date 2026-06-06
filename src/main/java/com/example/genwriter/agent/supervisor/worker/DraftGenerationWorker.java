@@ -9,6 +9,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.DraftSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SaveSettingDetailTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.UpdateWritingSkillTool;
@@ -23,6 +24,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.model.Media;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
@@ -32,6 +34,9 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 @Slf4j
 @Component
@@ -57,15 +62,17 @@ public class DraftGenerationWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         ToolCallback skillToolCallback = FunctionToolCallback
-                .builder("update_writing_skill", (java.util.function.Function<UpdateWritingSkillTool.UpdateWritingSkillInput, String>)
-                        updateWritingSkillToolCallback)
+                .builder("update_writing_skill",
+                        (BiFunction<UpdateWritingSkillTool.UpdateWritingSkillInput, ToolContext, String>)
+                                updateWritingSkillToolCallback::applyWithContext)
                 .description("Save a reusable writing skill or technique to long-term memory. Use this tool when the user has taught or demonstrated a writing style, technique, or rule that should be remembered and applied in future writing tasks.")
                 .inputType(UpdateWritingSkillTool.UpdateWritingSkillInput.class)
                 .build();
 
         ToolCallback settingDetailCallback = FunctionToolCallback
-                .builder("save_setting_detail", (java.util.function.Function<SaveSettingDetailTool.SaveSettingDetailInput, String>)
-                        saveSettingDetailTool)
+                .builder("save_setting_detail",
+                        (BiFunction<SaveSettingDetailTool.SaveSettingDetailInput, ToolContext, String>)
+                                saveSettingDetailTool::applyWithContext)
                 .description("Save a world setting, character profile, or plot detail (foreshadowing) to long-term memory. Use this tool when you define or introduce setting details during content creation to ensure consistency in future writing.")
                 .inputType(SaveSettingDetailTool.SaveSettingDetailInput.class)
                 .build();
@@ -175,9 +182,12 @@ public class DraftGenerationWorker implements WorkerAgent {
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
                         "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
+        promptSpec = AgentToolSupport.applySessionContext(promptSpec, sessionId, nodeId, name());
+        SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         String reasoningContent = null;
         try {
             if (reasoningStreamHelper.isReasoningModel()) {
+                log.info("[DraftGenerationWorker] Reasoning stream path uses raw streaming client; tool calls are unavailable and setting extraction fallback will persist story settings. sessionId={}", sessionId);
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         skill.systemPrompt(), userPrompt, TEMPERATURE,
                         contentBuilder::append);
@@ -186,11 +196,20 @@ public class DraftGenerationWorker implements WorkerAgent {
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
                                 "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
             } else {
-                promptSpec.stream()
-                        .content()
-                        .doOnNext(contentBuilder::append)
-                        .then(Mono.just(contentBuilder.toString()))
-                        .block();
+                final var finalPromptSpec = promptSpec;
+                CompletableFuture.supplyAsync(() -> {
+                            SessionContextHolder.restore(contextSnapshot);
+                            try {
+                                return finalPromptSpec.stream()
+                                        .content()
+                                        .doOnNext(contentBuilder::append)
+                                        .then(Mono.just(contentBuilder.toString()))
+                                        .block();
+                            } finally {
+                                SessionContextHolder.clear();
+                            }
+                        })
+                        .get(5, TimeUnit.MINUTES);
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", contentBuilder.length()));
             }

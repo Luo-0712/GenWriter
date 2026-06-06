@@ -6,11 +6,13 @@ import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 
 @Slf4j
@@ -43,6 +45,18 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
 
     @Override
     public String apply(UpdateWritingSkillInput input) {
+        return doApply(input);
+    }
+
+    public String applyWithContext(UpdateWritingSkillInput input, ToolContext toolContext) {
+        SessionContextHolder.ContextSnapshot toolSnapshot = AgentToolSupport.contextSnapshot(toolContext);
+        if (toolSnapshot != null) {
+            return withContext(toolSnapshot, () -> doApply(input));
+        }
+        return doApply(input);
+    }
+
+    private String doApply(UpdateWritingSkillInput input) {
         String sessionId = SessionContextHolder.get();
         String traceSpanId = null;
         if (sessionId != null && !sessionId.isBlank()) {
@@ -89,6 +103,22 @@ public class UpdateWritingSkillTool implements Function<UpdateWritingSkillTool.U
             log.error("[UpdateWritingSkillTool] 保存失败: skillName={}", input.skillName(), e);
             publishToolError(sessionId, traceSpanId, e.getMessage());
             return ToolResult.fail("保存失败: " + e.getMessage()).toJson();
+        }
+    }
+
+    private String withContext(SessionContextHolder.ContextSnapshot snapshot, Callable<String> action) {
+        SessionContextHolder.ContextSnapshot previous = SessionContextHolder.snapshot();
+        SessionContextHolder.restore(snapshot);
+        try {
+            return action.call();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (previous != null && previous.sessionId() != null && !previous.sessionId().isBlank()) {
+                SessionContextHolder.restore(previous);
+            } else {
+                SessionContextHolder.clear();
+            }
         }
     }
 

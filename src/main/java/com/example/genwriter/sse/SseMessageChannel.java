@@ -7,6 +7,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -83,6 +84,16 @@ public class SseMessageChannel {
                 sessionId, seq, subscribers.size());
 
         return channelMessage;
+    }
+
+    public void resetRun() {
+        synchronized (this) {
+            Arrays.fill(messageBuffer, null);
+            bufferHead = 0;
+            completeMessage = null;
+            completed = false;
+        }
+        log.debug("频道运行态已重置：sessionId={}, subscribers={}", sessionId, subscribers.size());
     }
 
     /**
@@ -168,6 +179,17 @@ public class SseMessageChannel {
     public void unsubscribe(SseEmitter emitter) {
         subscribers.remove(emitter);
         log.debug("取消订阅：sessionId={}, remaining={}", sessionId, subscribers.size());
+    }
+
+    public void closeSubscribers() {
+        for (SseEmitter emitter : subscribers) {
+            try {
+                emitter.complete();
+            } catch (Exception e) {
+                log.debug("Close subscriber failed: sessionId={}, error={}", sessionId, e.getMessage());
+            }
+        }
+        subscribers.clear();
     }
 
     /**

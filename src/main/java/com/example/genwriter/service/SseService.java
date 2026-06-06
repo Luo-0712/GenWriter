@@ -16,6 +16,8 @@ import java.util.List;
  */
 public interface SseService {
 
+    void startRun(String sessionId);
+
     /**
      * 订阅频道（建立 SSE 连接）
      *

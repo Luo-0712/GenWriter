@@ -8,6 +8,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.skill.OutlineSkill;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SaveSettingDetailTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.message.AgentTraceEvent;
@@ -18,12 +19,16 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 @Slf4j
 @Component
@@ -46,8 +51,9 @@ public class OutlineGenerationWorker implements WorkerAgent {
     @PostConstruct
     void init() {
         ToolCallback settingDetailCallback = FunctionToolCallback
-                .builder("save_setting_detail", (java.util.function.Function<SaveSettingDetailTool.SaveSettingDetailInput, String>)
-                        saveSettingDetailTool)
+                .builder("save_setting_detail",
+                        (BiFunction<SaveSettingDetailTool.SaveSettingDetailInput, ToolContext, String>)
+                                saveSettingDetailTool::applyWithContext)
                 .description("Save a world setting, character profile, or plot detail (foreshadowing) to long-term memory. Use this tool when you define or introduce setting details during content creation to ensure consistency in future writing.")
                 .inputType(SaveSettingDetailTool.SaveSettingDetailInput.class)
                 .build();
@@ -99,8 +105,19 @@ public class OutlineGenerationWorker implements WorkerAgent {
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型生成大纲",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE), null);
+        promptSpec = AgentToolSupport.applySessionContext(promptSpec, sessionId, nodeId, name());
+        SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         try {
-            response = promptSpec.call().content();
+            final var finalPromptSpec = promptSpec;
+            response = CompletableFuture.supplyAsync(() -> {
+                        SessionContextHolder.restore(contextSnapshot);
+                        try {
+                            return finalPromptSpec.call().content();
+                        } finally {
+                            SessionContextHolder.clear();
+                        }
+                    })
+                    .get(5, TimeUnit.MINUTES);
             chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                     Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {

@@ -36,6 +36,21 @@ public class SseServiceImpl implements SseService {
     private final ObjectMapper objectMapper;
 
     @Override
+    public void startRun(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        channels.compute(sessionId, (id, existing) -> {
+            if (existing == null) {
+                return new SseMessageChannel(id, objectMapper);
+            }
+            existing.resetRun();
+            return existing;
+        });
+        log.debug("SSE run channel reset: sessionId={}", sessionId);
+    }
+
+    @Override
     public SseEmitter subscribe(String sessionId, long afterSequenceId) {
         // 获取或创建频道
         SseMessageChannel channel = channels.computeIfAbsent(sessionId,
