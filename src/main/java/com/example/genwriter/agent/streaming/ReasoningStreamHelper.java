@@ -6,7 +6,6 @@ import com.example.genwriter.config.DynamicChatModel;
 import com.example.genwriter.config.LLMConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -22,16 +21,16 @@ public class ReasoningStreamHelper {
 
     private final DynamicChatModel dynamicChatModel;
     private final ChatModelFactory chatModelFactory;
-    private final DeepSeekStreamingClient deepSeekClient;
+    private final ReasoningStreamingClient streamingClient;
     private final ThoughtChainPublisher chainPublisher;
 
     public ReasoningStreamHelper(DynamicChatModel dynamicChatModel,
                                  ChatModelFactory chatModelFactory,
-                                 DeepSeekStreamingClient deepSeekClient,
+                                 ReasoningStreamingClient streamingClient,
                                  ThoughtChainPublisher chainPublisher) {
         this.dynamicChatModel = dynamicChatModel;
         this.chatModelFactory = chatModelFactory;
-        this.deepSeekClient = deepSeekClient;
+        this.streamingClient = streamingClient;
         this.chainPublisher = chainPublisher;
     }
 
@@ -63,7 +62,7 @@ public class ReasoningStreamHelper {
                                double temperature,
                                ContentChunkCallback contentCallback) {
         if (isReasoningModel()) {
-            return streamViaDeepSeek(sessionId, nodeId, systemPrompt, userPrompt,
+            return streamViaRawSse(sessionId, nodeId, systemPrompt, userPrompt,
                     temperature, contentCallback);
         }
         // 非推理模型不走此路径，由调用方使用标准 ChatClient 流式
@@ -88,7 +87,7 @@ public class ReasoningStreamHelper {
         return chatModelFactory.findProviderConfig(activeModelKey);
     }
 
-    private StreamResult streamViaDeepSeek(String sessionId, String nodeId,
+    private StreamResult streamViaRawSse(String sessionId, String nodeId,
                                      String systemPrompt, String userPrompt,
                                      double temperature,
                                      ContentChunkCallback contentCallback) {
@@ -102,10 +101,13 @@ public class ReasoningStreamHelper {
                 Map.of("role", "user", "content", userPrompt)
         );
 
-        DeepSeekStreamingClient.StreamingResult result = deepSeekClient.stream(
+        // enable_thinking 参数仅部分供应商支持，根据类型判断
+        boolean enableThinking = "deepseek".equals(config.getType());
+
+        ReasoningStreamingClient.StreamingResult result = streamingClient.stream(
                 config.getBaseUrl(), config.getApiKey(), config.getActiveModel(),
-                messages, temperature, true,
-                new DeepSeekStreamingClient.ChunkCallback() {
+                messages, temperature, enableThinking,
+                new ReasoningStreamingClient.ChunkCallback() {
                     @Override
                     public void onReasoningChunk(String chunk) {
                         chainPublisher.publishReasoningChunk(sessionId, nodeId, chunk);

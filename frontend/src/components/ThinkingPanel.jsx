@@ -122,14 +122,13 @@ const flattenTrace = (nodes) => {
 
 const TraceNodeItem = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 1);
-  const style = KIND_STYLES[node.kind] || KIND_STYLES.STATUS;
   const status = PHASE_TO_STATUS[node.phase] || 'RUNNING';
   const hasChildren = node.children && node.children.length > 0;
   const hasDetails = node.input || node.output || node.metadata || node.error;
   const isRunning = status === 'STARTED' || status === 'RUNNING';
 
   return (
-    <div className={`trace-node trace-node-depth-${Math.min(depth, 4)} ${isRunning ? 'trace-node-running' : ''}`}>
+    <div className={`trace-node trace-node-depth-${Math.min(depth, 4)} trace-node-${status.toLowerCase()}`}>
       <div className="trace-node-main" style={{ paddingLeft: `${depth * 18}px` }}>
         <button
           className="trace-node-expander"
@@ -140,18 +139,11 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
           {(hasChildren || hasDetails) ? (expanded ? '▾' : '▸') : ''}
         </button>
         <span
-          className={`trace-node-dot trace-node-dot-${status.toLowerCase()}`}
-          style={{ borderColor: status === 'ERROR' ? '#dc2626' : style.color, backgroundColor: style.bg }}
+          className={`trace-node-status-indicator trace-node-status-${status.toLowerCase()}`}
         />
         <div className="trace-node-body">
           <div className="trace-node-title-row">
             <span className="trace-node-title">{node.name || KIND_LABELS[node.kind] || '执行步骤'}</span>
-            <span
-              className="trace-node-kind"
-              style={{ color: style.color, backgroundColor: style.bg, borderColor: style.border }}
-            >
-              {KIND_LABELS[node.kind] || node.kind || '事件'}
-            </span>
             {node.toolName && <span className="trace-node-chip">{node.toolName}</span>}
             {node.durationMs != null && node.durationMs > 0 && (
               <span className="trace-node-duration">{formatDuration(node.durationMs)}</span>
@@ -162,7 +154,7 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
       </div>
 
       {expanded && hasDetails && (
-        <div className="trace-node-details" style={{ marginLeft: `${depth * 18 + 34}px` }}>
+        <div className="trace-node-details" style={{ marginLeft: `${depth * 18 + 22}px` }}>
           {node.error && (
             <div className="trace-detail-section trace-detail-error">
               <span className="trace-detail-label">错误</span>

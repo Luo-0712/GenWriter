@@ -94,12 +94,52 @@ const normalizeGeneratedContentEvent = (data) => {
   };
 };
 
+const ACTIVITY_VARIANTS = {
+  research: [
+    '正在调研相关资料',
+    '检索信息中，请稍候',
+    '搜索相关内容',
+    '调研正在进行中',
+    '正在检索可用信息',
+    '搜集相关资料中',
+    '正在查找参考内容',
+  ],
+  review: [
+    '正在评审当前内容',
+    '评审进行中',
+    '正在审核生成内容',
+    '内容审核中，请稍候',
+    '评审工作中',
+    '正在审查输出质量',
+    '审核正在进行',
+  ],
+  planning: [
+    '正在规划写作结构',
+    '规划下一步内容',
+    '构思框架中',
+    '规划写作思路',
+    '正在拟定写作计划',
+    '组织内容结构中',
+  ],
+  tool: [
+    '工具正在处理中',
+    '调用外部工具中',
+    '工具执行中，请稍候',
+    '正在使用工具处理',
+    '工具调用进行中',
+    '外部工具处理中',
+    '正在通过工具完成任务',
+  ],
+};
+
+const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 const getStableContentActivityText = (statusText) => {
   if (!statusText) return '';
-  if (/调研|检索|搜索|research/i.test(statusText)) return '调研中，正文暂不变更';
-  if (/评审|审核|review/i.test(statusText)) return '评审中，正文暂不变更';
-  if (/规划|计划|planning/i.test(statusText)) return '规划中，正文暂不变更';
-  if (/工具|tool/i.test(statusText)) return '工具处理中，正文暂不变更';
+  if (/调研|检索|搜索|research/i.test(statusText)) return pickRandom(ACTIVITY_VARIANTS.research);
+  if (/评审|审核|review/i.test(statusText)) return pickRandom(ACTIVITY_VARIANTS.review);
+  if (/规划|计划|planning/i.test(statusText)) return pickRandom(ACTIVITY_VARIANTS.planning);
+  if (/工具|tool/i.test(statusText)) return pickRandom(ACTIVITY_VARIANTS.tool);
   return '';
 };
 
