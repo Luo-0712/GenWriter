@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,6 +60,7 @@ class SaveSettingDetailToolTest {
         String result = tool.applyWithContext(input, toolContext);
 
         assertTrue(result.contains("\"success\":true"));
+        var metadataCaptor = forClass(Map.class);
         verify(memoryService).storeMemory(
                 any(String.class),
                 eq(MemoryType.WORLD_SETTING),
@@ -66,8 +68,11 @@ class SaveSettingDetailToolTest {
                 eq(session.getProjectId()),
                 eq(session.getId()),
                 eq("HIGH"),
-                anyMetadata()
+                metadataCaptor.capture()
         );
+        Map<?, ?> metadata = metadataCaptor.getValue();
+        assertEquals("REPLACE", metadata.get("updatePolicy"));
+        assertEquals("USER_EXPLICIT", ((Map<?, ?>) metadata.get("source")).get("authority"));
     }
 
     @Test

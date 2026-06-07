@@ -14,4 +14,13 @@ public class SupervisorModeProperties {
     private double temperature = 0.2;
     private int maxHistoryItems = 20;
     private String fallbackWorker = "direct_answer";
+    private ChapterContext chapterContext = new ChapterContext();
+
+    @Data
+    public static class ChapterContext {
+        private boolean enabled = true;
+        private int maxSummaries = 2;
+        private int maxSummaryChars = 600;
+        private double temperature = 0.2;
+    }
 }

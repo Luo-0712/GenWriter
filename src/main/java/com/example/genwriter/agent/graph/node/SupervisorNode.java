@@ -646,6 +646,17 @@ public class SupervisorNode implements NodeAction {
         if (cleaned.startsWith("`") && cleaned.endsWith("`")) {
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
         }
+        // 如果 cleaned 不是以 { 开头，尝试提取第一个 JSON 对象
+        if (!cleaned.startsWith("{")) {
+            int braceStart = cleaned.indexOf('{');
+            if (braceStart >= 0) {
+                // 从第一个 { 开始，寻找匹配的最后一个 }
+                int lastBrace = cleaned.lastIndexOf('}');
+                if (lastBrace > braceStart) {
+                    cleaned = cleaned.substring(braceStart, lastBrace + 1);
+                }
+            }
+        }
         return cleaned;
     }
 

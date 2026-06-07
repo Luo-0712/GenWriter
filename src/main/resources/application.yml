@@ -18,7 +18,7 @@ spring:
       chat:
         enabled: true
         options:
-          model: qwen-max
+          model: qwen3.7-max
           temperature: 0.7
       embedding:
         enabled: true
@@ -118,14 +118,14 @@ app:
 
 genwriter:
   llm:
-    default-provider: dashscope
-    default-model: qwen-max
+    default-provider: deepseek
+    default-model: deepseek-v4-flash
     default-temperature: 0.7
     default-max-tokens: 65535
     models:
-      - name: qwen-max
+      - name: deepseek-v4-flash
         supportsVision: false
-      - name: qwen-max
+      - name: qwen3.7-max
         supportsVision: false
       - name: qwen-turbo
         supportsVision: false
@@ -140,20 +140,20 @@ genwriter:
         display-name: 通义千问
         api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
         models:
-          - qwen-max
-          - qwen-max
+          - qwen3.7-max
+          - qwen3.7-max
           - qwen-turbo
-        active-model: qwen-max
+        active-model: qwen3.7-max
       - type: deepseek
         display-name: DeepSeek
-        api-key: your-deepseek-key
+        api-key: sk-69e495de58b84ff5a226de87a4bc5f08
         base-url: https://api.deepseek.com
         api-compatibility: openai_compatible
         reasoning: true
         models:
-          - deepseek-chat
-          - deepseek-reasoner
-        active-model: deepseek-chat
+          - deepseek-v4-flash
+          - deepseek-v4-pro
+        active-model: deepseek-v4-flash
   embedding:
     default-model: text-embedding-v4
     dimension: 1024
@@ -172,6 +172,11 @@ genwriter:
     temperature: 0.2
     max-history-items: 20
     fallback-worker: direct_answer
+    chapter-context:
+      enabled: true
+      max-summaries: 2
+      max-summary-chars: 600
+      temperature: 0.2
   checkpoint:
     enabled: true
     key-prefix: "genwriter:graph:checkpoint:"
@@ -185,6 +190,9 @@ genwriter:
     timeout-seconds: 30
   long-term-memory:
     enabled: true
+    probe:
+      enabled: false
+      recent-event-limit: 100
     retrieval:
       max-results: 5
       similarity-threshold: 0.65

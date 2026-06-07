@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
@@ -48,6 +49,7 @@ public class ResearcherWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final LongTermMemoryProbeRecorder memoryProbeRecorder;
     private final ThoughtChainPublisher chainPublisher;
 
     @PostConstruct
@@ -116,7 +118,9 @@ public class ResearcherWorker implements WorkerAgent {
                         memoryService,
                         memoryPromptFormatter,
                         List.of(MemoryType.DOMAIN_KNOWLEDGE),
-                        sessionId));
+                        sessionId,
+                        null,
+                        memoryProbeRecorder));
             }
 
             final var finalPromptSpec = promptSpec;

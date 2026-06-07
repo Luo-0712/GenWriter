@@ -137,6 +137,31 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "metadata::text AS metadata, access_count AS accessCount, " +
             "last_accessed_at::timestamp AS lastAccessedAt, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
+            "FROM long_term_memory WHERE " +
+            "memory_type = #{memoryType} AND scope = #{scope} " +
+            "<choose>" +
+            "<when test='projectId != null'>AND project_id = CAST(#{projectId} AS uuid) </when>" +
+            "<otherwise>AND project_id IS NULL </otherwise>" +
+            "</choose>" +
+            "AND metadata->>'identityKey' = #{identityKey} " +
+            "ORDER BY updated_at DESC LIMIT 1" +
+            "</script>")
+    @Results({
+            @Result(property = "embedding", column = "embedding",
+                    typeHandler = PgVectorTypeHandler.class, jdbcType = JdbcType.OTHER)
+    })
+    LongTermMemory findByIdentityKey(@Param("memoryType") String memoryType,
+                                     @Param("scope") String scope,
+                                     @Param("projectId") String projectId,
+                                     @Param("identityKey") String identityKey);
+
+    @Select("<script>" +
+            "SELECT id, content, memory_type AS memoryType, scope, " +
+            "project_id AS projectId, session_id AS sessionId, " +
+            "embedding, embedding_model AS embeddingModel, importance, " +
+            "metadata::text AS metadata, access_count AS accessCount, " +
+            "last_accessed_at::timestamp AS lastAccessedAt, " +
+            "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM long_term_memory WHERE 1=1 " +
             "<if test='type != null'>AND memory_type = #{type}</if>" +
             "<if test='scope != null'>AND scope = #{scope}</if>" +

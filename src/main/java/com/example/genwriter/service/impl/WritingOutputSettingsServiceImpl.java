@@ -14,6 +14,7 @@ public class WritingOutputSettingsServiceImpl implements WritingOutputSettingsSe
     private final WritingProperties writingProperties;
 
     private volatile boolean markdownEnabled = true;
+    private volatile boolean parallelChapterWritingEnabled = false;
 
     @PostConstruct
     void init() {
@@ -23,7 +24,7 @@ public class WritingOutputSettingsServiceImpl implements WritingOutputSettingsSe
 
     @Override
     public WritingOutputSettings getSettings() {
-        return new WritingOutputSettings(markdownEnabled, currentFormat());
+        return new WritingOutputSettings(markdownEnabled, currentFormat(), parallelChapterWritingEnabled);
     }
 
     @Override
@@ -33,8 +34,24 @@ public class WritingOutputSettingsServiceImpl implements WritingOutputSettingsSe
     }
 
     @Override
+    public WritingOutputSettings updateSettings(Boolean markdownEnabled, Boolean parallelChapterWritingEnabled) {
+        if (markdownEnabled != null) {
+            this.markdownEnabled = markdownEnabled;
+        }
+        if (parallelChapterWritingEnabled != null) {
+            this.parallelChapterWritingEnabled = parallelChapterWritingEnabled;
+        }
+        return getSettings();
+    }
+
+    @Override
     public boolean isMarkdownEnabled() {
         return markdownEnabled;
+    }
+
+    @Override
+    public boolean isParallelChapterWritingEnabled() {
+        return parallelChapterWritingEnabled;
     }
 
     @Override

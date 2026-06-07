@@ -26,10 +26,13 @@ public class SettingsController {
     @PutMapping("/writing-output")
     public ApiResponse<WritingOutputSettings> updateWritingOutputSettings(
             @RequestBody UpdateWritingOutputSettingsRequest request) {
-        if (request == null || request.getMarkdownEnabled() == null) {
-            return ApiResponse.error("400", "markdownEnabled 不能为空");
+        if (request == null || (request.getMarkdownEnabled() == null
+                && request.getParallelChapterWritingEnabled() == null)) {
+            return ApiResponse.error("400", "至少提供一个可更新字段");
         }
         return ApiResponse.success(
-                writingOutputSettingsService.updateMarkdownEnabled(request.getMarkdownEnabled()));
+                writingOutputSettingsService.updateSettings(
+                        request.getMarkdownEnabled(),
+                        request.getParallelChapterWritingEnabled()));
     }
 }

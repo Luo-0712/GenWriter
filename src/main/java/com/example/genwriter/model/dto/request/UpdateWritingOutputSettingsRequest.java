@@ -6,4 +6,6 @@ import lombok.Data;
 public class UpdateWritingOutputSettingsRequest {
 
     private Boolean markdownEnabled;
+
+    private Boolean parallelChapterWritingEnabled;
 }

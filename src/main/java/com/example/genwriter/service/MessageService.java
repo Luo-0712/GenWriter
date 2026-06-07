@@ -92,4 +92,6 @@ public interface MessageService {
      * @param content 消息内容
      */
     void createMessage(String sessionId, String role, String content);
+
+    void createMessage(String sessionId, String role, String content, String metadata);
 }

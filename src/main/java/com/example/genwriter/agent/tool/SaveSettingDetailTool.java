@@ -97,7 +97,8 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
                     ? input.importance() : "MEDIUM";
 
             memoryService.storeMemory(content, MemoryType.valueOf(input.memoryType()),
-                    scope, projectId, sessionId, importance, buildMetadata(input, scope, projectId, sessionId, importance));
+                    scope, projectId, sessionId, importance,
+                    buildMetadata(input, scope, projectId, sessionId, importance));
 
             publishToolComplete(sessionId, traceSpanId, Map.of(
                     "memoryType", input.memoryType(),
@@ -112,22 +113,6 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
                     input.memoryType(), input.name(), e);
             publishToolError(sessionId, traceSpanId, e.getMessage());
             return ToolResult.fail("保存失败: " + e.getMessage()).toJson();
-        }
-    }
-
-    private String withContext(SessionContextHolder.ContextSnapshot snapshot, Callable<String> action) {
-        SessionContextHolder.ContextSnapshot previous = SessionContextHolder.snapshot();
-        SessionContextHolder.restore(snapshot);
-        try {
-            return action.call();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (previous != null && previous.sessionId() != null && !previous.sessionId().isBlank()) {
-                SessionContextHolder.restore(previous);
-            } else {
-                SessionContextHolder.clear();
-            }
         }
     }
 
@@ -163,9 +148,27 @@ public class SaveSettingDetailTool implements Function<SaveSettingDetailTool.Sav
                 "projectId", safe(projectId),
                 "sessionId", safe(sessionId),
                 "importance", importance,
-                "type", input.memoryType()
+                "type", input.memoryType(),
+                "authority", "USER_EXPLICIT"
         ));
+        metadata.put("updatePolicy", "REPLACE");
         return metadata;
+    }
+
+    private String withContext(SessionContextHolder.ContextSnapshot snapshot, Callable<String> action) {
+        SessionContextHolder.ContextSnapshot previous = SessionContextHolder.snapshot();
+        SessionContextHolder.restore(snapshot);
+        try {
+            return action.call();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (previous != null && previous.sessionId() != null && !previous.sessionId().isBlank()) {
+                SessionContextHolder.restore(previous);
+            } else {
+                SessionContextHolder.clear();
+            }
+        }
     }
 
     private String resolveProjectId(String sessionId) {

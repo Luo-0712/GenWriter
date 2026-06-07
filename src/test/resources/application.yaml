@@ -28,7 +28,7 @@ mybatis:
 genwriter:
   llm:
     default-provider: dashscope
-    default-model: qwen-max
+    default-model: qwen3.7-max
     default-temperature: 0.7
     default-max-tokens: 4096
     prompts:

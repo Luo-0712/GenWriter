@@ -33,26 +33,30 @@ class SettingsControllerTest {
     @Test
     void getWritingOutputSettings_ShouldReturnCurrentSettings() throws Exception {
         when(writingOutputSettingsService.getSettings())
-                .thenReturn(new WritingOutputSettings(true, "markdown"));
+                .thenReturn(new WritingOutputSettings(true, "markdown", false));
 
         mockMvc.perform(get("/api/settings/writing-output"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("200"))
                 .andExpect(jsonPath("$.data.markdownEnabled").value(true))
-                .andExpect(jsonPath("$.data.format").value("markdown"));
+                .andExpect(jsonPath("$.data.format").value("markdown"))
+                .andExpect(jsonPath("$.data.parallelChapterWritingEnabled").value(false));
     }
 
     @Test
     void updateWritingOutputSettings_ShouldPersistRuntimeValue() throws Exception {
-        when(writingOutputSettingsService.updateMarkdownEnabled(false))
-                .thenReturn(new WritingOutputSettings(false, "plain"));
+        when(writingOutputSettingsService.updateSettings(false, true))
+                .thenReturn(new WritingOutputSettings(false, "plain", true));
 
         mockMvc.perform(put("/api/settings/writing-output")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("markdownEnabled", false))))
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "markdownEnabled", false,
+                                "parallelChapterWritingEnabled", true))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("200"))
                 .andExpect(jsonPath("$.data.markdownEnabled").value(false))
-                .andExpect(jsonPath("$.data.format").value("plain"));
+                .andExpect(jsonPath("$.data.format").value("plain"))
+                .andExpect(jsonPath("$.data.parallelChapterWritingEnabled").value(true));
     }
 }

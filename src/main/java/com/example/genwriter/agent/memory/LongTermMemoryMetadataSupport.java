@@ -43,9 +43,12 @@ public class LongTermMemoryMetadataSupport {
 
         Map<String, Object> normalized = new LinkedHashMap<>(raw);
         normalized.put("schemaVersion", SCHEMA_VERSION);
+        Map<String, Object> rawFacets = toMap(raw.get("facets"));
 
         String title = firstNonBlank(
                 asString(raw.get("title")),
+                asString(raw.get("name")),
+                asString(rawFacets.get("name")),
                 sections.get("技巧名称"),
                 sections.get("名称"),
                 sections.get("标题"),
@@ -53,7 +56,7 @@ public class LongTermMemoryMetadataSupport {
         );
         putIfPresent(normalized, "title", title);
 
-        Map<String, Object> facets = toMap(raw.get("facets"));
+        Map<String, Object> facets = rawFacets;
         applySectionFacets(facets, sections, memoryType);
         putIfPresent(normalized, "facets", facets);
 
@@ -85,9 +88,25 @@ public class LongTermMemoryMetadataSupport {
         putIfPresent(source, "projectId", projectId);
         putIfPresent(source, "sessionId", sessionId);
         putIfPresent(source, "importance", importance);
+        if (isSettingType(memoryType) && isBlank(asString(source.get("authority")))) {
+            source.put("authority", "MODEL_EXTRACTED");
+        }
         putIfPresent(normalized, "source", source);
 
-        return removeEmptyValues(normalized);
+        if (isSettingType(memoryType)) {
+            putIfPresent(normalized, "identityKey", identityKey(memoryType, scope, projectId, title));
+            putIfPresent(normalized, "updatePolicy", firstNonBlank(asString(raw.get("updatePolicy")), "MERGE"));
+            putIfPresent(normalized, "memoryVersion", intValue(raw.get("memoryVersion"), 1));
+            normalized.putIfAbsent("versions", List.of());
+            normalized.putIfAbsent("conflicts", List.of());
+        }
+
+        Map<String, Object> result = removeEmptyValues(normalized);
+        if (isSettingType(memoryType)) {
+            result.putIfAbsent("versions", List.of());
+            result.putIfAbsent("conflicts", List.of());
+        }
+        return result;
     }
 
     public Map<String, Object> merge(String existingContent,
@@ -118,7 +137,24 @@ public class LongTermMemoryMetadataSupport {
         putIfPresent(source, "projectId", projectId);
         putIfPresent(source, "sessionId", sessionId);
         putIfPresent(source, "importance", importance);
+        putIfPresent(source, "authority", firstNonBlank(
+                asString(source.get("authority")),
+                asString(toMap(incoming.get("source")).get("authority")),
+                "MODEL_EXTRACTED"
+        ));
         putIfPresent(merged, "source", source);
+
+        if (isSettingType(memoryType)) {
+            putIfPresent(merged, "identityKey", firstNonBlank(
+                    asString(existing.get("identityKey")),
+                    asString(incoming.get("identityKey")),
+                    identityKey(memoryType, scope, projectId, asString(merged.get("title")))
+            ));
+            putIfPresent(merged, "updatePolicy", firstNonBlank(asString(existing.get("updatePolicy")), asString(incoming.get("updatePolicy")), "MERGE"));
+            putIfPresent(merged, "memoryVersion", Math.max(intValue(existing.get("memoryVersion"), 1), intValue(incoming.get("memoryVersion"), 1)));
+            merged.put("versions", existing.getOrDefault("versions", List.of()));
+            merged.put("conflicts", existing.getOrDefault("conflicts", List.of()));
+        }
 
         return removeEmptyValues(merged);
     }
@@ -130,6 +166,9 @@ public class LongTermMemoryMetadataSupport {
         appendField(sb, "摘要", asString(metadata.get("summary")));
         appendField(sb, "关键词", String.join(" ", toStringList(metadata.get("keywords"))));
         appendField(sb, "实体", String.join(" ", toStringList(metadata.get("entities"))));
+
+        appendField(sb, "identityKey", asString(metadata.get("identityKey")));
+        appendField(sb, "updatePolicy", asString(metadata.get("updatePolicy")));
 
         Map<String, Object> facets = toMap(metadata.get("facets"));
         for (Map.Entry<String, Object> entry : facets.entrySet()) {
@@ -500,6 +539,36 @@ public class LongTermMemoryMetadataSupport {
         putIfPresent(map, key, value);
     }
 
+    public boolean isSettingType(String memoryType) {
+        return SETTING_TYPES.contains(memoryType);
+    }
+
+    public String identityKey(String memoryType, String scope, String projectId, String name) {
+        if (!isSettingType(memoryType)) {
+            return null;
+        }
+        String effectiveScope = firstNonBlank(scope, "GLOBAL");
+        String scopePart = "PROJECT".equals(effectiveScope)
+                ? "PROJECT:" + normalizeKey(projectId)
+                : "GLOBAL";
+        return normalizeKey(memoryType) + ":" + scopePart + ":" + normalizeKey(name);
+    }
+
+    public int intValue(Object value, int defaultValue) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        String text = asString(value);
+        if (text == null || text.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
@@ -507,6 +576,19 @@ public class LongTermMemoryMetadataSupport {
             }
         }
         return null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String normalizeKey(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replaceAll("\\s+", "")
+                .toLowerCase()
+                .replaceAll("[^\\p{IsHan}a-z0-9_\\-:]+", "");
     }
 
     private String asString(Object value) {

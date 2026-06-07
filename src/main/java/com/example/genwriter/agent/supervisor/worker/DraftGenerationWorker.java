@@ -3,6 +3,7 @@ package com.example.genwriter.agent.supervisor.worker;
 import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.profile.AgentPromptRenderer;
 import com.example.genwriter.agent.profile.RenderedAgentPrompt;
@@ -55,6 +56,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final LongTermMemoryProbeRecorder memoryProbeRecorder;
     private final ThoughtChainPublisher chainPublisher;
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final SaveSettingDetailTool saveSettingDetailTool;
@@ -199,7 +201,9 @@ public class DraftGenerationWorker implements WorkerAgent {
                     memoryPromptFormatter,
                     List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WRITING_TECHNIQUE,
                             MemoryType.WORLD_SETTING, MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
-                    sessionId));
+                    sessionId,
+                    null,
+                    memoryProbeRecorder));
         }
 
         SessionContextHolder.set(sessionId, nodeId, name());

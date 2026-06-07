@@ -3,7 +3,9 @@ package com.example.genwriter.agent.streaming;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -11,7 +13,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
  * DeepSeek 原始 SSE 流式客户端
@@ -69,8 +70,13 @@ public class DeepSeekStreamingClient {
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToFlux(String.class)
-                    .doOnNext(line -> parseLine(line, reasoningBuilder, contentBuilder, callback))
+                    .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
+                    .doOnNext(sse -> {
+                        String data = sse.data();
+                        if (data != null) {
+                            parseLine("data:" + data, reasoningBuilder, contentBuilder, callback);
+                        }
+                    })
                     .doOnError(e -> log.warn("DeepSeek streaming error: {}", e.getMessage()))
                     .blockLast(Duration.ofMinutes(10));
         } catch (Exception e) {

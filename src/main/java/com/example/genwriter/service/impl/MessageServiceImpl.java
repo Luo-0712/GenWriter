@@ -168,6 +168,12 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public void createMessage(String sessionId, String role, String content) {
+        createMessage(sessionId, role, content, null);
+    }
+
+    @Override
+    @Transactional
+    public void createMessage(String sessionId, String role, String content, String metadata) {
         log.trace("创建消息: sessionId={}, role={}", sessionId, role);
 
         Integer sequence = messageMapper.getMaxSequenceBySessionId(sessionId) + 1;
@@ -177,6 +183,7 @@ public class MessageServiceImpl implements MessageService {
                 .role(role)
                 .type("text")
                 .content(content)
+                .metadata(metadata)
                 .sequence(sequence)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

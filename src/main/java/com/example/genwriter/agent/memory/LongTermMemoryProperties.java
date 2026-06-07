@@ -19,6 +19,8 @@ public class LongTermMemoryProperties {
 
     private WritingSkillExtraction writingSkillExtraction = new WritingSkillExtraction();
 
+    private Probe probe = new Probe();
+
     @Data
     public static class Retrieval {
         private int maxResults = 5;
@@ -48,5 +50,11 @@ public class LongTermMemoryProperties {
         private boolean async = true;
         private int maxSkillsPerTurn = 3;
         private double temperature = 0.2;
+    }
+
+    @Data
+    public static class Probe {
+        private boolean enabled = false;
+        private int recentEventLimit = 100;
     }
 }

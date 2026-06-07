@@ -60,6 +60,8 @@ public class LongTermMemoryPromptFormatter {
         sb.append("[长期记忆]\n");
         sb.append("以下信息来自历史交互，用于保持写作偏好、技巧和设定一致；如果与本轮用户明确要求冲突，以本轮要求为准。\n");
 
+        appendStableSettingFacts(sb, memories);
+
         for (Map.Entry<String, List<MemoryVO>> entry : grouped.entrySet()) {
             if (entry.getValue().isEmpty()) {
                 continue;
@@ -71,6 +73,44 @@ public class LongTermMemoryPromptFormatter {
             }
         }
         return sb.toString().trim();
+    }
+
+    private void appendStableSettingFacts(StringBuilder sb, List<MemoryVO> memories) {
+        List<String> facts = new ArrayList<>();
+        for (MemoryVO memory : memories) {
+            if (memory == null || !isSettingType(memory.getMemoryType())) {
+                continue;
+            }
+            Map<String, Object> metadata = metadataSupport.toMap(memory.getMetadata());
+            if (!metadata.containsKey("identityKey") || hasPendingConflicts(metadata)) {
+                continue;
+            }
+            Map<String, Object> source = metadataSupport.toMap(metadata.get("source"));
+            String authority = asString(source.get("authority"));
+            String policy = asString(metadata.get("updatePolicy"));
+            if (!"USER_EXPLICIT".equals(authority) && !"REPLACE".equals(policy)) {
+                continue;
+            }
+            Map<String, Object> facets = metadataSupport.toMap(metadata.get("facets"));
+            String title = firstNonBlank(
+                    asString(metadata.get("title")),
+                    asString(facets.get("name")),
+                    inferTitle(memory.getContent(), memory.getMemoryType())
+            );
+            String detail = detailFor(memory.getMemoryType(), metadata, facets, memory.getContent());
+            if (detail == null || detail.isBlank()) {
+                continue;
+            }
+            facts.add((title != null && !title.isBlank() ? "[" + title + "] " : "") + detail);
+        }
+        if (facts.isEmpty()) {
+            return;
+        }
+        sb.append("\n## 稳定设定事实\n");
+        int index = 1;
+        for (String fact : facts) {
+            sb.append(index++).append(". ").append(truncate(fact, 260)).append("\n");
+        }
     }
 
     private String formatOne(MemoryVO memory) {
@@ -166,6 +206,20 @@ public class LongTermMemoryPromptFormatter {
                 .replaceAll("\\R+", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
+    }
+
+    private boolean isSettingType(String memoryType) {
+        return MemoryType.WORLD_SETTING.name().equals(memoryType)
+                || MemoryType.CHARACTER_PROFILE.name().equals(memoryType)
+                || MemoryType.FORESHADOWING.name().equals(memoryType);
+    }
+
+    private boolean hasPendingConflicts(Map<String, Object> metadata) {
+        Object conflicts = metadata.get("conflicts");
+        if (conflicts instanceof Iterable<?> iterable) {
+            return iterable.iterator().hasNext();
+        }
+        return conflicts != null;
     }
 
     private String firstNonBlank(String... values) {

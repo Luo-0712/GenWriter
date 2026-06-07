@@ -4,6 +4,7 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.graph.dto.ReviewResult;
 import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
+import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
@@ -53,6 +54,7 @@ public class ReviewWorker implements WorkerAgent {
     private final LongTermMemoryService memoryService;
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final LongTermMemoryProbeRecorder memoryProbeRecorder;
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
     private final WritingOutputSettingsService writingOutputSettingsService;
@@ -150,7 +152,8 @@ public class ReviewWorker implements WorkerAgent {
                         memoryPromptFormatter,
                         List.of(MemoryType.WRITING_PREFERENCE, MemoryType.CORRECTION_PATTERN),
                         sessionId,
-                        queries));
+                        queries,
+                        memoryProbeRecorder));
             }
 
             final var finalPromptSpec = promptSpec;

@@ -8,7 +8,11 @@ public interface WritingOutputSettingsService {
 
     WritingOutputSettings updateMarkdownEnabled(boolean markdownEnabled);
 
+    WritingOutputSettings updateSettings(Boolean markdownEnabled, Boolean parallelChapterWritingEnabled);
+
     boolean isMarkdownEnabled();
+
+    boolean isParallelChapterWritingEnabled();
 
     String currentFormat();
 }

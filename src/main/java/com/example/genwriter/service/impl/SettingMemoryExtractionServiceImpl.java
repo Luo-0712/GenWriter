@@ -4,8 +4,6 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.mapper.TaskSessionMapper;
-import com.example.genwriter.model.dto.response.MemoryVO;
-import com.example.genwriter.model.dto.response.PageResult;
 import com.example.genwriter.model.entity.TaskSession;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.message.AgentTraceEvent;
@@ -56,7 +54,6 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
 
         int extractedCount = 0;
         int storedCount = 0;
-        int skippedDuplicateCount = 0;
 
         try {
             String projectId = resolveProjectId(sessionId);
@@ -81,19 +78,12 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
                 }
 
                 String importance = !isBlank(item.importance()) ? item.importance() : "MEDIUM";
-                if (existsByName(item.memoryType(), item.name(), scope, projectId, sessionId)) {
-                    skippedDuplicateCount++;
-                    log.info("[SettingMemoryExtraction] skipped duplicate: sessionId={}, projectId={}, memoryType={}, name={}",
-                            sessionId, projectId, item.memoryType(), item.name());
-                    continue;
-                }
-
                 try {
                     memoryService.storeMemory(buildContent(item), MemoryType.valueOf(item.memoryType()),
                             scope, projectId, sessionId, importance,
                             buildMetadata(item, scope, projectId, sessionId, importance));
                     storedCount++;
-                    log.info("[SettingMemoryExtraction] stored: sessionId={}, projectId={}, memoryType={}, name={}, source=setting_extraction",
+                    log.info("[SettingMemoryExtraction] stored or updated: sessionId={}, projectId={}, memoryType={}, name={}, source=setting_extraction",
                             sessionId, projectId, item.memoryType(), item.name());
                 } catch (Exception e) {
                     log.warn("[SettingMemoryExtraction] store failed: sessionId={}, projectId={}, memoryType={}, name={}, error={}",
@@ -102,10 +92,10 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
             }
 
             chainPublisher.publishTraceComplete(sessionId, traceSpanId,
-                    Map.of("extracted", extractedCount, "stored", storedCount, "skippedDuplicates", skippedDuplicateCount),
+                    Map.of("extracted", extractedCount, "stored", storedCount),
                     Map.of("source", "setting_extraction", "types", typeCounts(extracted)));
-            log.info("[SettingMemoryExtraction] completed: sessionId={}, projectId={}, extracted={}, stored={}, skippedDuplicates={}",
-                    sessionId, projectId, extractedCount, storedCount, skippedDuplicateCount);
+            log.info("[SettingMemoryExtraction] completed: sessionId={}, projectId={}, extracted={}, stored={}",
+                    sessionId, projectId, extractedCount, storedCount);
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, traceSpanId, e.getMessage());
             log.error("[SettingMemoryExtraction] failed: sessionId={}", sessionId, e);
@@ -173,28 +163,6 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
                 && !isBlank(item.content());
     }
 
-    private boolean existsByName(String memoryType, String name, String scope,
-                                 String projectId, String sessionId) {
-        PageResult<MemoryVO> page = memoryService.listByFilter(memoryType, scope, projectId,
-                null, name, 1, 20);
-        if (page == null || page.getItems() == null) {
-            return false;
-        }
-        String normalizedName = normalize(name);
-        return page.getItems().stream().anyMatch(memory -> {
-            if (!memoryType.equals(memory.getMemoryType())) {
-                return false;
-            }
-            if (!sameNullable(projectId, memory.getProjectId()) && !sameNullable(sessionId, memory.getSessionId())) {
-                return false;
-            }
-            Map<String, Object> metadata = toMap(memory.getMetadata());
-            String title = stringValue(metadata.get("title"));
-            String facetName = stringValue(toMap(metadata.get("facets")).get("name"));
-            return normalizedName.equals(normalize(title)) || normalizedName.equals(normalize(facetName));
-        });
-    }
-
     private String buildContent(ExtractedSettingMemory item) {
         return "## Name\n" + item.name().trim() + "\n\n## Details\n" + item.content().trim();
     }
@@ -224,8 +192,10 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
                 "projectId", safe(projectId),
                 "sessionId", safe(sessionId),
                 "importance", importance,
-                "type", item.memoryType()
+                "type", item.memoryType(),
+                "authority", "MODEL_EXTRACTED"
         ));
+        metadata.put("updatePolicy", "MERGE");
         return metadata;
     }
 
@@ -239,19 +209,6 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
                         LinkedHashMap::new, Collectors.counting()));
     }
 
-    private Map<String, Object> toMap(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            Map<String, Object> result = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> entry : map.entrySet()) {
-                if (entry.getKey() != null) {
-                    result.put(String.valueOf(entry.getKey()), entry.getValue());
-                }
-            }
-            return result;
-        }
-        return Map.of();
-    }
-
     private String stripMarkdownCodeBlock(String text) {
         if (text == null) {
             return "";
@@ -261,21 +218,6 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
         }
         return cleaned;
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.replaceAll("\\s+", "").toLowerCase();
-    }
-
-    private boolean sameNullable(String left, String right) {
-        if (isBlank(left) && isBlank(right)) {
-            return true;
-        }
-        return left != null && left.equals(right);
-    }
-
-    private String stringValue(Object value) {
-        return value == null ? null : String.valueOf(value);
     }
 
     private String safe(String value) {

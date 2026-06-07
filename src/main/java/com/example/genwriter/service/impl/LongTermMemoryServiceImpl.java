@@ -1,6 +1,7 @@
 package com.example.genwriter.service.impl;
 
 import com.example.genwriter.agent.memory.LongTermMemoryMetadataSupport;
+import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.mapper.LongTermMemoryMapper;
@@ -46,6 +47,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     private final TaskSessionMapper taskSessionMapper;
     private final LongTermMemoryProperties properties;
     private final LongTermMemoryMetadataSupport metadataSupport;
+    private final LongTermMemoryProbeRecorder probeRecorder;
 
     @Override
     public List<MemoryVO> retrieveMemories(String query, List<MemoryType> types,
@@ -100,6 +102,11 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
         Map<String, Object> normalizedMetadata = metadataSupport.normalize(
                 content, type.name(), effectiveScope, effectiveProjectId, sessionId, effectiveImportance, metadata);
+        LongTermMemory sameIdentity = findSameIdentity(type.name(), effectiveScope, effectiveProjectId, normalizedMetadata);
+        if (sameIdentity != null) {
+            return applyIdentityUpdate(sameIdentity, content, effectiveImportance, sessionId, normalizedMetadata);
+        }
+
         String retrievalText = metadataSupport.buildRetrievalText(content, type.name(), normalizedMetadata);
         float[] embedding = embeddingService.embed(retrievalText);
         String vectorLiteral = VectorUtils.arrayToVectorString(embedding);
@@ -128,6 +135,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .build();
 
         mapper.insert(memory);
+        recordWriteDecision("create", memory, normalizedMetadata);
         log.info("存储长期记忆: type={}, scope={}, id={}", type, effectiveScope, memory.getId());
         return memory;
     }
@@ -246,6 +254,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .build();
 
         mapper.insert(memory);
+        recordWriteDecision("create", memory, normalizedMetadata);
         return convertToVO(memory);
     }
 
@@ -477,6 +486,99 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         }
     }
 
+    private LongTermMemory findSameIdentity(String memoryType,
+                                            String scope,
+                                            String projectId,
+                                            Map<String, Object> metadata) {
+        String identityKey = asString(metadata.get("identityKey"));
+        if (identityKey == null || identityKey.isBlank()) {
+            return null;
+        }
+        LongTermMemory existing = mapper.findByIdentityKey(memoryType, scope, projectId, identityKey);
+        if (existing != null) {
+            return existing;
+        }
+        String name = firstNonBlank(
+                asString(metadata.get("title")),
+                asString(metadataSupport.toMap(metadata.get("facets")).get("name"))
+        );
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        List<LongTermMemory> candidates = mapper.selectByFilter(memoryType, scope, projectId,
+                null, name, 20, 0);
+        for (LongTermMemory candidate : candidates) {
+            Map<String, Object> candidateMetadata = metadataSupport.normalize(
+                    candidate.getContent(),
+                    candidate.getMemoryType(),
+                    candidate.getScope(),
+                    candidate.getProjectId(),
+                    candidate.getSessionId(),
+                    candidate.getImportance(),
+                    candidate.getMetadata()
+            );
+            if (identityKey.equals(asString(candidateMetadata.get("identityKey")))) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private LongTermMemory applyIdentityUpdate(LongTermMemory existing,
+                                               String incomingContent,
+                                               String incomingImportance,
+                                               String sessionId,
+                                               Map<String, Object> incomingMetadata) {
+        Map<String, Object> existingMetadata = metadataSupport.parseMetadata(existing.getMetadata());
+        String existingAuthority = sourceAuthority(existingMetadata);
+        String incomingAuthority = sourceAuthority(incomingMetadata);
+
+        if ("USER_EXPLICIT".equals(incomingAuthority)) {
+            return replaceMemory(existing, incomingContent, incomingImportance, sessionId, existingMetadata, incomingMetadata);
+        }
+        if ("USER_EXPLICIT".equals(existingAuthority)) {
+            return recordConflict(existing, incomingContent, incomingImportance, sessionId, existingMetadata, incomingMetadata);
+        }
+        return mergeMemory(existing, incomingContent, incomingImportance, sessionId, incomingMetadata);
+    }
+
+    private LongTermMemory replaceMemory(LongTermMemory existing,
+                                         String incomingContent,
+                                         String incomingImportance,
+                                         String sessionId,
+                                         Map<String, Object> existingMetadata,
+                                         Map<String, Object> incomingMetadata) {
+        Map<String, Object> metadata = new LinkedHashMap<>(incomingMetadata);
+        metadata.put("versions", appendLimited(existingMetadata.get("versions"),
+                versionEntry(existing, existingMetadata, "REPLACE")));
+        metadata.put("conflicts", existingMetadata.getOrDefault("conflicts", List.of()));
+        metadata.put("memoryVersion", metadataSupport.intValue(existingMetadata.get("memoryVersion"), 1) + 1);
+        metadata.put("updatePolicy", firstNonBlank(asString(incomingMetadata.get("updatePolicy")), "REPLACE"));
+
+        String importance = mergeImportance(existing.getImportance(), incomingImportance);
+        LongTermMemory updated = updateExistingMemory(existing, incomingContent, importance, sessionId,
+                metadata, "Replace long-term memory");
+        recordWriteDecision("replace", updated, metadata);
+        return updated;
+    }
+
+    private LongTermMemory recordConflict(LongTermMemory existing,
+                                          String incomingContent,
+                                          String incomingImportance,
+                                          String sessionId,
+                                          Map<String, Object> existingMetadata,
+                                          Map<String, Object> incomingMetadata) {
+        Map<String, Object> metadata = new LinkedHashMap<>(existingMetadata);
+        metadata.put("conflicts", appendLimited(existingMetadata.get("conflicts"),
+                conflictEntry(incomingContent, incomingImportance, sessionId, incomingMetadata)));
+        metadata.put("versions", existingMetadata.getOrDefault("versions", List.of()));
+        metadata.put("memoryVersion", metadataSupport.intValue(existingMetadata.get("memoryVersion"), 1));
+        LongTermMemory updated = updateExistingMemory(existing, existing.getContent(), existing.getImportance(), existing.getSessionId(),
+                metadata, "Record long-term memory conflict");
+        recordWriteDecision("conflict", updated, metadata);
+        return updated;
+    }
+
     private LongTermMemory mergeMemory(LongTermMemory existing,
                                        String newContent,
                                        String newImportance,
@@ -495,14 +597,41 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 existing.getMetadata(),
                 newMetadata
         );
-        String retrievalText = metadataSupport.buildRetrievalText(mergedContent, existing.getMemoryType(), mergedMetadata);
+        Map<String, Object> existingMetadata = metadataSupport.parseMetadata(existing.getMetadata());
+        mergedMetadata.put("memoryVersion", metadataSupport.intValue(existingMetadata.get("memoryVersion"), 1) + 1);
+        LongTermMemory updated = updateExistingMemory(existing, mergedContent, mergedImportance, sessionId,
+                mergedMetadata, "Merge long-term memory");
+        recordWriteDecision("merge", updated, mergedMetadata);
+        return updated;
+    }
+
+    private LongTermMemory updateExistingMemory(LongTermMemory existing,
+                                                String content,
+                                                String importance,
+                                                String sessionId,
+                                                Map<String, Object> metadata,
+                                                String logAction) {
+        Map<String, Object> normalizedMetadata = metadataSupport.normalize(
+                content,
+                existing.getMemoryType(),
+                existing.getScope(),
+                existing.getProjectId(),
+                firstNonBlank(sessionId, existing.getSessionId()),
+                importance,
+                metadata
+        );
+        String retrievalText = metadataSupport.buildRetrievalText(content, existing.getMemoryType(), normalizedMetadata);
         float[] embedding = embeddingService.embed(retrievalText);
 
         LongTermMemory updated = LongTermMemory.builder()
                 .id(existing.getId())
-                .content(mergedContent)
-                .importance(mergedImportance)
-                .metadata(metadataSupport.toJson(mergedMetadata))
+                .content(content)
+                .memoryType(existing.getMemoryType())
+                .scope(existing.getScope())
+                .projectId(existing.getProjectId())
+                .sessionId(firstNonBlank(sessionId, existing.getSessionId()))
+                .importance(importance)
+                .metadata(metadataSupport.toJson(normalizedMetadata))
                 .embedding(embedding)
                 .embeddingModel(existing.getEmbeddingModel())
                 .accessCount(existing.getAccessCount())
@@ -510,8 +639,70 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .build();
 
         mapper.updateById(updated);
-        log.info("合并长期记忆: id={}, type={}", existing.getId(), existing.getMemoryType());
+        log.info("{}: id={}, type={}", logAction, existing.getId(), existing.getMemoryType());
         return updated;
+    }
+
+    private String sourceAuthority(Map<String, Object> metadata) {
+        String authority = asString(metadataSupport.toMap(metadata.get("source")).get("authority"));
+        return firstNonBlank(authority, "MODEL_EXTRACTED");
+    }
+
+    private void recordWriteDecision(String decision, LongTermMemory memory, Map<String, Object> metadata) {
+        if (probeRecorder == null || memory == null) {
+            return;
+        }
+        Map<String, Object> source = metadataSupport.toMap(metadata != null ? metadata.get("source") : null);
+        probeRecorder.recordWriteDecision(
+                memory.getSessionId(),
+                decision,
+                memory.getId(),
+                memory.getMemoryType(),
+                asString(metadata != null ? metadata.get("identityKey") : null),
+                firstNonBlank(asString(source.get("authority")), "MODEL_EXTRACTED"),
+                firstNonBlank(asString(metadata != null ? metadata.get("updatePolicy") : null), "MERGE"),
+                metadataSupport.intValue(metadata != null ? metadata.get("memoryVersion") : null, 1)
+        );
+    }
+
+    private Map<String, Object> versionEntry(LongTermMemory existing, Map<String, Object> metadata, String reason) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("content", existing.getContent());
+        entry.put("summary", asString(metadata.get("summary")));
+        entry.put("source", metadata.get("source"));
+        entry.put("memoryVersion", metadataSupport.intValue(metadata.get("memoryVersion"), 1));
+        entry.put("reason", reason);
+        entry.put("capturedAt", LocalDateTime.now().toString());
+        return entry;
+    }
+
+    private Map<String, Object> conflictEntry(String content,
+                                             String importance,
+                                             String sessionId,
+                                             Map<String, Object> metadata) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("content", content);
+        entry.put("summary", asString(metadata.get("summary")));
+        entry.put("importance", importance);
+        entry.put("sessionId", sessionId);
+        entry.put("source", metadata.get("source"));
+        entry.put("capturedAt", LocalDateTime.now().toString());
+        return entry;
+    }
+
+    private List<Map<String, Object>> appendLimited(Object existingEntries, Map<String, Object> newEntry) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (existingEntries instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                Map<String, Object> map = metadataSupport.toMap(item);
+                if (!map.isEmpty()) {
+                    result.add(map);
+                }
+            }
+        }
+        result.add(newEntry);
+        int from = Math.max(0, result.size() - 5);
+        return new ArrayList<>(result.subList(from, result.size()));
     }
 
     private String mergeImportance(String a, String b) {
@@ -575,6 +766,15 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
     private String asString(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 
     private static class ScoredMemory {

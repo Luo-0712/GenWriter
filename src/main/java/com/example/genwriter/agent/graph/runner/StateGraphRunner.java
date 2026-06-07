@@ -11,16 +11,20 @@ import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
 import com.example.genwriter.agent.memory.MemoryProperties;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
+import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.model.dto.response.DocumentDTO;
+import com.example.genwriter.service.ChapterSummaryService;
 import com.example.genwriter.service.DocumentService;
 import com.example.genwriter.service.MemoryExtractionService;
 import com.example.genwriter.service.MessageService;
 import com.example.genwriter.service.SettingMemoryExtractionService;
 import com.example.genwriter.service.SseService;
+import com.example.genwriter.service.WritingOutputSettingsService;
 import com.example.genwriter.service.WritingSkillExtractionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.model.Media;
@@ -58,6 +62,10 @@ public class StateGraphRunner {
     private final SettingMemoryExtractionService settingMemoryExtractionService;
     private final WritingSkillExtractionService writingSkillExtractionService;
     private final LongTermMemoryProperties longTermMemoryProperties;
+    private final WritingOutputSettingsService writingOutputSettingsService;
+    private final ChapterSummaryService chapterSummaryService;
+    private final SupervisorModeProperties supervisorProperties;
+    private final ObjectMapper objectMapper;
     private final ConcurrentMap<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
     private volatile CompiledGraph compiledSupervisorGraph;
@@ -73,7 +81,11 @@ public class StateGraphRunner {
                             MemoryExtractionService memoryExtractionService,
                             SettingMemoryExtractionService settingMemoryExtractionService,
                             WritingSkillExtractionService writingSkillExtractionService,
-                            LongTermMemoryProperties longTermMemoryProperties) {
+                            LongTermMemoryProperties longTermMemoryProperties,
+                            WritingOutputSettingsService writingOutputSettingsService,
+                            ChapterSummaryService chapterSummaryService,
+                            SupervisorModeProperties supervisorProperties,
+                            ObjectMapper objectMapper) {
         this.supervisorGraph = supervisorGraph;
         this.sseService = sseService;
         this.messageService = messageService;
@@ -86,6 +98,10 @@ public class StateGraphRunner {
         this.settingMemoryExtractionService = settingMemoryExtractionService;
         this.writingSkillExtractionService = writingSkillExtractionService;
         this.longTermMemoryProperties = longTermMemoryProperties;
+        this.writingOutputSettingsService = writingOutputSettingsService;
+        this.chapterSummaryService = chapterSummaryService;
+        this.supervisorProperties = supervisorProperties;
+        this.objectMapper = objectMapper;
     }
 
     private CompiledGraph getCompiledGraph() throws Exception {
@@ -125,8 +141,19 @@ public class StateGraphRunner {
      * @param webSearch   是否启用联网搜索
      */
     public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
+        if (writingOutputSettingsService.isParallelChapterWritingEnabled()) {
+            log.info("Supervisor 并行写章已开启，跳过会话锁: sessionId={}", sessionId);
+            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch);
+            return;
+        }
+
         ReentrantLock lock = sessionLocks.computeIfAbsent(sessionId, ignored -> new ReentrantLock(true));
+        long waitStart = System.currentTimeMillis();
         lock.lock();
+        long waitMs = System.currentTimeMillis() - waitStart;
+        if (waitMs > 0) {
+            log.info("Supervisor 会话锁已获取: sessionId={}, waitMs={}", sessionId, waitMs);
+        }
         try {
             runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch);
         } finally {
@@ -179,11 +206,13 @@ public class StateGraphRunner {
                 OverAllState state = result.get();
                 String finalOutput = state.value("finalOutput", String.class).orElse(null);
 
-                publishStatus(sessionId, "【任务完成】");
-
                 if (finalOutput != null && !finalOutput.isBlank()) {
-                    messageService.createMessage(sessionId, "assistant", finalOutput);
-                    saveToMemory(sessionId, userInput, finalOutput);
+                    publishStatus(sessionId, "【任务完成】");
+                    String chapterSummary = chapterSummaryService.summarize(
+                            userInput.getTextOnly(), finalOutput, writingType);
+                    String assistantMetadata = buildAssistantMetadata(chapterSummary);
+                    messageService.createMessage(sessionId, "assistant", finalOutput, assistantMetadata);
+                    saveToMemory(sessionId, userInput, finalOutput, chapterSummary);
 
                     if (longTermMemoryProperties.isEnabled()) {
                         try {
@@ -204,15 +233,19 @@ public class StateGraphRunner {
                             }
                         }
                     }
+                } else {
+                    publishStatus(sessionId, "【任务结束】未产生输出");
                 }
             } else {
-                publishStatus(sessionId, "【任务完成】未产生输出");
+                publishStatus(sessionId, "【任务结束】未产生输出");
             }
 
         } catch (Exception e) {
             log.error("Supervisor 执行失败: sessionId={}, error={}", sessionId, e.getMessage(), e);
             publishStatus(sessionId, "【任务失败】" + e.getMessage());
-            sendErrorMessage(sessionId, "处理失败：" + e.getMessage());
+            String errorMessage = "处理失败：" + e.getMessage();
+            persistErrorMessage(sessionId, errorMessage);
+            sendErrorMessage(sessionId, errorMessage);
         }
     }
 
@@ -249,6 +282,7 @@ public class StateGraphRunner {
             }
             StringBuilder sb = new StringBuilder();
             sb.append("以下为本次会话的历史对话记录：\n");
+            boolean chapterContextEnabled = supervisorProperties.getChapterContext().isEnabled();
             for (Message msg : history) {
                 String role = msg.getMessageType().getValue();
                 String text = msg.getText();
@@ -256,9 +290,13 @@ public class StateGraphRunner {
                         && userMessage.getMedia() != null && !userMessage.getMedia().isEmpty()) {
                     text += "[包含 " + userMessage.getMedia().size() + " 张图片]";
                 }
+                if (chapterContextEnabled && msg instanceof AssistantMessage) {
+                    continue;
+                }
                 sb.append("[").append(role).append("]: ")
                         .append(text).append("\n");
             }
+            appendRecentChapterSummaries(sb, history);
             return sb.toString();
         } catch (Exception e) {
             log.warn("加载对话历史失败: sessionId={}", sessionId, e);
@@ -266,7 +304,7 @@ public class StateGraphRunner {
         }
     }
 
-    private void saveToMemory(String sessionId, MultimodalContent userInput, String assistantOutput) {
+    private void saveToMemory(String sessionId, MultimodalContent userInput, String assistantOutput, String chapterSummary) {
         try {
             UserMessage userMessage;
             if (userInput.hasImages()) {
@@ -287,13 +325,96 @@ public class StateGraphRunner {
             }
             List<Message> messages = List.of(
                     userMessage,
-                    new AssistantMessage(assistantOutput)
+                    new AssistantMessage(assistantOutput, assistantMetadataMap(chapterSummary))
             );
             chatMemory.add(sessionId, messages);
             log.debug("对话记忆已保存: sessionId={}", sessionId);
         } catch (Exception e) {
             log.warn("保存对话记忆失败: sessionId={}", sessionId, e);
         }
+    }
+
+    private void appendRecentChapterSummaries(StringBuilder sb, List<Message> history) {
+        SupervisorModeProperties.ChapterContext properties = supervisorProperties.getChapterContext();
+        if (!properties.isEnabled()) {
+            return;
+        }
+        List<String> summaries = new java.util.ArrayList<>();
+        for (int i = history.size() - 1; i >= 0 && summaries.size() < properties.getMaxSummaries(); i--) {
+            Message msg = history.get(i);
+            if (msg instanceof AssistantMessage) {
+                String summary = chapterSummary(msg);
+                if (summary != null && !summary.isBlank()) {
+                    summaries.add(0, truncate(summary, properties.getMaxSummaryChars()));
+                }
+            }
+        }
+        if (summaries.isEmpty()) {
+            return;
+        }
+        sb.append("\n以下为最近章节的连续性摘要，只可作为已发生叙事状态参考，不要当作新设定扩写：\n");
+        for (int i = 0; i < summaries.size(); i++) {
+            sb.append("第").append(i + 1).append("段摘要：")
+                    .append(summaries.get(i))
+                    .append("\n");
+        }
+    }
+
+    private String chapterSummary(Message message) {
+        Map<String, Object> metadata = message.getMetadata();
+        if (metadata == null || metadata.isEmpty()) {
+            return "";
+        }
+        Object chapterContinuity = metadata.get("chapterContinuity");
+        if (chapterContinuity instanceof Map<?, ?> map) {
+            Object summary = map.get("summary");
+            return summary != null ? String.valueOf(summary) : "";
+        }
+        return "";
+    }
+
+    private String buildAssistantMetadata(String chapterSummary) {
+        Map<String, Object> metadata = assistantMetadataMap(chapterSummary);
+        if (metadata.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (Exception e) {
+            log.warn("章节摘要 metadata 序列化失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void persistErrorMessage(String sessionId, String errorMessage) {
+        try {
+            Map<String, Object> metadata = Map.of(
+                    "error", true,
+                    "source", "state_graph_runner"
+            );
+            messageService.createMessage(sessionId, "assistant", errorMessage,
+                    objectMapper.writeValueAsString(metadata));
+        } catch (Exception e) {
+            log.warn("持久化错误消息失败: sessionId={}", sessionId, e);
+        }
+    }
+
+    private Map<String, Object> assistantMetadataMap(String chapterSummary) {
+        if (chapterSummary == null || chapterSummary.isBlank()) {
+            return Map.of();
+        }
+        return Map.of("chapterContinuity", Map.of(
+                "summary", chapterSummary,
+                "kind", "chapter_summary"
+        ));
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) {
+            return "";
+        }
+        int limit = Math.max(1, maxLen);
+        return text.length() <= limit ? text : text.substring(0, limit);
     }
 
     private void publishStatus(String sessionId, String statusText) {

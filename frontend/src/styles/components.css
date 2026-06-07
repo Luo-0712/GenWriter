@@ -3484,10 +3484,10 @@
 .settings-provider-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px var(--panel-padding-x);
+  padding: 20px var(--panel-padding-x);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .settings-provider-card {
@@ -3516,7 +3516,7 @@
 }
 
 .settings-provider-header {
-  padding: 14px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-light);
 }
 
@@ -3570,10 +3570,10 @@
 }
 
 .settings-provider-body {
-  padding: 14px 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .settings-model-select-row {
@@ -4462,8 +4462,8 @@
 
 /* Skill modal wider for split-pane editing */
 .skill-modal {
-  max-width: 960px;
-  width: 95vw;
+  max-width: 1080px;
+  width: 92vw;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -4503,15 +4503,16 @@
 .skill-tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 0;
+  padding: 20px 28px 16px;
 }
 
 /* Split pane for editor + preview */
 .skill-split-pane {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 20px;
   min-height: 350px;
+  margin-top: 8px;
 }
 
 .skill-split-pane .skill-editor-pane {
@@ -4568,7 +4569,7 @@
   cursor: pointer;
   background: none;
   border: none;
-  padding: 8px 0;
+  padding: 12px 0;
   margin-top: 4px;
 }
 
