@@ -5,7 +5,7 @@ spring:
   # 启用真实 AI API 配置
   ai:
     dashscope:
-      api-key: ${DASHSCOPE_API_KEY:sk-your-real-api-key-here}
+      api-key: ${DASHSCOPE_API_KEY}
       chat:
         enabled: true
         options:

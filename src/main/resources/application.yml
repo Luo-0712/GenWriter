@@ -14,7 +14,7 @@ spring:
       force: true
   ai:
     dashscope:
-      api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
+      api-key: ${DASHSCOPE_API_KEY}
       chat:
         enabled: true
         options:
@@ -138,7 +138,7 @@ genwriter:
     providers:
       - type: dashscope
         display-name: 通义千问
-        api-key: sk-63eddc9cd84341debf5b63a04c5f3cbe
+        api-key: ${DASHSCOPE_API_KEY}
         models:
           - qwen3.7-max
           - qwen3.7-max
@@ -146,7 +146,7 @@ genwriter:
         active-model: qwen3.7-max
       - type: deepseek
         display-name: DeepSeek
-        api-key: sk-69e495de58b84ff5a226de87a4bc5f08
+        api-key: ${DEEPSEEK_API_KEY}
         base-url: https://api.deepseek.com
         api-compatibility: openai_compatible
         reasoning: true
@@ -186,7 +186,7 @@ genwriter:
     max-search-results-per-query: 10
     enabled: true
   websearch:
-    api-key: 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
+    api-key: ${TAVILY_API_KEY:}
     timeout-seconds: 30
   long-term-memory:
     enabled: true
