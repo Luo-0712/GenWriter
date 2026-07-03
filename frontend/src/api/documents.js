@@ -12,5 +12,8 @@ export const createDocumentVersion = (sessionId, data) =>
 
 export const updateDocument = (id, data) => client.put(`/documents/${id}`, data);
 
+export const editSuggestion = (id, data) =>
+  client.post(`/documents/${id}/edit-suggestion`, data);
+
 export const exportDocument = (data) =>
   client.post('/documents/export', data, { responseType: 'blob' });

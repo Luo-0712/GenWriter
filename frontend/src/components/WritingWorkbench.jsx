@@ -1,19 +1,26 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createDocument,
   createDocumentVersion,
+  editSuggestion,
   getDocumentsBySessionId,
   updateDocument,
 } from '../api/documents';
+import RichMarkdownEditor from './RichMarkdownEditor';
+import { createSelectionFingerprint, markdownToHtml, normalizeTextForFingerprint } from '../utils/markdownEditor';
 import '../styles/global.css';
 
 const ITERATION_MODES = [
   { value: 'CONTINUE', label: '续写', fallback: '请基于当前版本继续写作，保持既有风格和结构。' },
   { value: 'POLISH', label: '润色', fallback: '请润色当前版本，提升表达质量，并保持原意不变。' },
   { value: 'CREATE', label: '重写', fallback: '请基于当前版本和我的要求重新生成一个更好的版本。' },
+];
+
+const SUGGESTION_MODES = [
+  { value: 'POLISH_SELECTION', label: '润色选区', fallback: '请润色这段文字，保持原意不变。' },
+  { value: 'REWRITE_SELECTION', label: '重写选区', fallback: '请基于上下文重写这段文字。' },
+  { value: 'CONTINUE_AFTER_SELECTION', label: '在此后续写', fallback: '请从选区之后自然续写。' },
 ];
 
 const emptyTitle = '未命名文稿';
@@ -50,12 +57,28 @@ const sourceLabel = (document) => {
   return document?.type || 'draft';
 };
 
+const buildFrozenSelection = (snapshot, document) => {
+  if (!snapshot || !document) return null;
+  const fingerprint = createSelectionFingerprint({
+    beforeText: snapshot.beforeText,
+    selectedText: snapshot.selectedText,
+    afterText: snapshot.afterText,
+    documentVersion: document.version,
+    fullTextLength: snapshot.fullTextLength,
+  });
+  return {
+    ...snapshot,
+    fingerprint,
+    documentId: document.id,
+    documentVersion: document.version,
+  };
+};
+
 const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh, onIterate, collapsed = false, onCollapse, onExpand }) => {
   const [documents, setDocuments] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [mode, setMode] = useState('edit');
   const [iterationMode, setIterationMode] = useState('CONTINUE');
   const [iterationText, setIterationText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,13 +86,33 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   const [dirty, setDirty] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [selectionSnapshot, setSelectionSnapshot] = useState(null);
+  const [frozenSelection, setFrozenSelection] = useState(null);
+  const [suggestionMode, setSuggestionMode] = useState('POLISH_SELECTION');
+  const [suggestionInstruction, setSuggestionInstruction] = useState('');
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionResult, setSuggestionResult] = useState(null);
+  const [suggestionError, setSuggestionError] = useState('');
+  const editorRef = useRef(null);
   const dirtyRef = useRef(false);
 
   const selectedDocument = documents.find((doc) => doc.id === selectedId) || null;
+  const selectedSuggestionMode = useMemo(
+    () => SUGGESTION_MODES.find((item) => item.value === suggestionMode) || SUGGESTION_MODES[0],
+    [suggestionMode]
+  );
 
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
+
+  const clearSuggestion = useCallback(() => {
+    setSelectionSnapshot(null);
+    setFrozenSelection(null);
+    setSuggestionResult(null);
+    setSuggestionError('');
+    setSuggestionInstruction('');
+  }, []);
 
   const selectDocument = useCallback((document) => {
     setSelectedId(document?.id || '');
@@ -77,7 +120,9 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
     setContent(document?.content || '');
     setDirty(false);
     setError('');
-  }, []);
+    setSelectionSnapshot(null);
+    clearSuggestion();
+  }, [clearSuggestion]);
 
   const loadDocuments = useCallback(async (preferredId = '', forceSelect = false) => {
     if (!sessionId) {
@@ -201,8 +246,100 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
     setNotice('已提交迭代');
   };
 
+  const handleSelectionChange = (snapshot) => {
+    setSelectionSnapshot(snapshot);
+    if (suggestionResult) {
+      setSuggestionResult(null);
+      setFrozenSelection(null);
+    }
+  };
+
+  const requestSuggestion = async (mode = suggestionMode) => {
+    if (!sessionId) return;
+    if (!selectedDocument?.id) {
+      setSuggestionError('请先保存文稿，再使用选区建议。');
+      return;
+    }
+    if (!selectionSnapshot?.selectedText) {
+      setSuggestionError('请先选中一段文字。');
+      return;
+    }
+
+    const frozen = buildFrozenSelection(selectionSnapshot, selectedDocument);
+    const selectedMode = SUGGESTION_MODES.find((item) => item.value === mode) || SUGGESTION_MODES[0];
+    setFrozenSelection(frozen);
+    setSuggestionMode(selectedMode.value);
+    setSuggestionResult(null);
+    setSuggestionError('');
+    setSuggestionLoading(true);
+    try {
+      const result = await editSuggestion(selectedDocument.id, {
+        mode: selectedMode.value,
+        instruction: suggestionInstruction.trim() || selectedMode.fallback,
+        title: title.trim() || emptyTitle,
+        selectedText: frozen.selectedText,
+        selectedMarkdown: frozen.selectedMarkdown,
+        beforeText: frozen.beforeText,
+        afterText: frozen.afterText,
+        selectionFingerprint: frozen.fingerprint,
+        clientDocumentVersion: frozen.documentVersion,
+      });
+      setSuggestionResult(result);
+    } catch (e) {
+      setSuggestionError(e.message || '生成选区建议失败');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const validateFrozenSelection = () => {
+    const editor = editorRef.current;
+    if (!editor || !frozenSelection || !selectedDocument) return false;
+    if (frozenSelection.documentId !== selectedDocument.id) return false;
+    if (frozenSelection.documentVersion !== selectedDocument.version) return false;
+
+    const { from, to } = frozenSelection;
+    if (from < 0 || to > editor.state.doc.content.size || from >= to) return false;
+
+    const selectedText = editor.state.doc.textBetween(from, to, '\n').trim();
+    const beforeText = editor.state.doc.textBetween(Math.max(0, from - 1500), from, '\n');
+    const afterText = editor.state.doc.textBetween(to, Math.min(editor.state.doc.content.size, to + 1500), '\n');
+    const fullText = editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n');
+    const fingerprint = createSelectionFingerprint({
+      beforeText,
+      selectedText,
+      afterText,
+      documentVersion: selectedDocument.version,
+      fullTextLength: fullText.length,
+    });
+
+    return normalizeTextForFingerprint(selectedText) === normalizeTextForFingerprint(frozenSelection.selectedText)
+      && fingerprint === frozenSelection.fingerprint;
+  };
+
+  const handleAcceptSuggestion = () => {
+    const editor = editorRef.current;
+    const replacementMarkdown = suggestionResult?.replacementMarkdown || '';
+    if (!editor || !replacementMarkdown.trim()) return;
+    if (!validateFrozenSelection()) {
+      setSuggestionError('文稿已变化，请重新选择文本生成建议。');
+      return;
+    }
+
+    const html = markdownToHtml(replacementMarkdown);
+    if (suggestionResult.mode === 'CONTINUE_AFTER_SELECTION') {
+      editor.chain().focus().setTextSelection(frozenSelection.to).insertContent(html).run();
+    } else {
+      editor.chain().focus().setTextSelection({ from: frozenSelection.from, to: frozenSelection.to }).insertContent(html).run();
+    }
+    clearSuggestion();
+    setNotice('已应用选区建议，记得保存');
+  };
+
   const canSave = !!sessionId && !saving && (dirty || !selectedDocument);
   const canIterate = !!sessionId && !isLoading && !saving && (selectedDocument || content.trim());
+  const canRequestSuggestion = !!sessionId && !!selectedDocument?.id && !!selectionSnapshot?.selectedText && !suggestionLoading;
+  const canAcceptSuggestion = !!suggestionResult?.replacementMarkdown && !suggestionLoading;
 
   if (collapsed) {
     return (
@@ -266,9 +403,19 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
         />
 
         <div className="workbench-toolbar">
-          <div className="workbench-tabs">
-            <button type="button" className={mode === 'edit' ? 'active' : ''} onClick={() => setMode('edit')}>编辑</button>
-            <button type="button" className={mode === 'preview' ? 'active' : ''} onClick={() => setMode('preview')}>预览</button>
+          <div className="selection-tools" aria-label="选区 AI 建议">
+            {SUGGESTION_MODES.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={suggestionMode === item.value ? 'active' : ''}
+                disabled={!canRequestSuggestion}
+                onClick={() => requestSuggestion(item.value)}
+                title={!selectedDocument?.id ? '请先保存文稿' : '选择文本后生成建议'}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
           <div className="workbench-actions">
             <button type="button" onClick={handleSaveCurrent} disabled={!canSave}>保存</button>
@@ -276,21 +423,57 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
           </div>
         </div>
 
-        {mode === 'edit' ? (
-          <textarea
-            className="workbench-textarea"
-            value={content}
-            onChange={(event) => markChanged(setContent)(event.target.value)}
-            placeholder="在这里编辑当前文稿..."
-            disabled={!sessionId}
-          />
-        ) : (
-          <div className="workbench-preview">
-            {content.trim() ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-            ) : (
-              <span className="workbench-muted">没有可预览的内容</span>
+        <RichMarkdownEditor
+          value={content}
+          disabled={!sessionId}
+          onChange={markChanged(setContent)}
+          onSelectionSnapshot={handleSelectionChange}
+          onEditorReady={(editor) => {
+            editorRef.current = editor;
+          }}
+        />
+
+        {(selectionSnapshot || suggestionResult || suggestionLoading || suggestionError) && (
+          <div className="selection-suggestion-panel">
+            <div className="suggestion-panel-header">
+              <div>
+                <strong>选区 AI 建议</strong>
+                <span>{selectionSnapshot?.selectedText ? `已选 ${selectionSnapshot.selectedText.length} 字` : '先选中文本'}</span>
+              </div>
+              <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>关闭</button>
+            </div>
+
+            <textarea
+              className="suggestion-instruction"
+              value={suggestionInstruction}
+              onChange={(event) => setSuggestionInstruction(event.target.value)}
+              placeholder={`${selectedSuggestionMode.label}的补充要求，可留空`}
+              disabled={suggestionLoading}
+            />
+
+            <div className="suggestion-actions">
+              <button type="button" onClick={() => requestSuggestion(suggestionMode)} disabled={!canRequestSuggestion}>
+                {suggestionLoading ? '生成中...' : `生成${selectedSuggestionMode.label}`}
+              </button>
+              <button type="button" onClick={handleAcceptSuggestion} disabled={!canAcceptSuggestion}>接受</button>
+              <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>拒绝</button>
+            </div>
+
+            {frozenSelection?.selectedText && (
+              <div className="suggestion-original">
+                <small>原文</small>
+                <p>{frozenSelection.selectedText}</p>
+              </div>
             )}
+
+            {suggestionResult?.replacementMarkdown && (
+              <div className="suggestion-replacement">
+                <small>建议</small>
+                <pre>{suggestionResult.replacementMarkdown}</pre>
+              </div>
+            )}
+
+            {suggestionError && <div className="suggestion-error">{suggestionError}</div>}
           </div>
         )}
       </div>

@@ -2,10 +2,13 @@ package com.example.genwriter.controller;
 
 import com.example.genwriter.model.common.ApiResponse;
 import com.example.genwriter.model.dto.request.CreateDocumentRequest;
+import com.example.genwriter.model.dto.request.DocumentEditSuggestionRequest;
 import com.example.genwriter.model.dto.request.ExportDocumentRequest;
 import com.example.genwriter.model.dto.request.UpdateDocumentRequest;
 import com.example.genwriter.model.dto.response.DocumentDTO;
+import com.example.genwriter.model.dto.response.DocumentEditSuggestionResponse;
 import com.example.genwriter.model.vo.DocumentVO;
+import com.example.genwriter.service.DocumentEditSuggestionService;
 import com.example.genwriter.service.DocumentExportService;
 import com.example.genwriter.service.DocumentService;
 import jakarta.validation.Valid;
@@ -28,6 +31,7 @@ public class DocumentController {
 
     private final DocumentService documentService;
     private final DocumentExportService documentExportService;
+    private final DocumentEditSuggestionService documentEditSuggestionService;
 
     @PostMapping
     public ApiResponse<DocumentVO> createDocument(@Valid @RequestBody CreateDocumentRequest request) {
@@ -115,6 +119,14 @@ public class DocumentController {
         log.debug("更新文档: {}", id);
         DocumentDTO dto = documentService.updateDocument(id, request);
         return ApiResponse.success(convertToVO(dto));
+    }
+
+    @PostMapping("/{id}/edit-suggestion")
+    public ApiResponse<DocumentEditSuggestionResponse> suggestEdit(
+            @PathVariable String id,
+            @Valid @RequestBody DocumentEditSuggestionRequest request) {
+        log.debug("生成文档局部编辑建议: id={}, mode={}", id, request.getMode());
+        return ApiResponse.success(documentEditSuggestionService.suggestEdit(id, request));
     }
 
     @DeleteMapping("/{id}")
