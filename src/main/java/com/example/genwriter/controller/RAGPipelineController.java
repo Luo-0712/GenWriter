@@ -31,7 +31,7 @@ public class RAGPipelineController {
     private final RAGPipelineService ragPipelineService;
     private final KnowledgeImportService knowledgeImportService;
 
-    @Value("${app.upload.path:uploads}")
+    @Value("${app.upload.path:.uploads}")
     private String uploadPath;
 
     @PostMapping("/upload")

@@ -44,7 +44,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     // 上传速率限制：跟踪每会话每分钟上传次数
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger> uploadCounters = new java.util.concurrent.ConcurrentHashMap<>();
 
-    @Value("${app.upload.path:uploads}")
+    @Value("${app.upload.path:.uploads}")
     private String uploadBasePath;
 
     @Value("${app.attachment.max-image-size:20971520}")

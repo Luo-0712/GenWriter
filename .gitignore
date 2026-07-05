@@ -45,5 +45,4 @@ temp/
 
 ### Claude Code ###
 .claude/
-/uploads/
 /.playwright-cli/

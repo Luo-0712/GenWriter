@@ -6,6 +6,8 @@ import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.agent.react.ReactLoop;
+import com.example.genwriter.agent.react.ReactStep;
 import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.agent.skill.WritingGenreProfile;
@@ -56,6 +58,9 @@ public class SupervisorNode implements NodeAction {
 
     private ChatClient chatClient;
     private String systemPrompt;
+    private ChatClient reactChatClient;
+    private String reactSystemPrompt;
+    private ReactLoop reactLoop;
 
     private static final Map<String, String> WORKER_DISPLAY_NAMES = Map.of(
             "intent_recognition", "意图识别",
@@ -85,6 +90,13 @@ public class SupervisorNode implements NodeAction {
                 .defaultTools(readSkillDetail)
                 .build();
         this.systemPrompt = promptProvider.buildSystemPrompt();
+
+        // ReAct 模式：复用同一 chatClient（带 read_skill_detail 工具），仅 system prompt 不同
+        this.reactChatClient = this.chatClient;
+        this.reactSystemPrompt = promptProvider.buildReactSystemPrompt();
+        this.reactLoop = new ReactLoop(
+                properties.getMaxIterations(),
+                properties.getReact().getMaxConsecutiveFailures());
     }
 
     private String readSkillDetail(ReadSkillInput input) {
@@ -151,6 +163,49 @@ public class SupervisorNode implements NodeAction {
                 ChainNode.Type.PLANNING, null,
                 Map.of("userInput", truncate((String) accumulated.getOrDefault("userInput", ""), 200)));
 
+        // ===== ReAct 主路径：单步决策循环；异常/连续失败回退到旧 plan-then-execute =====
+        List<String> steps;
+        if (properties.getReact().isEnabled()) {
+            ReactLoop.Result reactResult = runReactLoop(state, accumulated, sessionId, supervisorNodeId);
+
+            if (reactResult.shouldFallback()) {
+                log.warn("[SupervisorNode] ReAct 连续决策失败，回退到旧 plan-then-execute 路径");
+                chainPublisher.publishComplete(sessionId, supervisorNodeId,
+                        Map.of("action", "FALLBACK_TO_PLAN", "reasoning", "ReAct 决策失败，回退旧路径"));
+                // 落入下方旧 plan 路径
+                steps = null;
+            } else if (reactResult.termination() == ReactLoop.Termination.MAX_ITERATIONS) {
+                log.warn("[SupervisorNode] ReAct 达到 maxIterations({}) 上限，降级为直接回答", properties.getMaxIterations());
+                chainPublisher.publishComplete(sessionId, supervisorNodeId,
+                        Map.of("action", "MAX_ITERATIONS", "reasoning", "达到步数上限"));
+                return finishWithDirectAnswer(accumulated);
+            } else {
+                // FINISH：进入最终产物提取，steps 取已执行 worker 名（用于 fallback 判定）
+                chainPublisher.publishComplete(sessionId, supervisorNodeId,
+                        Map.of("action", "FINISH", "reasoning", "ReAct 完成",
+                                "steps", reactResult.history().stream()
+                                        .map(h -> String.valueOf(h.get("worker"))).toList()));
+                steps = reactResult.history().stream()
+                        .map(h -> String.valueOf(h.get("worker")))
+                        .toList();
+
+                String finalOutput = extractFinalOutput(accumulated);
+                if (hasWritingSteps(steps) && isFallingBackToResearch(accumulated, finalOutput)) {
+                    log.warn("[SupervisorNode] ReAct 写作流程最终输出仅为调研报告，使用direct_answer包装");
+                    accumulated.put("context", "请基于以下调研报告生成完整回答：\n\n" + finalOutput);
+                    return finishWithDirectAnswer(accumulated);
+                }
+
+                accumulated.put("finalOutput", finalOutput);
+                accumulated.put("currentNode", "SupervisorNode");
+                publishStatus(sessionId, "任务完成");
+                return accumulated;
+            }
+        } else {
+            steps = null;
+        }
+
+        // ===== 旧路径：plan-then-execute（fallback / 开关关闭时走此分支，行为与重构前完全一致） =====
         ExecutionPlan plan;
         SessionContextHolder.set(sessionId, supervisorNodeId, "supervisor");
         try {
@@ -169,7 +224,7 @@ public class SupervisorNode implements NodeAction {
             return finishWithDirectAnswer(accumulated);
         }
 
-        List<String> steps = plan.steps();
+        steps = plan.steps();
         chainPublisher.publishComplete(sessionId, supervisorNodeId,
                 Map.of("steps", steps, "reasoning", plan.reasoning()));
 
@@ -279,6 +334,121 @@ public class SupervisorNode implements NodeAction {
 
         publishStatus(sessionId, "任务完成");
         return accumulated;
+    }
+
+    /**
+     * ReAct 主路径：调用 {@link ReactLoop}，把 LLM 单步决策、worker 执行、SSE/chain 发布适配为回调。
+     *
+     * <p>行为与旧 while-loop 对齐：每步 publishStart/publishComplete、publishStatus、SessionContextHolder 设置。
+     * executor 在内部闭环完成 nodeId 的发布（start/complete/error），因 ReactLoop 接口不透出 nodeId。
+     * 首步护栏：尚未执行 intent_recognition 时强制首步为 intent_recognition，复用旧路径的护栏语义。
+     *
+     * <p>decider 读取 ReactLoop 维护的 history（每项含 worker/thought/reasoning/result）作为 observation。
+     */
+    private ReactLoop.Result runReactLoop(OverAllState state, Map<String, Object> accumulated,
+                                          String sessionId, String supervisorNodeId) {
+        int[] stepCounter = {0};
+        boolean[] intentDone = {false};
+
+        ReactLoop.Decider decider = (s, hist) -> {
+            // 首步护栏：尚未执行 intent_recognition 时，强制首步为 intent_recognition
+            if (!intentDone[0]) {
+                return new ReactStep(
+                        "首步需先识别意图与 writingType",
+                        "intent_recognition",
+                        null,
+                        "首步护栏：强制 intent_recognition");
+            }
+            return decideNextReactStep(s, hist);
+        };
+
+        ReactLoop.WorkerExecutor executor = (workerName, s) -> {
+            WorkerAgent worker = workerRegistry.get(workerName);
+            if (worker == null) {
+                log.warn("[SupervisorNode][ReAct] Worker 不存在: name={}, 跳过", workerName);
+                return null;
+            }
+            String displayName = WORKER_DISPLAY_NAMES.getOrDefault(workerName, workerName);
+            int stepNo = ++stepCounter[0];
+            String workerNodeId = chainPublisher.publishStart(sessionId, displayName,
+                    ChainNode.Type.EXECUTION, supervisorNodeId,
+                    Map.of("worker", workerName, "step", stepNo));
+            publishStatus(sessionId, "正在调用 " + displayName + "...");
+            log.info("[SupervisorNode][ReAct] 执行 Worker: name={}, step={}", workerName, stepNo);
+
+            Map<String, Object> result;
+            SessionContextHolder.set(sessionId, workerNodeId, workerName);
+            try {
+                result = worker.execute(new HashMap<>(s));
+            } catch (Exception e) {
+                log.error("[SupervisorNode][ReAct] Worker 执行失败: name={}, error={}", workerName, e.getMessage(), e);
+                chainPublisher.publishError(sessionId, workerNodeId, e.getMessage());
+                publishStatus(sessionId, "步骤 " + displayName + " 执行异常，跳过继续...");
+                throw e;
+            } finally {
+                SessionContextHolder.clear();
+            }
+
+            // 首步 intent_recognition 完成后，标记护栏已完成
+            if ("intent_recognition".equals(workerName)) {
+                intentDone[0] = true;
+            }
+
+            Object outputSummary = buildWorkerOutputSummary(workerName, result);
+            chainPublisher.publishComplete(sessionId, workerNodeId, outputSummary);
+            return result;
+        };
+
+        return reactLoop.run(accumulated, decider, executor, null);
+    }
+
+    /**
+     * 单步 LLM 决策：当前 state + 已执行 history → 下一个 ReactStep。
+     * 解析失败返回 null（由 ReactLoop 计入连续失败次数，达阈值触发回退）。
+     */
+    private ReactStep decideNextReactStep(Map<String, Object> state, List<Map<String, Object>> history) {
+        // 把 history 中的 result 摘要为可读 observation 文本，避免灌全文
+        List<Object> observationSummaries = new ArrayList<>();
+        for (Map<String, Object> h : history) {
+            Object result = h.get("result");
+            if (result instanceof Map<?, ?> rm) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> rm2 = (Map<String, Object>) rm;
+                observationSummaries.add(buildWorkerOutputSummary(String.valueOf(h.get("worker")), rm2));
+            } else {
+                observationSummaries.add(h);
+            }
+        }
+
+        String userPrompt = promptProvider.buildReactStepPrompt(state, observationSummaries);
+
+        String response;
+        try {
+            response = reactChatClient.prompt()
+                    .system(reactSystemPrompt)
+                    .user(userPrompt)
+                    .call()
+                    .content();
+        } catch (Exception e) {
+            log.error("[SupervisorNode][ReAct] LLM 决策调用失败", e);
+            return null;
+        }
+
+        try {
+            String json = stripMarkdownCodeBlock(response);
+            JsonNode root = objectMapper.readTree(json);
+            String action = root.path("action").asText("");
+            if (action.isBlank()) {
+                log.warn("[SupervisorNode][ReAct] 决策缺少 action: response={}", response);
+                return null;
+            }
+            String thought = root.path("thought").asText("");
+            String reasoning = root.path("reasoning").asText("");
+            return new ReactStep(thought, action, null, reasoning);
+        } catch (Exception e) {
+            log.warn("[SupervisorNode][ReAct] 决策解析失败: response={}", response, e);
+            return null;
+        }
     }
 
     private Object buildWorkerOutputSummary(String workerName, Map<String, Object> result) {

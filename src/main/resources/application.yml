@@ -107,7 +107,7 @@ app:
     max-chunk-size: 1000
     chunk-overlap: 100
   upload:
-    path: uploads
+    path: .uploads
   attachment:
     max-image-size: 20971520
     max-document-size: 52428800
@@ -172,6 +172,9 @@ genwriter:
     temperature: 0.2
     max-history-items: 20
     fallback-worker: direct_answer
+    react:
+      enabled: true
+      max-consecutive-failures: 3
     chapter-context:
       enabled: true
       max-summaries: 2
