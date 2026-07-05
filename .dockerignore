@@ -26,5 +26,5 @@ Dockerfile*
 .dockerignore
 
 # Docs
-docs/
+temp/docs/
 HELP.md
