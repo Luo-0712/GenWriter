@@ -126,13 +126,18 @@ public class DirectAnswerWorker implements WorkerAgent {
         StringBuilder contentBuilder = new StringBuilder();
         String reasoningContent = null;
         SessionContextHolder.set(sessionId, nodeId, name());
+        // 降级判定：webSearch 或 kb 启用时即便推理模型也走标准流式（工具调用必需，不采 reasoning）；
+        // 两者都禁用且为推理模型时走 raw SSE 采 reasoning。
+        boolean toolsRequired = webSearchEnabled || !kbId.isBlank();
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel() && !toolsRequired;
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型直接回答",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
                         "webSearch", webSearchEnabled, "hasKbId", !kbId.isBlank(),
-                        "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
+                        "hasImages", multimodalContent != null && multimodalContent.hasImages(),
+                        "reasoningCaptured", reasoningCaptured), null);
         try {
-            if (reasoningStreamHelper.isReasoningModel()) {
+            if (reasoningCaptured) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         systemPrompt, userPrompt, TEMPERATURE,
                         chunk -> {
@@ -143,7 +148,8 @@ public class DirectAnswerWorker implements WorkerAgent {
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
+                                "reasoningCaptured", true));
             } else {
                 ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
                 var baseSpec = chatClient.prompt()
@@ -200,8 +206,11 @@ public class DirectAnswerWorker implements WorkerAgent {
                         })
                         .then(Mono.just(contentBuilder.toString()))
                         .block(Duration.ofMinutes(5));
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", contentBuilder.length()));
+                Map<String, Object> completeMeta = new java.util.LinkedHashMap<>();
+                completeMeta.put("outputLength", contentBuilder.length());
+                completeMeta.put("reasoningCaptured", false);
+                if (toolsRequired) completeMeta.put("reason", "tool_calls_required");
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId, completeMeta);
             }
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());

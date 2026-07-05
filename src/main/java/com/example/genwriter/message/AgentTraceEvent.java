@@ -9,7 +9,8 @@ import java.util.Map;
 
 /**
  * 实时执行轨迹事件。
- * 当前仅通过 SSE 推送和内存频道缓存，不落库；字段设计保留后续持久化空间。
+ * 通过 SSE 推送 + 内存频道缓存，并在任务结束时由 ThoughtChainPublisher 缓冲后
+ * 序列化进 message metadata 落库，刷新页面可恢复。
  */
 @Data
 @NoArgsConstructor
@@ -30,6 +31,11 @@ public class AgentTraceEvent {
     private Object input;
     private Object output;
     private Map<String, Object> metadata;
+    /**
+     * 推理模型的完整思维链内容（reasoning_content），LLM span 完成时回填。
+     * 用于 trace 落库后刷新恢复展示。
+     */
+    private String reasoningContent;
     private String error;
     private Long startedAt;
     private Long endedAt;

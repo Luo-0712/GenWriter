@@ -5,6 +5,7 @@ import com.example.genwriter.agent.chatclient.ChatClientFactory;
 import com.example.genwriter.agent.profile.AgentPromptRenderer;
 import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
+import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
 import com.example.genwriter.agent.tool.SessionContextHolder;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
@@ -31,6 +33,7 @@ public class IntentRecognitionWorker implements WorkerAgent {
     private final AgentPromptRenderer agentPromptRenderer;
     private final WorkerRegistry registry;
     private final ThoughtChainPublisher chainPublisher;
+    private final ReasoningStreamHelper reasoningStreamHelper;
 
     private ChatClient chatClient;
 
@@ -68,20 +71,42 @@ public class IntentRecognitionWorker implements WorkerAgent {
         }
 
         RenderedAgentPrompt renderedPrompt = agentPromptRenderer.render(name(), Map.of("userInput", userInput));
+        String systemPrompt = renderedPrompt.systemPrompt();
         String userPrompt = renderedPrompt.userPrompt();
+        StringBuilder contentBuilder = new StringBuilder();
         String response;
+        String reasoningContent = null;
         SessionContextHolder.set(sessionId, nodeId, name());
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型识别意图",
                 AgentTraceEvent.Kind.LLM, nodeId,
-                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE), null);
+                Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
+                        "reasoningCaptured", reasoningCaptured), null);
         try {
-            response = chatClient.prompt()
-                    .system(renderedPrompt.systemPrompt())
-                    .user(userPrompt)
-                    .call()
-                    .content();
-            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                    Map.of("outputLength", response != null ? response.length() : 0));
+            if (reasoningCaptured) {
+                var result = reasoningStreamHelper.stream(sessionId, nodeId,
+                        systemPrompt, userPrompt, TEMPERATURE,
+                        contentBuilder::append);
+                response = result.content();
+                reasoningContent = result.reasoningContent();
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", response != null ? response.length() : 0,
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
+                                "reasoningCaptured", true));
+            } else {
+                chatClient.prompt()
+                        .system(systemPrompt)
+                        .user(userPrompt)
+                        .stream()
+                        .content()
+                        .doOnNext(contentBuilder::append)
+                        .then(Mono.just(contentBuilder.toString()))
+                        .block();
+                response = contentBuilder.toString();
+                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                        Map.of("outputLength", response != null ? response.length() : 0,
+                                "reasoningCaptured", false));
+            }
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -96,12 +121,13 @@ public class IntentRecognitionWorker implements WorkerAgent {
             log.info("意图识别: intent={}, writingType={}", result.intent(), result.writingType());
             chainPublisher.publishComplete(sessionId, nodeId,
                     Map.of("intent", result.intent(), "writingType", result.writingType(),
-                            "reason", result.reason()));
+                            "reason", result.reason()), reasoningContent);
             return Map.of("intent", result.intent(), "writingType", result.writingType());
         } catch (Exception e) {
             log.warn("意图解析失败，降级 UNKNOWN: response={}", response, e);
             chainPublisher.publishComplete(sessionId, nodeId,
-                    Map.of("intent", "UNKNOWN", "writingType", "CREATE", "fallback", true));
+                    Map.of("intent", "UNKNOWN", "writingType", "CREATE", "fallback", true),
+                    reasoningContent);
             return Map.of("intent", "UNKNOWN", "writingType", "CREATE");
         }
     }

@@ -42,9 +42,11 @@ public class ReactLoop {
          * @param state      当前 state（BEFORE 为执行前，AFTER 为合并后）
          * @param observation 该步 observation 摘要（仅 AFTER 有值）
          * @param error      仅 ERROR 有值
+         * @param step       当步决策（含 thought / action / reasoning）；BEFORE 为执行前决策，
+         *                   AFTER/SKIP/ERROR 为同一步决策，finish 步或 decider 失败时为 null
          */
         void onStep(String phase, String workerName, Map<String, Object> state,
-                    Object observation, String error);
+                    Object observation, String error, ReactStep step);
     }
 
     public enum Phase { BEFORE, AFTER, SKIP, ERROR }
@@ -111,7 +113,7 @@ public class ReactLoop {
 
             String workerName = step.action();
             if (stepHook != null) {
-                stepHook.onStep(Phase.BEFORE.name(), workerName, state, null, null);
+                stepHook.onStep(Phase.BEFORE.name(), workerName, state, null, null, step);
             }
 
             Map<String, Object> result;
@@ -120,7 +122,7 @@ public class ReactLoop {
             } catch (Exception e) {
                 log.error("[ReactLoop] worker {} 执行异常: {}", workerName, e.getMessage(), e);
                 if (stepHook != null) {
-                    stepHook.onStep(Phase.ERROR.name(), workerName, state, null, e.getMessage());
+                    stepHook.onStep(Phase.ERROR.name(), workerName, state, null, e.getMessage(), step);
                 }
                 // 与原 while-loop 一致：异常不终止循环，跳过继续
                 continue;
@@ -130,7 +132,7 @@ public class ReactLoop {
                 // worker 不存在：与原 :223 跳过逻辑一致
                 log.warn("[ReactLoop] worker 不存在或返回 null: {}", workerName);
                 if (stepHook != null) {
-                    stepHook.onStep(Phase.SKIP.name(), workerName, state, null, null);
+                    stepHook.onStep(Phase.SKIP.name(), workerName, state, null, null, step);
                 }
                 continue;
             }
@@ -147,7 +149,7 @@ public class ReactLoop {
             history.add(observation);
 
             if (stepHook != null) {
-                stepHook.onStep(Phase.AFTER.name(), workerName, state, observation, null);
+                stepHook.onStep(Phase.AFTER.name(), workerName, state, observation, null, step);
             }
         }
 

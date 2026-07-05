@@ -8,10 +8,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Component
@@ -22,6 +26,12 @@ public class ThoughtChainPublisher {
 
     private final Map<String, Long> startTimes = new ConcurrentHashMap<>();
     private final Map<String, TraceSpan> traceSpans = new ConcurrentHashMap<>();
+
+    /**
+     * Per-session 的 trace 事件缓冲，任务结束时由 StateGraphRunner 取走并序列化进 message metadata 落库。
+     * 缓冲事件为浅拷贝副本，后续 {@link #publishComplete} 回填 reasoningContent 时会以最新 reasoning 覆盖。
+     */
+    private final ConcurrentMap<String, List<AgentTraceEvent>> traceEventBuffer = new ConcurrentHashMap<>();
 
     private static final int TEXT_SUMMARY_LIMIT = 240;
 
@@ -115,6 +125,7 @@ public class ThoughtChainPublisher {
                 .name(span != null ? span.name() : null)
                 .summary(buildSummary(output))
                 .output(summarizeObject(output))
+                .reasoningContent(reasoningContent)
                 .startedAt(startTime)
                 .endedAt(now)
                 .durationMs(duration)
@@ -123,13 +134,14 @@ public class ThoughtChainPublisher {
     }
 
     /**
-     * 推送模型推理内容 chunk（实时）
+     * 推送模型推理内容 chunk（实时），使用独立的 AI_REASONING_CHUNK 事件类型，
+     * 与 AI_THINKING 的纯状态文本语义解耦。
      */
     public void publishReasoningChunk(String sessionId, String nodeId, String chunk) {
         if (sessionId == null || sessionId.isBlank()) return;
         try {
             sseService.publish(sessionId, SseMessage.builder()
-                    .type(SseMessage.Type.AI_THINKING)
+                    .type(SseMessage.Type.AI_REASONING_CHUNK)
                     .payload(SseMessage.Payload.builder()
                             .data(Map.of("nodeId", nodeId, "reasoningChunk", chunk))
                             .statusText("模型思考中...")
@@ -328,6 +340,7 @@ public class ThoughtChainPublisher {
 
     private void publishTraceEvent(String sessionId, AgentTraceEvent event) {
         if (sessionId == null || sessionId.isBlank()) return;
+        bufferTraceEvent(sessionId, event);
         try {
             sseService.publish(sessionId, SseMessage.builder()
                     .type(SseMessage.Type.AI_TRACE_EVENT)
@@ -338,6 +351,110 @@ public class ThoughtChainPublisher {
         } catch (Exception e) {
             log.debug("Trace event publish failed: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 把 trace 事件追加到 per-session 缓冲，供任务结束时落库恢复。
+     * 同 spanId 的事件以"最新覆盖"语义合并：reasoningContent / output / metadata 等字段
+     * 后到的事件覆盖先到的，保证 COMPLETED 事件回填的 reasoningContent 能反映到最终缓冲。
+     */
+    private void bufferTraceEvent(String sessionId, AgentTraceEvent event) {
+        if (event == null) return;
+        List<AgentTraceEvent> buffer = traceEventBuffer
+                .computeIfAbsent(sessionId, k -> new CopyOnWriteArrayList<>());
+        // 同 spanId 事件就地合并：找到既有项则用本事件非空字段覆盖，否则追加
+        String spanId = event.getSpanId();
+        if (spanId != null) {
+            for (int i = buffer.size() - 1; i >= 0; i--) {
+                AgentTraceEvent existing = buffer.get(i);
+                if (spanId.equals(existing.getSpanId())) {
+                    AgentTraceEvent merged = mergeTraceEvent(existing, event);
+                    buffer.set(i, merged);
+                    return;
+                }
+            }
+        }
+        buffer.add(event);
+    }
+
+    private AgentTraceEvent mergeTraceEvent(AgentTraceEvent base, AgentTraceEvent incoming) {
+        return AgentTraceEvent.builder()
+                .traceId(incoming.getTraceId() != null ? incoming.getTraceId() : base.getTraceId())
+                .eventId(incoming.getEventId() != null ? incoming.getEventId() : base.getEventId())
+                .spanId(incoming.getSpanId() != null ? incoming.getSpanId() : base.getSpanId())
+                .parentSpanId(incoming.getParentSpanId() != null ? incoming.getParentSpanId() : base.getParentSpanId())
+                .kind(incoming.getKind() != null ? incoming.getKind() : base.getKind())
+                .phase(incoming.getPhase() != null ? incoming.getPhase() : base.getPhase())
+                .name(incoming.getName() != null ? incoming.getName() : base.getName())
+                .agentName(incoming.getAgentName() != null ? incoming.getAgentName() : base.getAgentName())
+                .toolName(incoming.getToolName() != null ? incoming.getToolName() : base.getToolName())
+                .summary(incoming.getSummary() != null ? incoming.getSummary() : base.getSummary())
+                .input(incoming.getInput() != null ? incoming.getInput() : base.getInput())
+                .output(incoming.getOutput() != null ? incoming.getOutput() : base.getOutput())
+                .metadata(incoming.getMetadata() != null ? incoming.getMetadata() : base.getMetadata())
+                .reasoningContent(incoming.getReasoningContent() != null
+                        ? incoming.getReasoningContent() : base.getReasoningContent())
+                .error(incoming.getError() != null ? incoming.getError() : base.getError())
+                .startedAt(incoming.getStartedAt() != null ? incoming.getStartedAt() : base.getStartedAt())
+                .endedAt(incoming.getEndedAt() != null ? incoming.getEndedAt() : base.getEndedAt())
+                .durationMs(incoming.getDurationMs() != null ? incoming.getDurationMs() : base.getDurationMs())
+                .timestamp(incoming.getTimestamp() != null ? incoming.getTimestamp() : base.getTimestamp())
+                .build();
+    }
+
+    /**
+     * 取走本 session 累积的 trace 事件（用于落库到 message metadata）。
+     * 返回的是缓冲快照副本，调用方取走后缓冲被清空。
+     */
+    public List<AgentTraceEvent> drainTraceEvents(String sessionId) {
+        if (sessionId == null) return List.of();
+        List<AgentTraceEvent> buffer = traceEventBuffer.remove(sessionId);
+        return buffer != null ? new ArrayList<>(buffer) : List.of();
+    }
+
+    /**
+     * 清空本 session 的 trace 缓冲（任务结束、出错或超时时调用，防止内存泄漏）。
+     */
+    public void clearTraceEvents(String sessionId) {
+        if (sessionId == null) return;
+        traceEventBuffer.remove(sessionId);
+    }
+
+    /**
+     * 推送 ReAct 单步决策（thought / reasoning / action）作为 LLM span。
+     * 由 SupervisorNode 的 ReAct StepHook 在 BEFORE 阶段调用，让前端 trace 树能看到每步决策依据。
+     */
+    public String publishReactDecisionTrace(String sessionId, String parentSpanId,
+                                            String thought, String reasoning, String action) {
+        long now = System.currentTimeMillis();
+        String spanId = generateNodeId("react-decision");
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("action", action != null ? action : "");
+        if (reasoning != null && !reasoning.isBlank()) metadata.put("reasoning", reasoning);
+        if (thought != null && !thought.isBlank()) metadata.put("thought", thought);
+        AgentTraceEvent event = AgentTraceEvent.builder()
+                .traceId(sessionId)
+                .eventId(generateEventId())
+                .spanId(spanId)
+                .parentSpanId(parentSpanId)
+                .kind(AgentTraceEvent.Kind.LLM.name())
+                .phase(AgentTraceEvent.Phase.STARTED.name())
+                .name("ReAct 决策")
+                .summary(thought != null && !thought.isBlank() ? truncate(thought, TEXT_SUMMARY_LIMIT) : "ReAct 决策")
+                .metadata(summarizeMap(metadata))
+                .startedAt(now)
+                .timestamp(now)
+                .build();
+        traceSpans.put(spanId, new TraceSpan(sessionId, parentSpanId, "ReAct 决策", AgentTraceEvent.Kind.LLM, now));
+        publishTraceEvent(sessionId, event);
+        return spanId;
+    }
+
+    /**
+     * 标记 ReAct 决策 span 完成。
+     */
+    public void publishReactDecisionComplete(String sessionId, String spanId) {
+        publishTraceComplete(sessionId, spanId, null, null);
     }
 
     private String generateNodeId(String nodeName) {

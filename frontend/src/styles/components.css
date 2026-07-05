@@ -2775,6 +2775,46 @@
   to { opacity: 0.85; transform: translateY(0); }
 }
 
+/* ========== trace 树详情区：模型思考过程 ========== */
+.trace-detail-reasoning {
+  margin-top: 6px;
+}
+
+.trace-detail-reasoning-body {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  font-family: var(--font-mono);
+  background: var(--bg-secondary, #f9fafb);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.85;
+  animation: reasoning-fade-in 0.3s ease-out;
+}
+
+.trace-detail-reasoning-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.trace-detail-reasoning-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+/* 工具调用必需时降级提示（不采 reasoning） */
+.trace-detail-reasoning-disabled {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  opacity: 0.7;
+}
+
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
   .thinking-panel-header {

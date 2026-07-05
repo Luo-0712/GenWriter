@@ -126,6 +126,13 @@ public class LLMConfig {
          * 是否为推理模型（如 DeepSeek-R1），支持 reasoning_content 流式输出
          */
         private boolean reasoning = false;
+
+        /**
+         * 是否在请求中显式发送 enable_thinking 参数（部分供应商特有）。
+         * null 表示按 type 推断：deepseek / dashscope 下的推理模型推断为 true，其它为 false。
+         * 可在 application.yml 中通过 thinking-param 显式覆盖。
+         */
+        private Boolean thinkingParam;
     }
 
     /**

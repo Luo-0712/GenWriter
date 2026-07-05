@@ -78,9 +78,15 @@ public class SseMessage {
         AI_PLANNING,
 
         /**
-         * AI 正在思考（如 DeepSeek-R1 的 CoT 思考过程）
+         * AI 正在思考（纯状态文本，例如："正在检索知识库..."、"正在生成大纲..."）
          */
         AI_THINKING,
+
+        /**
+         * 推理模型的思维链（reasoning_content）增量 chunk。
+         * 与 {@link #AI_THINKING} 区分：本类型只承载 reasoning 增量，携带 nodeId + reasoningChunk。
+         */
+        AI_REASONING_CHUNK,
 
         /**
          * AI 正在执行某个工具（Function Calling）

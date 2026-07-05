@@ -80,6 +80,7 @@ const mergeTraceEvents = (events = []) => {
       input: event.input ?? existing.input,
       output: event.output ?? existing.output,
       metadata: event.metadata ?? existing.metadata,
+      reasoningContent: event.reasoningContent ?? existing.reasoningContent,
       error: event.error ?? existing.error,
       startedAt: event.startedAt ?? existing.startedAt,
       endedAt: event.endedAt ?? existing.endedAt,
@@ -122,10 +123,20 @@ const flattenTrace = (nodes) => {
 
 const TraceNodeItem = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 1);
+  const reasoningRef = useRef(null);
   const status = PHASE_TO_STATUS[node.phase] || 'RUNNING';
   const hasChildren = node.children && node.children.length > 0;
-  const hasDetails = node.input || node.output || node.metadata || node.error;
+  const hasDetails = node.input || node.output || node.metadata || node.error || node.reasoningContent;
   const isRunning = status === 'STARTED' || status === 'RUNNING';
+  // 工具调用必需时后端降级不采 reasoning，前端显示提示
+  const reasoningDisabled = node.metadata?.reasoningCaptured === false;
+
+  // reasoning 流式追加时自动滚动到底
+  useEffect(() => {
+    if (expanded && reasoningRef.current && node.reasoningContent) {
+      reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
+    }
+  }, [node.reasoningContent, expanded]);
 
   return (
     <div className={`trace-node trace-node-depth-${Math.min(depth, 4)} trace-node-${status.toLowerCase()}`}>
@@ -171,6 +182,19 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
             <div className="trace-detail-section">
               <span className="trace-detail-label">输出摘要</span>
               <div className="trace-detail-body">{formatValue(node.output)}</div>
+            </div>
+          )}
+          {node.reasoningContent && (
+            <div className="trace-detail-section trace-detail-reasoning">
+              <span className="trace-detail-label">模型思考过程</span>
+              <div className="trace-detail-reasoning-body" ref={reasoningRef}>
+                {node.reasoningContent}
+              </div>
+            </div>
+          )}
+          {reasoningDisabled && !node.reasoningContent && (
+            <div className="trace-detail-section trace-detail-reasoning-disabled">
+              该步骤因工具调用不展示思考过程
             </div>
           )}
           {node.metadata && formatValue(node.metadata) && (

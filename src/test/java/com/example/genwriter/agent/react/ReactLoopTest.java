@@ -200,7 +200,7 @@ class ReactLoopTest {
         ReactLoop loop = new ReactLoop(12);
         Map<String, Object> state = new HashMap<>();
 
-        ReactLoop.StepHook hook = (phase, workerName, s, observation, error) ->
+        ReactLoop.StepHook hook = (phase, workerName, s, observation, error, step) ->
                 phases.add(phase + ":" + workerName);
 
         loop.run(state,
@@ -210,5 +210,66 @@ class ReactLoopTest {
 
         assertTrue(phases.contains("BEFORE:outline"));
         assertTrue(phases.contains("AFTER:outline"));
+    }
+
+    @Test
+    void stepHook_receivesStepWithThoughtAndReasoning() {
+        // BEFORE 阶段应能拿到完整 ReactStep（含 thought / reasoning / action），
+        // 供调用方把决策依据推到前端 trace 树。
+        List<String> ran = new ArrayList<>();
+        List<ReactStep> beforeSteps = new ArrayList<>();
+        List<ReactStep> afterSteps = new ArrayList<>();
+        ReactLoop loop = new ReactLoop(12);
+        Map<String, Object> state = new HashMap<>();
+
+        ReactLoop.StepHook hook = (phase, workerName, s, observation, error, step) -> {
+            if (step == null) return;
+            if (ReactLoop.Phase.BEFORE.name().equals(phase)) beforeSteps.add(step);
+            if (ReactLoop.Phase.AFTER.name().equals(phase)) afterSteps.add(step);
+        };
+
+        loop.run(state,
+                scriptedDecider(List.of("outline", "draft")),
+                recordingExecutor(ran),
+                hook);
+
+        assertEquals(2, beforeSteps.size(), "每步 BEFORE 应收到 step");
+        assertEquals(2, afterSteps.size(), "每步 AFTER 应收到 step");
+        ReactStep first = beforeSteps.get(0);
+        assertEquals("outline", first.action());
+        assertEquals("thought-0", first.thought(), "BEFORE step 应透传 decider 产出的 thought");
+        assertEquals("reason-0", first.reasoning(), "BEFORE step 应透传 decider 产出的 reasoning");
+        // BEFORE 与 AFTER 收到的是同一个 step 引用
+        assertSame(beforeSteps.get(0), afterSteps.get(0));
+    }
+
+    @Test
+    void stepHook_errorAndSkipPhasesStillReceiveStep() {
+        // worker 抛异常 / 不存在时，ERROR / SKIP 阶段也应收到该步 step
+        List<ReactStep> errorSteps = new ArrayList<>();
+        List<ReactStep> skipSteps = new ArrayList<>();
+        ReactLoop loop = new ReactLoop(12);
+        Map<String, Object> state = new HashMap<>();
+
+        ReactLoop.WorkerExecutor executor = (workerName, s) -> {
+            if ("boom".equals(workerName)) throw new RuntimeException("exploded");
+            return null; // ghost 不存在
+        };
+
+        ReactLoop.StepHook hook = (phase, workerName, s, observation, error, step) -> {
+            if (step == null) return;
+            if (ReactLoop.Phase.ERROR.name().equals(phase)) errorSteps.add(step);
+            if (ReactLoop.Phase.SKIP.name().equals(phase)) skipSteps.add(step);
+        };
+
+        loop.run(state,
+                scriptedDecider(List.of("boom", "ghost", "finish")),
+                executor,
+                hook);
+
+        assertEquals(1, errorSteps.size(), "boom 步应在 ERROR 阶段收到 step");
+        assertEquals("boom", errorSteps.get(0).action());
+        assertEquals(1, skipSteps.size(), "ghost 步应在 SKIP 阶段收到 step");
+        assertEquals("ghost", skipSteps.get(0).action());
     }
 }

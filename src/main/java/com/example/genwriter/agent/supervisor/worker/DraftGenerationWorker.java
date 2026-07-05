@@ -207,15 +207,17 @@ public class DraftGenerationWorker implements WorkerAgent {
         }
 
         SessionContextHolder.set(sessionId, nodeId, name());
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型撰写正文",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
-                        "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
+                        "hasImages", multimodalContent != null && multimodalContent.hasImages(),
+                        "reasoningCaptured", reasoningCaptured), null);
         promptSpec = AgentToolSupport.applySessionContext(promptSpec, sessionId, nodeId, name());
         SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         String reasoningContent = null;
         try {
-            if (reasoningStreamHelper.isReasoningModel()) {
+            if (reasoningCaptured) {
                 log.info("[DraftGenerationWorker] Reasoning stream path uses raw streaming client; tool calls are unavailable and setting extraction fallback will persist story settings. sessionId={}", sessionId);
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         systemPrompt, userPrompt, TEMPERATURE,
@@ -227,7 +229,8 @@ public class DraftGenerationWorker implements WorkerAgent {
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
+                                "reasoningCaptured", true));
             } else {
                 final var finalPromptSpec = promptSpec;
                 CompletableFuture.supplyAsync(() -> {
@@ -248,7 +251,8 @@ public class DraftGenerationWorker implements WorkerAgent {
                         })
                         .get(5, TimeUnit.MINUTES);
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", contentBuilder.length()));
+                        Map.of("outputLength", contentBuilder.length(),
+                                "reasoningCaptured", false));
             }
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());

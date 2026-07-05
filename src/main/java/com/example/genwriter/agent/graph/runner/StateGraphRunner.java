@@ -8,11 +8,13 @@ import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.checkpoint.config.SaverConfig;
 import com.example.genwriter.agent.graph.checkpoint.GraphCheckpointProperties;
 import com.example.genwriter.agent.graph.checkpoint.RedisCheckpointSaver;
+import com.example.genwriter.agent.chain.ThoughtChainPublisher;
 import com.example.genwriter.agent.memory.MemoryProperties;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.exception.BizException;
+import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.model.dto.response.DocumentDTO;
@@ -65,6 +67,7 @@ public class StateGraphRunner {
     private final WritingOutputSettingsService writingOutputSettingsService;
     private final ChapterSummaryService chapterSummaryService;
     private final SupervisorModeProperties supervisorProperties;
+    private final ThoughtChainPublisher chainPublisher;
     private final ObjectMapper objectMapper;
     private final ConcurrentMap<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
@@ -85,6 +88,7 @@ public class StateGraphRunner {
                             WritingOutputSettingsService writingOutputSettingsService,
                             ChapterSummaryService chapterSummaryService,
                             SupervisorModeProperties supervisorProperties,
+                            ThoughtChainPublisher chainPublisher,
                             ObjectMapper objectMapper) {
         this.supervisorGraph = supervisorGraph;
         this.sseService = sseService;
@@ -101,6 +105,7 @@ public class StateGraphRunner {
         this.writingOutputSettingsService = writingOutputSettingsService;
         this.chapterSummaryService = chapterSummaryService;
         this.supervisorProperties = supervisorProperties;
+        this.chainPublisher = chainPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -210,7 +215,10 @@ public class StateGraphRunner {
                     publishStatus(sessionId, "【任务完成】");
                     String chapterSummary = chapterSummaryService.summarize(
                             userInput.getTextOnly(), finalOutput, writingType);
-                    String assistantMetadata = buildAssistantMetadata(chapterSummary);
+                    // 取走本 session 累积的 trace 事件（含 reasoningContent），落库到 message metadata，
+                    // 前端刷新页面后可从 metadata.traceEvents 恢复 trace 树与模型思考过程。
+                    List<AgentTraceEvent> traceEvents = chainPublisher.drainTraceEvents(sessionId);
+                    String assistantMetadata = buildAssistantMetadata(chapterSummary, traceEvents);
                     messageService.createMessage(sessionId, "assistant", finalOutput, assistantMetadata);
                     saveToMemory(sessionId, userInput, finalOutput, chapterSummary);
 
@@ -246,6 +254,10 @@ public class StateGraphRunner {
             String errorMessage = "处理失败：" + e.getMessage();
             persistErrorMessage(sessionId, errorMessage);
             sendErrorMessage(sessionId, errorMessage);
+        } finally {
+            // 无论成功/失败，释放本 session 的 trace 缓冲，防止内存泄漏
+            // （成功路径已 drain 取走，此处对失败路径兜底；drain 已清空时 clear 为 no-op）
+            chainPublisher.clearTraceEvents(sessionId);
         }
     }
 
@@ -373,15 +385,24 @@ public class StateGraphRunner {
         return "";
     }
 
-    private String buildAssistantMetadata(String chapterSummary) {
-        Map<String, Object> metadata = assistantMetadataMap(chapterSummary);
+    private String buildAssistantMetadata(String chapterSummary,
+                                          List<AgentTraceEvent> traceEvents) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        Map<String, Object> chapterMeta = assistantMetadataMap(chapterSummary);
+        if (chapterMeta != null) {
+            metadata.putAll(chapterMeta);
+        }
+        // trace 事件落库：前端从 metadata.traceEvents 恢复 trace 树与 reasoningContent
+        if (traceEvents != null && !traceEvents.isEmpty()) {
+            metadata.put("traceEvents", traceEvents);
+        }
         if (metadata.isEmpty()) {
             return null;
         }
         try {
             return objectMapper.writeValueAsString(metadata);
         } catch (Exception e) {
-            log.warn("章节摘要 metadata 序列化失败: {}", e.getMessage());
+            log.warn("assistant metadata 序列化失败: {}", e.getMessage());
             return null;
         }
     }

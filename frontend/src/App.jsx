@@ -475,22 +475,35 @@ function App() {
           }
 
           // Reasoning content chunks from reasoning models (DeepSeek-R1 etc.)
-          if (payload.type === 'AI_THINKING' && data && typeof data === 'object' && data.nodeId && data.reasoningChunk) {
+          // 使用独立的 AI_REASONING_CHUNK 事件类型（区别于 AI_THINKING 的纯状态文本）。
+          // 增量拼接到对应 chainNode（按 nodeId）与 traceEvent（按 spanId===nodeId）。
+          if (payload.type === 'AI_REASONING_CHUNK' && data && typeof data === 'object' && data.nodeId && data.reasoningChunk) {
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id !== assistantMsgId) return m;
                 const existingNodes = m.chainNodes || [];
                 const nodeIndex = existingNodes.findIndex((n) => n.nodeId === data.nodeId);
+                const newNodes = nodeIndex >= 0 ? [...existingNodes] : existingNodes;
                 if (nodeIndex >= 0) {
-                  const newNodes = [...existingNodes];
                   const existing = newNodes[nodeIndex];
                   newNodes[nodeIndex] = {
                     ...existing,
                     reasoningContent: (existing.reasoningContent || '') + data.reasoningChunk,
                   };
-                  return { ...m, chainNodes: newNodes };
                 }
-                return m;
+                // 同步拼接到 traceEvents（trace 树详情区按 spanId 匹配展示）
+                const existingTraces = m.traceEvents || [];
+                const traceIndex = existingTraces.findIndex((t) => t && t.spanId === data.nodeId);
+                let newTraces = existingTraces;
+                if (traceIndex >= 0) {
+                  newTraces = [...existingTraces];
+                  const existingTrace = newTraces[traceIndex];
+                  newTraces[traceIndex] = {
+                    ...existingTrace,
+                    reasoningContent: (existingTrace.reasoningContent || '') + data.reasoningChunk,
+                  };
+                }
+                return { ...m, chainNodes: newNodes, traceEvents: newTraces };
               })
             );
             return;

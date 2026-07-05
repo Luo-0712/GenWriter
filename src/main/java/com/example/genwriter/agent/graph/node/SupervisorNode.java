@@ -399,7 +399,32 @@ public class SupervisorNode implements NodeAction {
             return result;
         };
 
-        return reactLoop.run(accumulated, decider, executor, null);
+        return reactLoop.run(accumulated, decider, executor, new ReactLoop.StepHook() {
+            @Override
+            public void onStep(String phase, String workerName, Map<String, Object> s,
+                               Object observation, String error, ReactStep step) {
+                if (step == null) return;
+                // BEFORE：把单步决策的 thought / reasoning / action 作为 LLM span 推到 trace 树
+                if (ReactLoop.Phase.BEFORE.name().equals(phase)) {
+                    String spanId = chainPublisher.publishReactDecisionTrace(
+                            sessionId, supervisorNodeId,
+                            step.thought(), step.reasoning(), step.action());
+                    decisionSpanIds.put(step, spanId);
+                } else {
+                    // AFTER / SKIP / ERROR：结束该决策 span
+                    String spanId = decisionSpanIds.remove(step);
+                    if (spanId != null) {
+                        if (ReactLoop.Phase.ERROR.name().equals(phase)) {
+                            chainPublisher.publishTraceError(sessionId, spanId, error);
+                        } else {
+                            chainPublisher.publishReactDecisionComplete(sessionId, spanId);
+                        }
+                    }
+                }
+            }
+
+            private final java.util.IdentityHashMap<ReactStep, String> decisionSpanIds = new java.util.IdentityHashMap<>();
+        });
     }
 
     /**

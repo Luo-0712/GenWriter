@@ -101,8 +101,8 @@ public class ReasoningStreamHelper {
                 Map.of("role", "user", "content", userPrompt)
         );
 
-        // enable_thinking 参数仅部分供应商支持，根据类型判断
-        boolean enableThinking = "deepseek".equals(config.getType());
+        // enable_thinking 参数仅部分供应商支持：显式 thinkingParam 优先，否则按 type 推断
+        boolean enableThinking = resolveEnableThinking(config);
 
         ReasoningStreamingClient.StreamingResult result = streamingClient.stream(
                 config.getBaseUrl(), config.getApiKey(), config.getActiveModel(),
@@ -121,5 +121,18 @@ public class ReasoningStreamHelper {
         );
 
         return new StreamResult(result.content(), result.reasoningContent());
+    }
+
+    /**
+     * 解析是否在请求体中显式发送 enable_thinking 参数。
+     * <p>ProviderConfig.thinkingParam 非空时以其为准（允许 yml 覆盖）；
+     * 否则按供应商类型推断：deepseek 与 dashscope 下的推理模型默认开启，其它类型默认关闭。
+     */
+    private boolean resolveEnableThinking(LLMConfig.ProviderConfig config) {
+        if (config.getThinkingParam() != null) {
+            return config.getThinkingParam();
+        }
+        String type = config.getType();
+        return "deepseek".equalsIgnoreCase(type) || "dashscope".equalsIgnoreCase(type);
     }
 }

@@ -194,13 +194,15 @@ public class PolishWorker implements WorkerAgent {
         }
 
         SessionContextHolder.set(sessionId, nodeId, name());
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型润色",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
-                        "hasImages", multimodalContent != null && multimodalContent.hasImages()), null);
+                        "hasImages", multimodalContent != null && multimodalContent.hasImages(),
+                        "reasoningCaptured", reasoningCaptured), null);
         String reasoningContent = null;
         try {
-            if (reasoningStreamHelper.isReasoningModel()) {
+            if (reasoningCaptured) {
                 var result = reasoningStreamHelper.stream(sessionId, nodeId,
                         systemPrompt, userPrompt, TEMPERATURE,
                         chunk -> {
@@ -211,7 +213,8 @@ public class PolishWorker implements WorkerAgent {
                 reasoningContent = result.reasoningContent();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
                         Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0));
+                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
+                                "reasoningCaptured", true));
             } else {
                 promptSpec.stream()
                         .content()
@@ -223,7 +226,8 @@ public class PolishWorker implements WorkerAgent {
                         .then(Mono.just(contentBuilder.toString()))
                         .block();
                 chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", contentBuilder.length()));
+                        Map.of("outputLength", contentBuilder.length(),
+                                "reasoningCaptured", false));
             }
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
