@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
 import {
   createDocument,
   createDocumentVersion,
@@ -8,6 +9,8 @@ import {
   updateDocument,
 } from '../api/documents';
 import RichMarkdownEditor from './RichMarkdownEditor';
+import VersionNavigator from './VersionNavigator';
+import { formatVersionTime } from '../utils/version';
 import { createSelectionFingerprint, markdownToHtml, normalizeTextForFingerprint } from '../utils/markdownEditor';
 import '../styles/global.css';
 
@@ -24,38 +27,6 @@ const SUGGESTION_MODES = [
 ];
 
 const emptyTitle = '未命名文稿';
-
-const parseMetadata = (metadata) => {
-  if (!metadata) return {};
-  if (typeof metadata === 'object') return metadata;
-  try {
-    return JSON.parse(metadata);
-  } catch {
-    return {};
-  }
-};
-
-const formatTime = (value) => {
-  if (!value) return '';
-  try {
-    return new Date(value).toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '';
-  }
-};
-
-const sourceLabel = (document) => {
-  const metadata = parseMetadata(document?.metadata);
-  if (metadata.derivedFromVersion) return `源自 V${metadata.derivedFromVersion}`;
-  if (metadata.generatedBy === 'agent') return 'Agent';
-  if (metadata.createdBy === 'user') return '手动';
-  return document?.type || 'draft';
-};
 
 const buildFrozenSelection = (snapshot, document) => {
   if (!snapshot || !document) return null;
@@ -93,8 +64,12 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestionResult, setSuggestionResult] = useState(null);
   const [suggestionError, setSuggestionError] = useState('');
+  const [pendingDocument, setPendingDocument] = useState(null);
   const editorRef = useRef(null);
   const dirtyRef = useRef(false);
+  const suggestionPanelRef = useRef(null);
+  const confirmDialogRef = useRef(null);
+  const confirmPrimaryRef = useRef(null);
 
   const selectedDocument = documents.find((doc) => doc.id === selectedId) || null;
   const selectedSuggestionMode = useMemo(
@@ -105,6 +80,20 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
+
+  useEffect(() => {
+    if (!(selectionSnapshot || suggestionResult || suggestionLoading || suggestionError)) return undefined;
+    const scrollTimer = window.requestAnimationFrame(() => {
+      suggestionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(scrollTimer);
+  }, [selectionSnapshot, suggestionResult, suggestionLoading, suggestionError]);
+
+  useEffect(() => {
+    if (!pendingDocument) return undefined;
+    const focusTimer = window.requestAnimationFrame(() => confirmPrimaryRef.current?.focus());
+    return () => window.cancelAnimationFrame(focusTimer);
+  }, [pendingDocument]);
 
   const clearSuggestion = useCallback(() => {
     setSelectionSnapshot(null);
@@ -150,6 +139,7 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   useEffect(() => {
     setNotice('');
     setIterationText('');
+    setPendingDocument(null);
     dirtyRef.current = false;
     setDirty(false);
     loadDocuments('', true);
@@ -225,12 +215,52 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   };
 
   const handleSelectVersion = (document) => {
-    if (dirty && !window.confirm('当前版本有未保存修改，切换后会丢失这些修改。继续切换吗？')) {
+    if (!document || document.id === selectedId) {
+      return;
+    }
+    if (dirty) {
+      setPendingDocument(document);
       return;
     }
     selectDocument(document);
   };
 
+  const handleSaveAndSwitch = async () => {
+    const targetDocument = pendingDocument;
+    if (!targetDocument || saving) return;
+    const savedDocument = await handleSaveCurrent();
+    if (!savedDocument) return;
+    setPendingDocument(null);
+    selectDocument(targetDocument);
+  };
+
+  const handleDiscardAndSwitch = () => {
+    const targetDocument = pendingDocument;
+    if (!targetDocument) return;
+    setPendingDocument(null);
+    selectDocument(targetDocument);
+  };
+
+  const handleConfirmKeyDown = (event) => {
+    if (event.key === 'Escape' && !saving) {
+      event.preventDefault();
+      setPendingDocument(null);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const focusable = confirmDialogRef.current?.querySelectorAll('button:not(:disabled)');
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   const handleIterate = async () => {
     if (!sessionId || isLoading || saving) return;
     let activeDocument = selectedDocument;
@@ -344,8 +374,8 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   if (collapsed) {
     return (
       <aside className="writing-workbench collapsed">
-        <button className="workbench-rail-button" type="button" onClick={onExpand} title="展开版本工作台">
-          <span className="workbench-rail-icon">⟨</span>
+        <button className="workbench-rail-button" type="button" onClick={onExpand} title="展开版本工作台" aria-label="展开版本工作台">
+          <PanelRightOpen className="workbench-rail-icon" size={18} />
           <span className="workbench-rail-text">版本工作台</span>
           {dirty && <span className="workbench-rail-dot" title="有未保存修改" />}
         </button>
@@ -356,156 +386,178 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   return (
     <aside className="writing-workbench">
       <div className="workbench-header">
-        <div>
-          <h2>版本工作台</h2>
-          <span className={dirty ? 'workbench-state dirty' : 'workbench-state'}>
-            {dirty ? '未保存' : '已同步'}
-          </span>
-        </div>
+        <h2>版本工作台</h2>
         <div className="workbench-header-actions">
-          <button className="workbench-icon-btn" type="button" onClick={() => loadDocuments(selectedId)} title="刷新版本">
-            ↻
+          <button
+            className="workbench-icon-btn"
+            type="button"
+            onClick={() => loadDocuments(selectedId)}
+            title="刷新版本"
+            aria-label="刷新版本"
+            disabled={loading}
+          >
+            <RefreshCw size={17} />
           </button>
-          <button className="workbench-icon-btn" type="button" onClick={onCollapse} title="收起工作台">
-            ›
+          <button className="workbench-icon-btn" type="button" onClick={onCollapse} title="收起工作台" aria-label="收起工作台">
+            <PanelRightClose size={17} />
           </button>
         </div>
       </div>
 
-      <div className="version-strip">
-        {loading ? (
-          <span className="workbench-muted">加载版本中...</span>
-        ) : documents.length === 0 ? (
-          <span className="workbench-muted">暂无版本</span>
-        ) : (
-          documents.map((document) => (
-            <button
-              key={document.id}
-              type="button"
-              className={`version-chip${document.id === selectedId ? ' active' : ''}`}
-              onClick={() => handleSelectVersion(document)}
-              title={document.title}
-            >
-              <span>V{document.version}</span>
-              <small>{sourceLabel(document)}</small>
-            </button>
-          ))
-        )}
-      </div>
+      <VersionNavigator
+        documents={documents}
+        selectedId={selectedId}
+        dirty={dirty}
+        loading={loading}
+        onSelect={handleSelectVersion}
+      />
 
-      <div className="workbench-editor">
-        <input
-          className="workbench-title-input"
-          value={title}
-          onChange={(event) => markChanged(setTitle)(event.target.value)}
-          placeholder="文稿标题"
-          disabled={!sessionId}
-        />
+      <div className="workbench-content">
+        <div className="workbench-editor">
+          <input
+            className="workbench-title-input"
+            value={title}
+            onChange={(event) => markChanged(setTitle)(event.target.value)}
+            placeholder="文稿标题"
+            disabled={!sessionId}
+          />
 
-        <div className="workbench-toolbar">
-          <div className="selection-tools" aria-label="选区 AI 建议">
-            {SUGGESTION_MODES.map((item) => (
+          <div className="workbench-toolbar">
+            <div className="selection-tools" aria-label="选区 AI 建议">
+              {SUGGESTION_MODES.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={suggestionMode === item.value ? 'active' : ''}
+                  disabled={!canRequestSuggestion}
+                  onClick={() => requestSuggestion(item.value)}
+                  title={!selectedDocument?.id ? '请先保存文稿' : '选择文本后生成建议'}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="workbench-actions">
+              <button type="button" onClick={handleSaveCurrent} disabled={!canSave}>保存</button>
+              <button type="button" onClick={handleSaveAsVersion} disabled={!sessionId || saving}>另存</button>
+            </div>
+          </div>
+
+          <RichMarkdownEditor
+            value={content}
+            disabled={!sessionId}
+            onChange={markChanged(setContent)}
+            onSelectionSnapshot={handleSelectionChange}
+            onEditorReady={(editor) => {
+              editorRef.current = editor;
+            }}
+          />
+
+          {(selectionSnapshot || suggestionResult || suggestionLoading || suggestionError) && (
+            <div ref={suggestionPanelRef} className="selection-suggestion-panel">
+              <div className="suggestion-panel-header">
+                <div>
+                  <strong>选区 AI 建议</strong>
+                  <span>{selectionSnapshot?.selectedText ? `已选 ${selectionSnapshot.selectedText.length} 字` : '先选中文本'}</span>
+                </div>
+                <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>关闭</button>
+              </div>
+
+              <textarea
+                className="suggestion-instruction"
+                value={suggestionInstruction}
+                onChange={(event) => setSuggestionInstruction(event.target.value)}
+                placeholder={`${selectedSuggestionMode.label}的补充要求，可留空`}
+                disabled={suggestionLoading}
+              />
+
+              <div className="suggestion-actions">
+                <button type="button" onClick={() => requestSuggestion(suggestionMode)} disabled={!canRequestSuggestion}>
+                  {suggestionLoading ? '生成中...' : `生成${selectedSuggestionMode.label}`}
+                </button>
+                <button type="button" onClick={handleAcceptSuggestion} disabled={!canAcceptSuggestion}>接受</button>
+                <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>拒绝</button>
+              </div>
+
+              {frozenSelection?.selectedText && (
+                <div className="suggestion-original">
+                  <small>原文</small>
+                  <p>{frozenSelection.selectedText}</p>
+                </div>
+              )}
+
+              {suggestionResult?.replacementMarkdown && (
+                <div className="suggestion-replacement">
+                  <small>建议</small>
+                  <pre>{suggestionResult.replacementMarkdown}</pre>
+                </div>
+              )}
+
+              {suggestionError && <div className="suggestion-error" role="alert">{suggestionError}</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="iteration-panel">
+          <div className="iteration-modes">
+            {ITERATION_MODES.map((item) => (
               <button
                 key={item.value}
                 type="button"
-                className={suggestionMode === item.value ? 'active' : ''}
-                disabled={!canRequestSuggestion}
-                onClick={() => requestSuggestion(item.value)}
-                title={!selectedDocument?.id ? '请先保存文稿' : '选择文本后生成建议'}
+                className={iterationMode === item.value ? 'active' : ''}
+                onClick={() => setIterationMode(item.value)}
               >
                 {item.label}
               </button>
             ))}
           </div>
-          <div className="workbench-actions">
-            <button type="button" onClick={handleSaveCurrent} disabled={!canSave}>保存</button>
-            <button type="button" onClick={handleSaveAsVersion} disabled={!sessionId || saving}>另存</button>
-          </div>
+          <textarea
+            className="iteration-input"
+            value={iterationText}
+            onChange={(event) => setIterationText(event.target.value)}
+            placeholder="给 agent 的本轮迭代指令..."
+            disabled={!sessionId || isLoading}
+          />
+          <button className="iteration-submit" type="button" onClick={handleIterate} disabled={!canIterate}>
+            {isLoading ? '生成中...' : selectedDocument ? `基于 V${selectedDocument.version} 迭代` : '保存并开始迭代'}
+          </button>
         </div>
 
-        <RichMarkdownEditor
-          value={content}
-          disabled={!sessionId}
-          onChange={markChanged(setContent)}
-          onSelectionSnapshot={handleSelectionChange}
-          onEditorReady={(editor) => {
-            editorRef.current = editor;
-          }}
-        />
-
-        {(selectionSnapshot || suggestionResult || suggestionLoading || suggestionError) && (
-          <div className="selection-suggestion-panel">
-            <div className="suggestion-panel-header">
-              <div>
-                <strong>选区 AI 建议</strong>
-                <span>{selectionSnapshot?.selectedText ? `已选 ${selectionSnapshot.selectedText.length} 字` : '先选中文本'}</span>
-              </div>
-              <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>关闭</button>
-            </div>
-
-            <textarea
-              className="suggestion-instruction"
-              value={suggestionInstruction}
-              onChange={(event) => setSuggestionInstruction(event.target.value)}
-              placeholder={`${selectedSuggestionMode.label}的补充要求，可留空`}
-              disabled={suggestionLoading}
-            />
-
-            <div className="suggestion-actions">
-              <button type="button" onClick={() => requestSuggestion(suggestionMode)} disabled={!canRequestSuggestion}>
-                {suggestionLoading ? '生成中...' : `生成${selectedSuggestionMode.label}`}
-              </button>
-              <button type="button" onClick={handleAcceptSuggestion} disabled={!canAcceptSuggestion}>接受</button>
-              <button type="button" onClick={clearSuggestion} disabled={suggestionLoading}>拒绝</button>
-            </div>
-
-            {frozenSelection?.selectedText && (
-              <div className="suggestion-original">
-                <small>原文</small>
-                <p>{frozenSelection.selectedText}</p>
-              </div>
-            )}
-
-            {suggestionResult?.replacementMarkdown && (
-              <div className="suggestion-replacement">
-                <small>建议</small>
-                <pre>{suggestionResult.replacementMarkdown}</pre>
-              </div>
-            )}
-
-            {suggestionError && <div className="suggestion-error">{suggestionError}</div>}
+        {(notice || error || selectedDocument) && (
+          <div
+            className={`workbench-footer-note${error ? ' error' : ''}`}
+            role={error ? 'alert' : 'status'}
+            aria-live={error ? 'assertive' : 'polite'}
+          >
+            {error || notice || `${selectedDocument?.title || emptyTitle} · ${formatVersionTime(selectedDocument?.updatedAt)}`}
           </div>
         )}
       </div>
 
-      <div className="iteration-panel">
-        <div className="iteration-modes">
-          {ITERATION_MODES.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              className={iterationMode === item.value ? 'active' : ''}
-              onClick={() => setIterationMode(item.value)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <textarea
-          className="iteration-input"
-          value={iterationText}
-          onChange={(event) => setIterationText(event.target.value)}
-          placeholder="给 agent 的本轮迭代指令..."
-          disabled={!sessionId || isLoading}
-        />
-        <button className="iteration-submit" type="button" onClick={handleIterate} disabled={!canIterate}>
-          {isLoading ? '生成中...' : '基于此版本迭代'}
-        </button>
-      </div>
-
-      {(notice || error || selectedDocument) && (
-        <div className={`workbench-footer-note${error ? ' error' : ''}`}>
-          {error || notice || `${selectedDocument?.title || emptyTitle} · ${formatTime(selectedDocument?.updatedAt)}`}
+      {pendingDocument && (
+        <div className="workbench-confirm-layer">
+          <div
+            ref={confirmDialogRef}
+            className="workbench-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="version-switch-title"
+            aria-describedby="version-switch-description"
+            onKeyDown={handleConfirmKeyDown}
+          >
+            <span className="version-kicker">切换版本</span>
+            <h3 id="version-switch-title">保存当前修改吗？</h3>
+            <p id="version-switch-description">
+              当前版本有未保存修改。切换到 V{pendingDocument.version} 前，请选择如何处理这些内容。
+            </p>
+            <div className="workbench-confirm-actions">
+              <button type="button" onClick={() => setPendingDocument(null)} disabled={saving}>取消</button>
+              <button type="button" className="danger" onClick={handleDiscardAndSwitch} disabled={saving}>放弃修改</button>
+              <button ref={confirmPrimaryRef} type="button" className="primary" onClick={handleSaveAndSwitch} disabled={saving}>
+                {saving ? '保存中...' : '保存并切换'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </aside>
