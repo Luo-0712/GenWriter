@@ -25,8 +25,8 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class RAGPipelineServiceImpl implements RAGPipelineService {
 
-    private final DocumentChunkingService chunkingService;
-    private final KnowledgeChunkService chunkService;
+    private final DocumentChunkingService chunkingService;    // 文档分块服务
+    private final KnowledgeChunkService chunkService;    // 知识片段管理服务
     private final EmbeddingService embeddingService;
     private final DocumentChunkingConfig chunkingConfig;
 

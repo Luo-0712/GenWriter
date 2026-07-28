@@ -163,7 +163,8 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         int limit = request.getLimit() != null ? request.getLimit() : embeddingConfig.getDefaultSearchLimit();
 
         if (embeddingConfig.isUseDbVectorSearch()) {
-            // 使用 pgvector 数据库级向量搜索 (欧氏距离 <->)
+            // 使用 pgvector 数据库级向量搜索 (余弦距离 <=>)
+            // 阈值语义转换: 余弦距离 = 1 - 余弦相似度, 故 1 - threshold 对齐 cosine_dist < 阈值
             String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
             List<KnowledgeChunk> results = knowledgeChunkMapper.similaritySearchWithThreshold(
                     request.getKbId(), vectorLiteral, 1 - threshold, limit);

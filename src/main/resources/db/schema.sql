@@ -206,13 +206,11 @@ CREATE INDEX IF NOT EXISTS idx_chunk_kb_id ON knowledge_chunk(kb_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_source_id ON knowledge_chunk(source_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_created_at ON knowledge_chunk(created_at);
 
--- 向量索引(使用IVFFlat索引类型,适用于高维向量)
-CREATE INDEX IF NOT EXISTS idx_chunk_embedding_ivf ON knowledge_chunk 
-    USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-
--- 可选: HNSW索引(更高效的近似最近邻搜索,但构建较慢)
--- CREATE INDEX IF NOT EXISTS idx_chunk_embedding_hnsw ON knowledge_chunk 
---     USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
+-- 向量索引(余弦距离 HNSW, 配套 <=> 操作符; 增量友好, 对齐 long_term_memory 表做法)
+-- 注意: 若库中已存在旧版 ivfflat/vector_l2_ops 索引, 需先执行迁移 DROP INDEX idx_chunk_embedding_ivf
+DROP INDEX IF EXISTS idx_chunk_embedding_ivf;
+CREATE INDEX IF NOT EXISTS idx_chunk_embedding_hnsw ON knowledge_chunk
+    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- ========================================================
 -- 8. 创建长期记忆表

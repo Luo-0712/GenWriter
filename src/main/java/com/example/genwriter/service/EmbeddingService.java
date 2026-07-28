@@ -27,12 +27,13 @@ public class EmbeddingService {
 
     /**
      * 生成单个文本的嵌入向量
+     * 返回值统一经 L2 归一化, 使余弦距离(<=>)与单位向量下的欧氏距离(<->)排序等价
      */
     public float[] embed(String text) {
         try {
             EmbeddingRequest request = new EmbeddingRequest(List.of(text), null);
             EmbeddingResponse response = embeddingModel.call(request);
-            return response.getResults().get(0).getOutput();
+            return VectorUtils.normalize(response.getResults().get(0).getOutput());
         } catch (Exception e) {
             log.error("生成嵌入失败: text={}, error={}", text, e.getMessage(), e);
             throw new RuntimeException("生成嵌入失败: " + e.getMessage(), e);
@@ -65,6 +66,7 @@ public class EmbeddingService {
             EmbeddingResponse response = embeddingModel.call(request);
             return response.getResults().stream()
                     .map(Embedding::getOutput)
+                    .map(VectorUtils::normalize)
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.error("批量生成嵌入失败: size={}, error={}", texts.size(), e.getMessage(), e);
