@@ -46,3 +46,6 @@ temp/
 ### Claude Code ###
 .claude/
 /.playwright-cli/
+
+### ZCode agent sessions ###
+.zcode/
