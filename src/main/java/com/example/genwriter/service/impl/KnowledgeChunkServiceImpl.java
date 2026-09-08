@@ -165,19 +165,23 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         if (embeddingConfig.isUseDbVectorSearch()) {
             // 使用 pgvector 数据库级向量搜索 (余弦距离 <=>)
             // 阈值语义转换: 余弦距离 = 1 - 余弦相似度, 故 1 - threshold 对齐 cosine_dist < 阈值
+            // 只检索与查询向量同一 embedding_model 的行，不同模型的向量不可直接比较
             String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
             List<KnowledgeChunk> results = knowledgeChunkMapper.similaritySearchWithThreshold(
-                    request.getKbId(), vectorLiteral, 1 - threshold, limit);
+                    request.getKbId(), vectorLiteral, embeddingConfig.getDefaultModel(),
+                    1 - threshold, limit);
 
             return results.stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
         }
 
-        // 回退到内存计算
+        // 回退到内存计算（同样只比较同一 embedding_model 的行）
         List<KnowledgeChunk> allChunks = knowledgeChunkMapper.selectByKbId(request.getKbId());
 
         List<SimilarityScore> scoredChunks = allChunks.stream()
+                .filter(chunk -> embeddingConfig.getDefaultModel()
+                        .equalsIgnoreCase(chunk.getEmbeddingModel()))
                 .map(chunk -> {
                     float[] chunkVector = chunk.getEmbedding();
                     double similarity = VectorUtils.cosineSimilarity(queryEmbedding, chunkVector);

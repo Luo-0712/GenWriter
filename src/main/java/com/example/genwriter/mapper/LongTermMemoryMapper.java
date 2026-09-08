@@ -52,6 +52,7 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "  scope = 'GLOBAL' " +
             "  <if test='projectId != null'>OR (scope = 'PROJECT' AND project_id = CAST(#{projectId} AS uuid))</if> " +
             ") " +
+            "AND embedding_model = #{embeddingModel} " +
             "AND 1 - (embedding &lt;=&gt; CAST(#{queryVector} AS vector)) &gt; #{threshold} " +
             "ORDER BY similarity DESC LIMIT #{limit}" +
             "</script>")
@@ -63,6 +64,7 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
     List<LongTermMemory> similaritySearch(@Param("queryVector") String queryVector,
                                           @Param("types") List<String> types,
                                           @Param("projectId") String projectId,
+                                          @Param("embeddingModel") String embeddingModel,
                                           @Param("threshold") double threshold,
                                           @Param("limit") int limit);
 
@@ -116,6 +118,7 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "FROM long_term_memory WHERE " +
             "memory_type = #{memoryType} AND scope = #{scope} " +
             "<if test='projectId != null'>AND project_id = CAST(#{projectId} AS uuid)</if> " +
+            "AND embedding_model = #{embeddingModel} " +
             "AND 1 - (embedding &lt;=&gt; CAST(#{queryVector} AS vector)) &gt; #{threshold} " +
             "ORDER BY similarity DESC LIMIT 1" +
             "</script>")
@@ -128,6 +131,7 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
                                  @Param("scope") String scope,
                                  @Param("projectId") String projectId,
                                  @Param("queryVector") String queryVector,
+                                 @Param("embeddingModel") String embeddingModel,
                                  @Param("threshold") double threshold);
 
     @Select("<script>" +

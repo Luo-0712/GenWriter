@@ -82,9 +82,11 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
     /**
      * 向量相似度搜索
      * 使用PostgreSQL pgvector的<=>操作符计算余弦距离
+     * 仅检索与查询向量同一 embedding_model 的行，避免跨模型向量混算
      *
      * @param kbId 知识库ID
      * @param vectorLiteral 向量字符串表示
+     * @param embeddingModel 查询向量所用的嵌入模型
      * @param limit 返回结果数量限制
      * @return 相似的知识片段列表
      */
@@ -92,6 +94,7 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
             "embedding, embedding_dimension AS embeddingDimension, embedding_model AS embeddingModel, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM knowledge_chunk WHERE kb_id = CAST(#{kbId} AS uuid) " +
+            "AND embedding_model = #{embeddingModel} " +
             "ORDER BY embedding <=> CAST(#{vectorLiteral} AS vector) " +
             "LIMIT #{limit}")
     @Results({
@@ -100,14 +103,17 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
     })
     List<KnowledgeChunk> similaritySearch(@Param("kbId") String kbId, 
                                           @Param("vectorLiteral") String vectorLiteral, 
+                                          @Param("embeddingModel") String embeddingModel,
                                           @Param("limit") int limit);
 
     /**
      * 向量相似度搜索(带余弦距离阈值)
      * 阈值语义为余弦距离(1 - 余弦相似度),由调用方通过 1 - similarityThreshold 转换得到
+     * 仅检索与查询向量同一 embedding_model 的行，避免跨模型向量混算
      *
      * @param kbId 知识库ID
      * @param vectorLiteral 向量字符串表示
+     * @param embeddingModel 查询向量所用的嵌入模型
      * @param threshold 余弦距离阈值(越小越相似,0=完全相同)
      * @param limit 返回结果数量限制
      * @return 相似的知识片段列表
@@ -117,6 +123,7 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt, " +
             "embedding <=> CAST(#{vectorLiteral} AS vector) AS distance " +
             "FROM knowledge_chunk WHERE kb_id = CAST(#{kbId} AS uuid) " +
+            "AND embedding_model = #{embeddingModel} " +
             "AND embedding <=> CAST(#{vectorLiteral} AS vector) < #{threshold} " +
             "ORDER BY embedding <=> CAST(#{vectorLiteral} AS vector) " +
             "LIMIT #{limit}")
@@ -126,6 +133,7 @@ public interface KnowledgeChunkMapper extends BaseMapper<KnowledgeChunk> {
     })
     List<KnowledgeChunk> similaritySearchWithThreshold(@Param("kbId") String kbId, 
                                                        @Param("vectorLiteral") String vectorLiteral,
+                                                       @Param("embeddingModel") String embeddingModel,
                                                        @Param("threshold") double threshold, 
                                                        @Param("limit") int limit);
 

@@ -59,7 +59,8 @@ class LongTermMemoryServiceImplTest {
                 taskSessionMapper,
                 new LongTermMemoryProperties(),
                 metadataSupport,
-                probeRecorder
+                probeRecorder,
+                new com.example.genwriter.config.EmbeddingConfig()
         );
         when(embeddingService.embed(anyString())).thenReturn(new float[]{1.0f, 0.0f});
     }

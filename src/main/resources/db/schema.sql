@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunk (
     content TEXT NOT NULL,
     embedding VECTOR(1024),  -- 默认1024维向量,可根据实际模型调整
     embedding_dimension INTEGER DEFAULT 1024,
-    embedding_model VARCHAR(100) DEFAULT 'text-embedding-v4',
+    embedding_model VARCHAR(100) DEFAULT 'qwen3.7-text-embedding-flash',
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS long_term_memory (
     project_id UUID,
     session_id UUID,
     embedding VECTOR(1024),
-    embedding_model VARCHAR(50) DEFAULT 'text-embedding-v4',
+    embedding_model VARCHAR(50) DEFAULT 'qwen3.7-text-embedding-flash',
     importance VARCHAR(10) DEFAULT 'MEDIUM',
     metadata JSONB,
     access_count INTEGER DEFAULT 0,

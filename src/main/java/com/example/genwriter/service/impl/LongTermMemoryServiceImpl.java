@@ -3,6 +3,7 @@ package com.example.genwriter.service.impl;
 import com.example.genwriter.agent.memory.LongTermMemoryMetadataSupport;
 import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.config.EmbeddingConfig;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.mapper.LongTermMemoryMapper;
 import com.example.genwriter.mapper.TaskSessionMapper;
@@ -48,6 +49,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     private final LongTermMemoryProperties properties;
     private final LongTermMemoryMetadataSupport metadataSupport;
     private final LongTermMemoryProbeRecorder probeRecorder;
+    private final EmbeddingConfig embeddingConfig;
 
     @Override
     public List<MemoryVO> retrieveMemories(String query, List<MemoryType> types,
@@ -113,6 +115,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
         LongTermMemory duplicate = mapper.findDuplicate(
                 type.name(), effectiveScope, effectiveProjectId, vectorLiteral,
+                embeddingConfig.getDefaultModel(),
                 properties.getRetrieval().getDedupThreshold());
 
         if (duplicate != null) {
@@ -126,7 +129,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .projectId(effectiveProjectId)
                 .sessionId(sessionId)
                 .embedding(embedding)
-                .embeddingModel("text-embedding-v4")
+                .embeddingModel(embeddingConfig.getDefaultModel())
                 .importance(effectiveImportance)
                 .metadata(metadataSupport.toJson(normalizedMetadata))
                 .accessCount(0)
@@ -233,6 +236,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
         LongTermMemory duplicate = mapper.findDuplicate(
                 memoryType.name(), scope, projectId, vectorLiteral,
+                embeddingConfig.getDefaultModel(),
                 properties.getRetrieval().getDedupThreshold());
 
         if (duplicate != null) {
@@ -245,7 +249,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 .scope(scope)
                 .projectId(projectId)
                 .embedding(embedding)
-                .embeddingModel("text-embedding-v4")
+                .embeddingModel(embeddingConfig.getDefaultModel())
                 .importance(importance)
                 .metadata(metadataSupport.toJson(normalizedMetadata))
                 .accessCount(0)
@@ -338,8 +342,10 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
         float[] queryEmbedding = embeddingService.embed(query);
         String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
+        // 只检索与查询向量同一 embedding_model 的记忆，不同模型的向量不可直接比较
         for (LongTermMemory memory : mapper.similaritySearch(
-                vectorLiteral, sqlTypes, projectId, threshold, candidateLimit)) {
+                vectorLiteral, sqlTypes, projectId, embeddingConfig.getDefaultModel(),
+                threshold, candidateLimit)) {
             mergeCandidate(candidates, memory, false);
         }
 

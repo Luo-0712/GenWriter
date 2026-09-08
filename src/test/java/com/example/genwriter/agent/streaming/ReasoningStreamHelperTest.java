@@ -78,7 +78,7 @@ class ReasoningStreamHelperTest {
     @Test
     void isReasoningModel_falseForNonReasoningProvider() {
         LLMConfig.ProviderConfig config = provider("dashscope", false, null);
-        stubActiveModel("dashscope:qwen3.7-max", config);
+        stubActiveModel("dashscope:qwen3.8-flash", config);
 
         assertFalse(helper.isReasoningModel());
     }
@@ -166,7 +166,7 @@ class ReasoningStreamHelperTest {
     void stream_throwsForNonReasoningModel() {
         // 非推理模型不应走 raw SSE 路径，由调用方使用标准 ChatClient 流式
         LLMConfig.ProviderConfig config = provider("dashscope", false, null);
-        stubActiveModel("dashscope:qwen3.7-max", config);
+        stubActiveModel("dashscope:qwen3.8-flash", config);
 
         assertThrows(UnsupportedOperationException.class,
                 () -> helper.stream("s", "n", "sys", "u", 0.5, c -> {}));
