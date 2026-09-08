@@ -7,6 +7,7 @@ import com.example.genwriter.model.dto.request.CreateDocumentRequest;
 import com.example.genwriter.model.dto.response.DocumentDTO;
 import com.example.genwriter.service.DocumentService;
 import com.example.genwriter.service.SseService;
+import com.example.genwriter.service.TitleGenerationService;
 import com.example.genwriter.service.WritingOutputSettingsService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,7 @@ public class SsePublishNode implements NodeAction {
     private final ObjectMapper objectMapper;
     private final DocumentService documentService;
     private final WritingOutputSettingsService writingOutputSettingsService;
+    private final TitleGenerationService titleGenerationService;
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -91,10 +93,12 @@ public class SsePublishNode implements NodeAction {
             return null;
         }
 
-        String title = deriveTitle(
-                state.value("selectedDocumentTitle", String.class).orElse(""),
-                finalOutput
-        );
+        String writingType = state.value("writingType", String.class).orElse("AUTO");
+        String selectedTitle = state.value("selectedDocumentTitle", String.class).orElse("");
+        // CONTINUE 的产物是原文档的新章节，不应沿用原标题；POLISH 是同一文档的新版本，沿用是正确行为
+        String title = "CONTINUE".equalsIgnoreCase(writingType)
+                ? deriveContinuedTitle(selectedTitle, finalOutput)
+                : deriveTitle(selectedTitle, finalOutput);
 
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("generatedBy", "agent");
@@ -146,6 +150,51 @@ public class SsePublishNode implements NodeAction {
             }
         }
         return fallback;
+    }
+
+    /**
+     * CONTINUE 续写版本的标题推导。优先级：正文中的结构化标题行
+     * （markdown 标题 / 「第X章」/ Chapter N）→ LLM 章节标题 → 沿用原标题兜底。
+     */
+    private String deriveContinuedTitle(String selectedTitle, String content) {
+        String structured = extractStructuredTitle(content);
+        if (structured != null) {
+            return structured;
+        }
+        String generated = titleGenerationService.generateChapterTitle(content);
+        if (generated != null) {
+            return generated;
+        }
+        log.info("续写标题推导失败，回退沿用原标题");
+        return deriveTitle(selectedTitle, content);
+    }
+
+    /** 提取正文中的结构化标题行；不存在时返回 null。（包可见以便单测） */
+    static String extractStructuredTitle(String content) {
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        for (String rawLine : content.split("\\R")) {
+            String line = rawLine.trim();
+            if (line.isBlank()) {
+                continue;
+            }
+            String heading = line.replaceFirst("^#{1,6}\\s*", "");
+            if (!heading.equals(line) && !heading.isBlank()) {
+                return truncateTitle(heading);
+            }
+            if (line.length() <= 40
+                    && (line.matches("第[0-9零一二三四五六七八九十百千]+[章回节].*")
+                        || line.matches("(?i)chapter\\s+\\d+.*"))) {
+                return truncateTitle(line);
+            }
+        }
+        return null;
+    }
+
+    private static String truncateTitle(String title) {
+        String trimmed = title.trim();
+        return trimmed.length() > 80 ? trimmed.substring(0, 80) : trimmed;
     }
 
     private Map<String, Object> toDocumentSummary(DocumentDTO document) {

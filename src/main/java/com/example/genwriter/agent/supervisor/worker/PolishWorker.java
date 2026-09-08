@@ -238,6 +238,10 @@ public class PolishWorker implements WorkerAgent {
         }
 
         String fullResponse = contentBuilder.toString();
+        if (!contentToPolish.isBlank() && fullResponse.length() < contentToPolish.length() * 0.6) {
+            log.warn("[PolishWorker] 润色输出明显短于输入（{} -> {} chars），疑似内容被压缩/摘要化",
+                    contentToPolish.length(), fullResponse.length());
+        }
         log.info("润色完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);

@@ -37,6 +37,8 @@ Markdown 输出开关：{{markdownEnabled}}
 ## Output Contract
 直接输出润色后的完整文本，不输出说明、摘要或修改清单。
 
+输出的必须是完整正文：从原文开头到结尾逐句润色，不得跳过、概括或删减任何情节与段落。输出长度不得明显低于原文（一般不低于原文的 90%），除非用户明确要求缩写。
+
 如果 `markdownEnabled` 为 `false`，不要使用 Markdown 语法。
 
 ## Genre Guards

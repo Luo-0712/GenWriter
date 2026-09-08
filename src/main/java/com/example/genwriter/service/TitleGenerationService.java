@@ -100,6 +100,42 @@ public class TitleGenerationService {
         }
     }
 
+    /**
+     * 为 CONTINUE 续写产生的新文档版本生成章节标题（同步短调用，低耗时）。
+     *
+     * @return 生成的标题；生成失败或模型输出为空时返回 null，由调用方回退到字符串推导
+     */
+    public String generateChapterTitle(String content) {
+        try {
+            if (content == null || content.isBlank()) {
+                return null;
+            }
+            String excerpt = content.substring(0, Math.min(content.length(), 800));
+            String prompt = "为下面这段续写正文起一个简洁的章节标题，概括其核心场景或事件。"
+                    + "要求：不超过 20 个字，直接输出标题本身，不要书名号、引号、序号或其他任何附加文字。\n\n"
+                    + excerpt;
+
+            String title = chatClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .content();
+
+            if (title == null || title.isBlank()) {
+                return null;
+            }
+            title = title.trim()
+                    .replaceAll("^[\"「『《]|[」』》\"]$", "")
+                    .trim();
+            if (title.isBlank()) {
+                return null;
+            }
+            return title.length() > MAX_TITLE_LENGTH ? title.substring(0, MAX_TITLE_LENGTH) : title;
+        } catch (Exception e) {
+            log.warn("章节标题生成失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private String truncateForTitle(String userMessage) {
         if (userMessage == null || userMessage.isBlank()) {
             return DEFAULT_TITLE;
