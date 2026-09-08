@@ -17,6 +17,7 @@ import com.example.genwriter.agent.tool.AgentToolSupport;
 import com.example.genwriter.agent.tool.SaveSettingDetailTool;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.agent.tool.UpdateWritingSkillTool;
+import com.example.genwriter.util.ToolUseTextStripper;
 import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.dto.MultimodalContent;
@@ -262,7 +263,11 @@ public class DraftGenerationWorker implements WorkerAgent {
             SessionContextHolder.clear();
         }
 
-        String fullResponse = contentBuilder.toString();
+        String fullResponse = ToolUseTextStripper.strip(contentBuilder.toString());
+        if (fullResponse.length() != contentBuilder.length()) {
+            log.warn("[DraftGenerationWorker] 检测并剥离泄漏的工具调用文本: {} -> {} chars",
+                    contentBuilder.length(), fullResponse.length());
+        }
         log.info("正文写作完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", fullResponse.length()), reasoningContent);

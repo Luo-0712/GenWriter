@@ -21,6 +21,7 @@ import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.LongTermMemoryService;
 import com.example.genwriter.service.WritingOutputSettingsService;
+import com.example.genwriter.util.ToolUseTextStripper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -189,6 +190,12 @@ public class OutlineGenerationWorker implements WorkerAgent {
             SessionContextHolder.clear();
         }
 
+        String stripped = ToolUseTextStripper.strip(response);
+        if (stripped != null && response != null && stripped.length() != response.length()) {
+            log.warn("[OutlineGenerationWorker] 检测并剥离泄漏的工具调用文本: {} -> {} chars",
+                    response.length(), stripped.length());
+        }
+        response = stripped;
         log.info("大纲生成完成: length={}", response != null ? response.length() : 0);
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("length", response != null ? response.length() : 0), reasoningContent);
