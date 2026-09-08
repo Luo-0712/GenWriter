@@ -123,14 +123,16 @@ public class SupervisorSystemPromptProvider {
                 - 简单问答: intent_recognition -> direct_answer -> finish
                 - 润色任务: intent_recognition -> polish -> review -> finish
                 - 知识库问答(有kbId，非写作): intent_recognition -> direct_answer -> finish
-                - 评审结果 REVISE_DRAFT: 下一步回到 draft
-                - 评审结果 REVISE_POLISH: 下一步回到 polish
+                - 评审结果 REVISE_DRAFT: 下一步回到 draft 重写正文；draft 执行后系统会自动衔接 polish 与下一次 review，只需决策这一次 draft，不要连续重选 draft
+                - 评审结果 REVISE_POLISH: 下一步回到 polish 重写润色稿；polish 执行后系统会自动衔接下一次 review，PASS 后才能 finish
                 - 评审结果 PASS: 下一步 finish
 
                 ## 规则
                 - 每次只决策一步，下一步依据上一步的真实产物（observation）来选
                 - 首步通常先 intent_recognition（识别意图与 writingType），除非用户输入已是明确的知识问答
                 - 不要重复已完成的步骤（如 outline 已生成就不要再 outline）
+                - draft/polish 修订之后的评审衔接由系统硬护栏自动完成：观察记录中刚出现的 draft/polish 产物尚未评审时，不要选 review 或重复选同一写作 worker，先选对应的后续动作（draft 之后选 polish；polish 之后直接等系统衔接 review）
+                - 评审结论只在最近一次 review 后有效，依据 observation 中最新的评审结果决策
                 - 评审 PASS 或产物已满足需求时，立即 finish
                 - 最多执行 %d 个步骤，达到上限会强制结束，避免无意义的循环
                 - 不确定时尽早 finish 并说明原因

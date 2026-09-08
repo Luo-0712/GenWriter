@@ -46,7 +46,8 @@ import java.util.concurrent.TimeUnit;
 public class ReviewWorker implements WorkerAgent {
 
     private static final double TEMPERATURE = 0.1;
-    private static final int MAX_REVIEW_ROUNDS = 2;
+    /** 单次任务的评审轮数上限，SupervisorNode 的硬护栏也依赖该值。 */
+    public static final int MAX_REVIEW_ROUNDS = 2;
 
     private final ChatClientFactory chatClientFactory;
     private final ObjectMapper objectMapper;

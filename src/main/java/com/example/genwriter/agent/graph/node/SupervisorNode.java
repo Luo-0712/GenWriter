@@ -18,6 +18,7 @@ import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
 import com.example.genwriter.agent.supervisor.SupervisorSystemPromptProvider;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
+import com.example.genwriter.agent.supervisor.worker.ReviewWorker;
 import com.example.genwriter.agent.tool.SessionContextHolder;
 import com.example.genwriter.message.ChainNode;
 import com.example.genwriter.message.SseMessage;
@@ -349,17 +350,11 @@ public class SupervisorNode implements NodeAction {
                                           String sessionId, String supervisorNodeId) {
         int[] stepCounter = {0};
         boolean[] intentDone = {false};
+        ContentPhase[] contentPhase = {ContentPhase.IDLE};
 
         ReactLoop.Decider decider = (s, hist) -> {
-            // 首步护栏：尚未执行 intent_recognition 时，强制首步为 intent_recognition
-            if (!intentDone[0]) {
-                return new ReactStep(
-                        "首步需先识别意图与 writingType",
-                        "intent_recognition",
-                        null,
-                        "首步护栏：强制 intent_recognition");
-            }
-            return decideNextReactStep(s, hist);
+            ReactStep forced = forcedContentStep(intentDone[0], contentPhase[0], reviewCountOf(s));
+            return forced != null ? forced : decideNextReactStep(s, hist);
         };
 
         ReactLoop.WorkerExecutor executor = (workerName, s) -> {
@@ -392,6 +387,23 @@ public class SupervisorNode implements NodeAction {
             // 首步 intent_recognition 完成后，标记护栏已完成
             if ("intent_recognition".equals(workerName)) {
                 intentDone[0] = true;
+            }
+
+            // 内容流水线状态推进（仅在 worker 执行成功后）：
+            // draft 之后必须重新 polish（ReviewWorker 只评审 polishedContent，draft 一变
+            // 润色稿即过期）；polish 之后必须 review；review 之后恢复自由决策。
+            switch (workerName) {
+                case "draft" -> contentPhase[0] = ContentPhase.POLISH_AFTER_DRAFT;
+                case "polish" -> contentPhase[0] = ContentPhase.REVIEW_AFTER_POLISH;
+                case "review" -> contentPhase[0] = ContentPhase.IDLE;
+                default -> { /* outline/researcher/direct_answer 不改正文，阶段保持不变 */ }
+            }
+
+            // 陈旧评审结论清理：评审结论只对下一次决策有效。非 review worker 执行后
+            // state 中残留的 REVISE_* 会诱导决策 LLM 重复同一修订动作，这里直接移除
+            if (!"review".equals(workerName)) {
+                s.remove("reviewResult");
+                s.remove("reviewFeedback");
             }
 
             Object outputSummary = buildWorkerOutputSummary(workerName, result);
@@ -474,6 +486,64 @@ public class SupervisorNode implements NodeAction {
             log.warn("[SupervisorNode][ReAct] 决策解析失败: response={}", response, e);
             return null;
         }
+    }
+
+    /** 读取 state 中 ReviewWorker 写入的已评审轮数，缺失时按 0 处理。 */
+    private static int reviewCountOf(Map<String, Object> state) {
+        Object value = state.get("reviewCount");
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    /** ReAct 内容流水线阶段：跟踪最近一次成功执行的内容写 worker，决定下一步的强制衔接。 */
+    enum ContentPhase {
+        /** 无待衔接步骤，交由决策 LLM 自由选择 */
+        IDLE,
+        /** draft 刚执行成功：polishedContent 已过期，必须先执行 polish 刷新 */
+        POLISH_AFTER_DRAFT,
+        /** polish 刚执行成功：必须先执行 review（评审额度耗尽则以最新润色稿定稿） */
+        REVIEW_AFTER_POLISH
+    }
+
+    /**
+     * 内容流水线硬护栏（纯函数，便于单测）。
+     *
+     * <p>不变式：ReviewWorker 只评审 {@code polishedContent}，而 polish 的输出总是由当前 draft
+     * 派生，因此 draft 一变 polishedContent 即过期——draft 之后必须先 polish 才能 review；
+     * polish 之后必须先 review。该护栏堵住两类偏差：决策 LLM 依据残留的 REVISE_* 判决反复选择
+     * 同一写作 worker（如连续 polish/draft），以及在 draft 修订后直接评审过期的润色稿。
+     *
+     * @return 应强制执行的步骤；{@code null} 表示无强制步骤，交由决策 LLM
+     */
+    static ReactStep forcedContentStep(boolean intentDone, ContentPhase phase, int reviewCount) {
+        if (!intentDone) {
+            return new ReactStep(
+                    "首步需先识别意图与 writingType",
+                    "intent_recognition",
+                    null,
+                    "首步护栏：强制 intent_recognition");
+        }
+        return switch (phase) {
+            case POLISH_AFTER_DRAFT -> new ReactStep(
+                    "正文已更新，润色稿已过期，需重新润色",
+                    "polish",
+                    null,
+                    "硬护栏：draft 之后强制 polish（ReviewWorker 只评审 polishedContent）");
+            case REVIEW_AFTER_POLISH -> {
+                if (reviewCount >= ReviewWorker.MAX_REVIEW_ROUNDS) {
+                    yield new ReactStep(
+                            "评审轮数已达上限，停止修订",
+                            ReactStep.FINISH,
+                            null,
+                            "硬护栏：reviewCount=" + reviewCount + " 已达上限，以最新润色稿定稿");
+                }
+                yield new ReactStep(
+                        "润色已更新，需先评审再决定后续",
+                        "review",
+                        null,
+                        "硬护栏：polish 之后强制 review");
+            }
+            case IDLE -> null;
+        };
     }
 
     private Object buildWorkerOutputSummary(String workerName, Map<String, Object> result) {
