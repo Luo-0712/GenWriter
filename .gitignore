@@ -39,6 +39,8 @@ build/
 .uploads/
 temp/
 .test-docs/
+temp_images/
+dump.rdb
 
 ### Writing / Docs ###
 .writing/
