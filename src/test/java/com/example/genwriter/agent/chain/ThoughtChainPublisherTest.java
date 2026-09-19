@@ -98,12 +98,13 @@ class ThoughtChainPublisherTest {
     }
 
     @Test
-    void publishReactDecisionTrace_pushesLlmSpanWithThoughtAndReasoning() {
+    void publishReactDecisionTrace_pushesReasoningIntoDedicatedField() {
         ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
 
         String spanId = publisher.publishReactDecisionTrace(
                 "session-1", "supervisor-node-1",
-                "用户要写小说，先识别意图", "需先确定 writingType", "intent_recognition");
+                "用户要写小说，先识别意图", "需先确定 writingType", "intent_recognition",
+                ThoughtChainPublisher.DECISION_REACT);
 
         assertNotNull(spanId);
         List<AgentTraceEvent> traces = captureTraceEvents("session-1");
@@ -114,7 +115,98 @@ class ThoughtChainPublisherTest {
         assertEquals("ReAct 决策", decision.getName());
         assertEquals("supervisor-node-1", decision.getParentSpanId());
         assertEquals("intent_recognition", decision.getMetadata().get("action"));
-        assertEquals("需先确定 writingType", decision.getMetadata().get("reasoning"));
+        assertEquals(ThoughtChainPublisher.DECISION_REACT, decision.getMetadata().get("decisionType"));
+        // thought/reasoning 迁移到 reasoningContent 专属字段（前端「模型思考过程」区块渲染），
+        // metadata 中不再重复
+        assertEquals("用户要写小说，先识别意图\n\n需先确定 writingType", decision.getReasoningContent());
+        assertFalse(decision.getMetadata().containsKey("reasoning"));
+        assertFalse(decision.getMetadata().containsKey("thought"));
+    }
+
+    @Test
+    void publishReactDecisionTrace_reasoningNotTruncated() {
+        ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
+        String longReasoning = "思".repeat(600);
+
+        String spanId = publisher.publishReactDecisionTrace(
+                "session-1", "supervisor-node-1", "决策", longReasoning, "draft",
+                ThoughtChainPublisher.DECISION_REACT);
+
+        AgentTraceEvent decision = captureTraceEvents("session-1").stream()
+                .filter(e -> spanId.equals(e.getSpanId())).findFirst().orElseThrow();
+        // reasoningContent = thought + "\n\n" + reasoning，reasoning 部分保持全文不被 240 字截断
+        assertEquals("决策\n\n" + longReasoning, decision.getReasoningContent(),
+                "思考全文不应被 240 字截断");
+    }
+
+    @Test
+    void publishReasoningComplete_mergesReasoningIntoSpanForPersistence() {
+        ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
+
+        String nodeId = publisher.publishStart("session-1", "正文写作",
+                ChainNode.Type.EXECUTION, null, null);
+        // 模拟装饰器在流结束时补录思考全文（AI_REASONING_CHUNK 本身不落库），随后 Worker 正常完成
+        publisher.publishReasoningComplete("session-1", nodeId, "流式思考全文");
+        publisher.publishComplete("session-1", nodeId, Map.of("length", 10), null);
+
+        List<AgentTraceEvent> drained = publisher.drainTraceEvents("session-1");
+        long sameSpanCount = drained.stream().filter(e -> nodeId.equals(e.getSpanId())).count();
+        assertEquals(1, sameSpanCount, "同 spanId 事件应合并为一条缓冲记录");
+        AgentTraceEvent merged = drained.stream()
+                .filter(e -> nodeId.equals(e.getSpanId())).findFirst().orElseThrow();
+        assertEquals(AgentTraceEvent.Phase.COMPLETED.name(), merged.getPhase());
+        assertEquals("流式思考全文", merged.getReasoningContent(),
+                "补录的思考全文应保留到最终缓冲，保证会话刷新后可恢复");
+    }
+
+    @Test
+    void publishReactDecisionComplete_keepsDecisionSummaryInsteadOfFallback() {
+        ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
+
+        String spanId = publisher.publishReactDecisionTrace(
+                "session-1", "supervisor-node-1",
+                "大纲已生成，进入正文草稿", null, "draft", ThoughtChainPublisher.DECISION_GUARD);
+        publisher.publishReactDecisionComplete("session-1", spanId, "大纲已生成，进入正文草稿");
+
+        AgentTraceEvent merged = publisher.drainTraceEvents("session-1").stream()
+                .filter(e -> spanId.equals(e.getSpanId()))
+                .findFirst().orElseThrow();
+        assertEquals(AgentTraceEvent.Phase.COMPLETED.name(), merged.getPhase());
+        assertEquals("大纲已生成，进入正文草稿", merged.getSummary(),
+                "COMPLETED 摘要应保留决策依据，而不是退化成兜底文案");
+        assertEquals(ThoughtChainPublisher.DECISION_GUARD, merged.getMetadata().get("decisionType"));
+    }
+
+    @Test
+    void buildSummary_usesOutputLengthAndReasoningInsteadOfFallback() {
+        ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
+
+        String llmSpanId = publisher.publishTraceStart("session-1", "模型撰写正文",
+                AgentTraceEvent.Kind.LLM, "worker-node-1", null, null);
+        publisher.publishTraceComplete("session-1", llmSpanId,
+                Map.of("outputLength", 385, "reasoningCaptured", false));
+
+        String planNodeId = publisher.publishStart("session-1", "任务规划",
+                ChainNode.Type.PLANNING, null, null);
+        publisher.publishComplete("session-1", planNodeId,
+                Map.of("action", "FINISH", "reasoning", "ReAct 完成"));
+
+        String reviewNodeId = publisher.publishStart("session-1", "内容评审",
+                ChainNode.Type.THINKING, null, null);
+        publisher.publishComplete("session-1", reviewNodeId,
+                Map.of("score", 7, "verdict", "REVISE_DRAFT", "feedback", "篇幅超标"));
+
+        List<AgentTraceEvent> drained = publisher.drainTraceEvents("session-1");
+        assertEquals("输出 385 字符", summaryOf(drained, llmSpanId));
+        assertEquals("ReAct 完成", summaryOf(drained, planNodeId));
+        assertEquals("评审 REVISE_DRAFT", summaryOf(drained, reviewNodeId));
+    }
+
+    private String summaryOf(List<AgentTraceEvent> events, String spanId) {
+        return events.stream()
+                .filter(e -> spanId.equals(e.getSpanId()))
+                .findFirst().orElseThrow()
+                .getSummary();
     }
 
     @Test

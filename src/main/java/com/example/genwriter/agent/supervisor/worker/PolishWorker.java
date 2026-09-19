@@ -10,6 +10,7 @@ import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -53,6 +54,7 @@ public class PolishWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
@@ -190,45 +192,31 @@ public class PolishWorker implements WorkerAgent {
                     List.of(MemoryType.WRITING_PREFERENCE, MemoryType.WRITING_TECHNIQUE),
                     sessionId,
                     queries,
-                    memoryProbeRecorder));
+                    memoryProbeRecorder,
+                    globalRerankConverger,
+                    longTermMemoryProperties));
         }
 
         SessionContextHolder.set(sessionId, nodeId, name());
+        // 标记当前模型是否为推理模型（采集由 ReasoningChatModelDecorator 在标准管线上完成）
         boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型润色",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
                         "hasImages", multimodalContent != null && multimodalContent.hasImages(),
                         "reasoningCaptured", reasoningCaptured), null);
-        String reasoningContent = null;
         try {
-            if (reasoningCaptured) {
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        systemPrompt, userPrompt, TEMPERATURE,
-                        chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.POLISH, chunk, contentBuilder);
-                        });
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                promptSpec.stream()
-                        .content()
-                        .doOnNext(chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.POLISH, chunk, contentBuilder);
-                        })
-                        .then(Mono.just(contentBuilder.toString()))
-                        .block();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", contentBuilder.length(),
-                                "reasoningCaptured", false));
-            }
+            promptSpec.stream()
+                    .content()
+                    .doOnNext(chunk -> {
+                        contentBuilder.append(chunk);
+                        contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                ContentStreamPublisher.Stage.POLISH, chunk, contentBuilder);
+                    })
+                    .then(Mono.just(contentBuilder.toString()))
+                    .block();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", contentBuilder.length()));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -244,7 +232,7 @@ public class PolishWorker implements WorkerAgent {
         }
         log.info("润色完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", fullResponse.length()), reasoningContent);
+                Map.of("length", fullResponse.length()), null);
         contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.POLISH, fullResponse);
         return Map.of("polishedContent", fullResponse);
     }

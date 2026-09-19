@@ -7,6 +7,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.memory.MemoryQueryExtractor;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.profile.AgentPromptRenderer;
@@ -59,6 +60,7 @@ public class ReviewWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
     private final MemoryQueryExtractor memoryQueryExtractor;
     private final ReasoningStreamHelper reasoningStreamHelper;
@@ -122,87 +124,71 @@ public class ReviewWorker implements WorkerAgent {
         ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
 
         SessionContextHolder.set(sessionId, nodeId, name());
-        // 降级判定：webSearch 启用时即便推理模型也走标准流式（不采 reasoning，工具调用必需）；
-        // webSearch 关闭且为推理模型时走 raw SSE 采 reasoning。
-        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel() && !webSearchEnabled;
+        // 标记当前模型是否为推理模型（采集由 ReasoningChatModelDecorator 在标准管线上完成，
+        // 思考流与 web_search 等工具调用共存，不再因工具需求降级）
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         Map<String, Object> traceStartMeta = new LinkedHashMap<>();
         traceStartMeta.put("promptLength", userPrompt.length());
         traceStartMeta.put("webSearch", webSearchEnabled);
         traceStartMeta.put("reviewRound", reviewCount + 1);
         traceStartMeta.put("reasoningCaptured", reasoningCaptured);
-        if (!reasoningCaptured) {
-            traceStartMeta.put("reason", webSearchEnabled ? "tool_calls_required" : "non_reasoning_model");
-        }
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型评审",
                 AgentTraceEvent.Kind.LLM, nodeId, traceStartMeta, null);
         SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         StringBuilder contentBuilder = new StringBuilder();
         String response;
-        String reasoningContent = null;
         try {
-            if (reasoningCaptured) {
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        renderedPrompt.systemPrompt(), userPrompt, TEMPERATURE,
-                        contentBuilder::append);
-                response = result.content();
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                var promptSpec = chatClient.prompt()
-                        .system(renderedPrompt.systemPrompt())
-                        .user(userPrompt);
+            var promptSpec = chatClient.prompt()
+                    .system(renderedPrompt.systemPrompt())
+                    .user(userPrompt);
 
-                promptSpec = AgentToolSupport.applyToolVisibility(
-                        promptSpec, webSearchEnabled, false);
+            promptSpec = AgentToolSupport.applyToolVisibility(
+                    promptSpec, webSearchEnabled, false);
 
-                promptSpec = promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
-                        .advisors(a -> a.param(
-                                AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                                conversationId));
+            promptSpec = promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .advisors(a -> a.param(
+                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                            conversationId));
 
-                if (longTermMemoryProperties.isEnabled()) {
-                    List<String> queries = null;
-                    if (longTermMemoryProperties.getArticleQueryExtraction().isEnabled()) {
-                        queries = new ArrayList<>(memoryQueryExtractor.extractQueries(polishedContent));
-                        if (userInput != null && !userInput.isBlank()) {
-                            queries.add(userInput);
-                        }
-                        if (queries.isEmpty()) {
-                            queries = null;
-                        }
+            if (longTermMemoryProperties.isEnabled()) {
+                List<String> queries = null;
+                if (longTermMemoryProperties.getArticleQueryExtraction().isEnabled()) {
+                    queries = new ArrayList<>(memoryQueryExtractor.extractQueries(polishedContent));
+                    if (userInput != null && !userInput.isBlank()) {
+                        queries.add(userInput);
                     }
-                    promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
-                            memoryService,
-                            memoryPromptFormatter,
-                            List.of(MemoryType.WRITING_PREFERENCE, MemoryType.CORRECTION_PATTERN),
-                            sessionId,
-                            queries,
-                            memoryProbeRecorder));
+                    if (queries.isEmpty()) {
+                        queries = null;
+                    }
                 }
-
-                final var finalPromptSpec = promptSpec;
-                CompletableFuture.supplyAsync(() -> {
-                            SessionContextHolder.restore(contextSnapshot);
-                            try {
-                                return finalPromptSpec.stream()
-                                        .content()
-                                        .doOnNext(contentBuilder::append)
-                                        .then(Mono.just(contentBuilder.toString()))
-                                        .block();
-                            } finally {
-                                SessionContextHolder.clear();
-                            }
-                        })
-                        .get(5, TimeUnit.MINUTES);
-                response = contentBuilder.toString();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningCaptured", false,
-                                "reason", webSearchEnabled ? "tool_calls_required" : "non_reasoning_model"));
+                promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                        memoryService,
+                        memoryPromptFormatter,
+                        List.of(MemoryType.WRITING_PREFERENCE, MemoryType.CORRECTION_PATTERN),
+                        sessionId,
+                        queries,
+                        memoryProbeRecorder,
+                        globalRerankConverger,
+                        longTermMemoryProperties));
             }
+
+            final var finalPromptSpec = promptSpec;
+            CompletableFuture.supplyAsync(() -> {
+                        SessionContextHolder.restore(contextSnapshot);
+                        try {
+                            return finalPromptSpec.stream()
+                                    .content()
+                                    .doOnNext(contentBuilder::append)
+                                    .then(Mono.just(contentBuilder.toString()))
+                                    .block();
+                        } finally {
+                            SessionContextHolder.clear();
+                        }
+                    })
+                    .get(5, TimeUnit.MINUTES);
+            response = contentBuilder.toString();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -218,7 +204,7 @@ public class ReviewWorker implements WorkerAgent {
 
         chainPublisher.publishComplete(sessionId, nodeId,
                 Map.of("score", result.score(), "verdict", verdict,
-                        "feedback", truncate(feedback, 200)), reasoningContent);
+                        "feedback", truncate(feedback, 200)), null);
 
         log.info("[ReviewWorker] 评审结果: score={}, verdict={}, reviewCount={}", result.score(), verdict, reviewCount + 1);
         return Map.of(

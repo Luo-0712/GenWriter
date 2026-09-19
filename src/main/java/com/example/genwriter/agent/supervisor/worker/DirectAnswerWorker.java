@@ -9,6 +9,7 @@ import com.example.genwriter.agent.profile.AgentPromptRenderer;
 import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
@@ -52,6 +53,7 @@ public class DirectAnswerWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
     private final ReasoningStreamHelper reasoningStreamHelper;
     private final ContentStreamPublisher contentStreamPublisher;
@@ -124,12 +126,10 @@ public class DirectAnswerWorker implements WorkerAgent {
         final String finalUserPrompt = userPrompt;
 
         StringBuilder contentBuilder = new StringBuilder();
-        String reasoningContent = null;
         SessionContextHolder.set(sessionId, nodeId, name());
-        // 降级判定：webSearch 或 kb 启用时即便推理模型也走标准流式（工具调用必需，不采 reasoning）；
-        // 两者都禁用且为推理模型时走 raw SSE 采 reasoning。
-        boolean toolsRequired = webSearchEnabled || !kbId.isBlank();
-        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel() && !toolsRequired;
+        // 思考流与工具调用共存：采集由 ReasoningChatModelDecorator 在标准管线上完成
+        // （webSearch/kb 启用时工具循环在装饰器内执行，不再因工具需求放弃采集）
+        boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型直接回答",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
@@ -137,81 +137,65 @@ public class DirectAnswerWorker implements WorkerAgent {
                         "hasImages", multimodalContent != null && multimodalContent.hasImages(),
                         "reasoningCaptured", reasoningCaptured), null);
         try {
-            if (reasoningCaptured) {
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        systemPrompt, userPrompt, TEMPERATURE,
-                        chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.DIRECT_ANSWER, chunk, contentBuilder);
-                        });
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
-                var baseSpec = chatClient.prompt()
-                        .system(systemPrompt);
+            ChatClient chatClient = chatClientFactory.create(TEMPERATURE);
+            var baseSpec = chatClient.prompt()
+                    .system(systemPrompt);
 
-                // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
-                ChatClient.ChatClientRequestSpec promptSpec;
-                if (multimodalContent != null && multimodalContent.hasImages()) {
-                    try {
-                        Media[] mediaArr = multimodalContent.getImageAttachments().stream()
-                                .map(a -> {
-                                    try {
-                                        return new Media(
-                                                MimeType.valueOf(a.getMimeType()),
-                                                new java.net.URI(a.getFileUrl()).toURL());
-                                    } catch (Exception ex) {
-                                        throw new RuntimeException("Invalid URL: " + a.getFileUrl(), ex);
-                                    }
-                                })
-                                .toArray(Media[]::new);
-                        promptSpec = baseSpec.user(u -> u.text(finalUserPrompt).media(mediaArr));
-                    } catch (Exception e) {
-                        log.warn("构建多模态消息失败，降级为纯文本: {}", e.getMessage());
-                        promptSpec = baseSpec.user(finalUserPrompt);
-                    }
-                } else {
+            // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media
+            ChatClient.ChatClientRequestSpec promptSpec;
+            if (multimodalContent != null && multimodalContent.hasImages()) {
+                try {
+                    Media[] mediaArr = multimodalContent.getImageAttachments().stream()
+                            .map(a -> {
+                                try {
+                                    return new Media(
+                                            MimeType.valueOf(a.getMimeType()),
+                                            new java.net.URI(a.getFileUrl()).toURL());
+                                } catch (Exception ex) {
+                                    throw new RuntimeException("Invalid URL: " + a.getFileUrl(), ex);
+                                }
+                            })
+                            .toArray(Media[]::new);
+                    promptSpec = baseSpec.user(u -> u.text(finalUserPrompt).media(mediaArr));
+                } catch (Exception e) {
+                    log.warn("构建多模态消息失败，降级为纯文本: {}", e.getMessage());
                     promptSpec = baseSpec.user(finalUserPrompt);
                 }
-
-                promptSpec = AgentToolSupport.applyToolVisibility(
-                        promptSpec, webSearchEnabled, !kbId.isBlank());
-
-                promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
-                        .advisors(a -> a.param(
-                                AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
-                                conversationId));
-
-                if (longTermMemoryProperties.isEnabled()) {
-                    promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
-                            memoryService,
-                            memoryPromptFormatter,
-                            List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
-                            sessionId,
-                            null,
-                            memoryProbeRecorder));
-                }
-
-                promptSpec.stream()
-                        .content()
-                        .doOnNext(chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.DIRECT_ANSWER, chunk, contentBuilder);
-                        })
-                        .then(Mono.just(contentBuilder.toString()))
-                        .block(Duration.ofMinutes(5));
-                Map<String, Object> completeMeta = new java.util.LinkedHashMap<>();
-                completeMeta.put("outputLength", contentBuilder.length());
-                completeMeta.put("reasoningCaptured", false);
-                if (toolsRequired) completeMeta.put("reason", "tool_calls_required");
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId, completeMeta);
+            } else {
+                promptSpec = baseSpec.user(finalUserPrompt);
             }
+
+            promptSpec = AgentToolSupport.applyToolVisibility(
+                    promptSpec, webSearchEnabled, !kbId.isBlank());
+
+            promptSpec.advisors(new MessageChatMemoryAdvisor(chatMemory))
+                    .advisors(a -> a.param(
+                            AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY,
+                            conversationId));
+
+            if (longTermMemoryProperties.isEnabled()) {
+                promptSpec = promptSpec.advisors(new LongTermMemoryAdvisor(
+                        memoryService,
+                        memoryPromptFormatter,
+                        List.of(MemoryType.WRITING_PREFERENCE, MemoryType.DOMAIN_KNOWLEDGE),
+                        sessionId,
+                        null,
+                        memoryProbeRecorder,
+                        globalRerankConverger,
+                        longTermMemoryProperties));
+            }
+
+            promptSpec.stream()
+                    .content()
+                    .doOnNext(chunk -> {
+                        contentBuilder.append(chunk);
+                        contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                ContentStreamPublisher.Stage.DIRECT_ANSWER, chunk, contentBuilder);
+                    })
+                    .then(Mono.just(contentBuilder.toString()))
+                    .block(Duration.ofMinutes(5));
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", contentBuilder.length()));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -224,7 +208,7 @@ public class DirectAnswerWorker implements WorkerAgent {
         String fullResponse = contentBuilder.toString();
         log.info("[DirectAnswerWorker] 回答完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", fullResponse.length()), reasoningContent);
+                Map.of("length", fullResponse.length()), null);
         contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.DIRECT_ANSWER, fullResponse);
         return Map.of("finalOutput", fullResponse);
     }

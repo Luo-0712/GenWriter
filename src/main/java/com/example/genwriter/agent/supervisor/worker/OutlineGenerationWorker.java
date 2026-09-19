@@ -6,6 +6,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.profile.AgentPromptRenderer;
 import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.streaming.ContentStreamPublisher;
@@ -53,6 +54,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
     private final SaveSettingDetailTool saveSettingDetailTool;
     private final ReasoningStreamHelper reasoningStreamHelper;
@@ -124,7 +126,9 @@ public class OutlineGenerationWorker implements WorkerAgent {
                             MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
                     sessionId,
                     null,
-                    memoryProbeRecorder));
+                    memoryProbeRecorder,
+                    globalRerankConverger,
+                    longTermMemoryProperties));
         }
 
         // startStage 必须在调模型之前，前端 stage_start 才能先于 delta
@@ -132,6 +136,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
 
         String response;
         SessionContextHolder.set(sessionId, nodeId, name());
+        // 标记当前模型是否为推理模型（采集由 ReasoningChatModelDecorator 在标准管线上完成）
         boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型生成大纲",
                 AgentTraceEvent.Kind.LLM, nodeId,
@@ -140,48 +145,28 @@ public class OutlineGenerationWorker implements WorkerAgent {
         promptSpec = AgentToolSupport.applySessionContext(promptSpec, sessionId, nodeId, name());
         SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
         StringBuilder contentBuilder = new StringBuilder();
-        String reasoningContent = null;
         try {
-            if (reasoningCaptured) {
-                log.info("[OutlineGenerationWorker] Reasoning stream path uses raw streaming client; " +
-                        "save_setting_detail tool unavailable, setting extraction fallback persists. sessionId={}", sessionId);
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        systemPrompt, userPrompt, TEMPERATURE,
-                        chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.OUTLINE, chunk, contentBuilder);
-                        });
-                response = result.content();
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                final var finalPromptSpec = promptSpec;
-                CompletableFuture.supplyAsync(() -> {
-                            SessionContextHolder.restore(contextSnapshot);
-                            try {
-                                return finalPromptSpec.stream()
-                                        .content()
-                                        .doOnNext(chunk -> {
-                                            contentBuilder.append(chunk);
-                                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                                    ContentStreamPublisher.Stage.OUTLINE, chunk, contentBuilder);
-                                        })
-                                        .then(Mono.just(contentBuilder.toString()))
-                                        .block();
-                            } finally {
-                                SessionContextHolder.clear();
-                            }
-                        })
-                        .get(5, TimeUnit.MINUTES);
-                response = contentBuilder.toString();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningCaptured", false));
-            }
+            final var finalPromptSpec = promptSpec;
+            CompletableFuture.supplyAsync(() -> {
+                        SessionContextHolder.restore(contextSnapshot);
+                        try {
+                            return finalPromptSpec.stream()
+                                    .content()
+                                    .doOnNext(chunk -> {
+                                        contentBuilder.append(chunk);
+                                        contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                                ContentStreamPublisher.Stage.OUTLINE, chunk, contentBuilder);
+                                    })
+                                    .then(Mono.just(contentBuilder.toString()))
+                                    .block();
+                        } finally {
+                            SessionContextHolder.clear();
+                        }
+                    })
+                    .get(5, TimeUnit.MINUTES);
+            response = contentBuilder.toString();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -198,7 +183,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
         response = stripped;
         log.info("大纲生成完成: length={}", response != null ? response.length() : 0);
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", response != null ? response.length() : 0), reasoningContent);
+                Map.of("length", response != null ? response.length() : 0), null);
         contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.OUTLINE, response);
         return Map.of("outline", response);
     }

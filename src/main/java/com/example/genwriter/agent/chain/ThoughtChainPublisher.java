@@ -35,6 +35,11 @@ public class ThoughtChainPublisher {
 
     private static final int TEXT_SUMMARY_LIMIT = 240;
 
+    /** ReAct 决策来源：模型自主决策。 */
+    public static final String DECISION_REACT = "react";
+    /** ReAct 决策来源：内容流水线硬护栏强制，并非模型选择。 */
+    public static final String DECISION_GUARD = "guard";
+
     public String publishStart(String sessionId, String nodeName, ChainNode.Type nodeType,
                                String parentId, Object input) {
         String nodeId = generateNodeId(nodeName);
@@ -69,30 +74,6 @@ public class ThoughtChainPublisher {
                 .timestamp(now)
                 .build());
         return nodeId;
-    }
-
-    public void publishRunning(String sessionId, String nodeId, String statusText) {
-        TraceSpan span = traceSpans.get(nodeId);
-        ChainNode chainNode = ChainNode.builder()
-                .nodeId(nodeId)
-                .status(ChainNode.Status.RUNNING.name())
-                .output(statusText)
-                .timestamp(System.currentTimeMillis())
-                .build();
-
-        publishChainNode(sessionId, chainNode);
-        publishTraceEvent(sessionId, AgentTraceEvent.builder()
-                .traceId(sessionId)
-                .eventId(generateEventId())
-                .spanId(nodeId)
-                .parentSpanId(span != null ? span.parentSpanId() : null)
-                .kind(span != null ? span.kind().name() : AgentTraceEvent.Kind.STATUS.name())
-                .phase(AgentTraceEvent.Phase.RUNNING.name())
-                .name(span != null ? span.name() : null)
-                .summary(statusText)
-                .output(summarizeObject(statusText))
-                .timestamp(System.currentTimeMillis())
-                .build());
     }
 
     public void publishComplete(String sessionId, String nodeId, Object output) {
@@ -150,6 +131,27 @@ public class ThoughtChainPublisher {
         } catch (Exception e) {
             log.debug("Reasoning chunk publish failed: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 补录某 span 的思考全文（reasoning 全文）到 trace 缓冲与 SSE。
+     * <p>AI_REASONING_CHUNK 是实时流，不进后端落库缓冲；会话刷新后从 message metadata
+     * 恢复轨迹时 reasoning 会丢失。由 ChatModel 装饰器在流结束时调用本方法，
+     * 以同 spanId 合并语义把 reasoning 全文写入缓冲（mergeTraceEvent 后到覆盖先到），
+     * 保证「实时展示」与「落库恢复」两条链路都有完整思考过程。
+     */
+    public void publishReasoningComplete(String sessionId, String spanId, String reasoningContent) {
+        if (sessionId == null || sessionId.isBlank() || spanId == null || spanId.isBlank()) return;
+        if (reasoningContent == null || reasoningContent.isBlank()) return;
+        publishTraceEvent(sessionId, AgentTraceEvent.builder()
+                .traceId(sessionId)
+                .eventId(generateEventId())
+                .spanId(spanId)
+                .kind(AgentTraceEvent.Kind.LLM.name())
+                .phase(AgentTraceEvent.Phase.COMPLETED.name())
+                .reasoningContent(reasoningContent)
+                .timestamp(System.currentTimeMillis())
+                .build());
     }
 
     public void publishError(String sessionId, String nodeId, String error) {
@@ -309,21 +311,6 @@ public class ThoughtChainPublisher {
         publishTraceError(sessionId, spanId, error);
     }
 
-    public void publishStatusTrace(String sessionId, String parentSpanId, String statusText) {
-        if (sessionId == null || sessionId.isBlank()) return;
-        publishTraceEvent(sessionId, AgentTraceEvent.builder()
-                .traceId(sessionId)
-                .eventId(generateEventId())
-                .spanId(generateNodeId("status"))
-                .parentSpanId(parentSpanId)
-                .kind(AgentTraceEvent.Kind.STATUS.name())
-                .phase(AgentTraceEvent.Phase.RUNNING.name())
-                .name("状态更新")
-                .summary(statusText)
-                .timestamp(System.currentTimeMillis())
-                .build());
-    }
-
     private void publishChainNode(String sessionId, ChainNode chainNode) {
         if (sessionId == null || sessionId.isBlank()) return;
         try {
@@ -423,15 +410,21 @@ public class ThoughtChainPublisher {
     /**
      * 推送 ReAct 单步决策（thought / reasoning / action）作为 LLM span。
      * 由 SupervisorNode 的 ReAct StepHook 在 BEFORE 阶段调用，让前端 trace 树能看到每步决策依据。
+     *
+     * @param decisionType {@link #DECISION_REACT}（模型决策）或 {@link #DECISION_GUARD}（硬护栏强制），
+     *                     写入 metadata 供前端区分展示
      */
     public String publishReactDecisionTrace(String sessionId, String parentSpanId,
-                                            String thought, String reasoning, String action) {
+                                            String thought, String reasoning, String action,
+                                            String decisionType) {
         long now = System.currentTimeMillis();
         String spanId = generateNodeId("react-decision");
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("action", action != null ? action : "");
-        if (reasoning != null && !reasoning.isBlank()) metadata.put("reasoning", reasoning);
-        if (thought != null && !thought.isBlank()) metadata.put("thought", thought);
+        if (decisionType != null && !decisionType.isBlank()) metadata.put("decisionType", decisionType);
+        // 思考全文写入 reasoningContent 专属字段（前端「模型思考过程」区块渲染），
+        // metadata 仅保留决策元信息；reasoning 全文不经过 TEXT_SUMMARY_LIMIT 截断
+        String reasoningContent = buildDecisionReasoningContent(thought, reasoning);
         AgentTraceEvent event = AgentTraceEvent.builder()
                 .traceId(sessionId)
                 .eventId(generateEventId())
@@ -441,6 +434,7 @@ public class ThoughtChainPublisher {
                 .phase(AgentTraceEvent.Phase.STARTED.name())
                 .name("ReAct 决策")
                 .summary(thought != null && !thought.isBlank() ? truncate(thought, TEXT_SUMMARY_LIMIT) : "ReAct 决策")
+                .reasoningContent(reasoningContent)
                 .metadata(summarizeMap(metadata))
                 .startedAt(now)
                 .timestamp(now)
@@ -451,10 +445,27 @@ public class ThoughtChainPublisher {
     }
 
     /**
-     * 标记 ReAct 决策 span 完成。
+     * ReAct 决策思考全文：thought（简短决策）与 reasoning（详细依据）取非空者拼接，
+     * 不走 {@link #truncate(String, int)} 截断，保证前端能看到完整决策依据。
      */
-    public void publishReactDecisionComplete(String sessionId, String spanId) {
-        publishTraceComplete(sessionId, spanId, null, null);
+    private String buildDecisionReasoningContent(String thought, String reasoning) {
+        StringBuilder sb = new StringBuilder();
+        if (thought != null && !thought.isBlank()) sb.append(thought.trim());
+        if (reasoning != null && !reasoning.isBlank()) {
+            if (sb.length() > 0) sb.append("\n\n");
+            sb.append(reasoning.trim());
+        }
+        return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    /**
+     * 标记 ReAct 决策 span 完成。
+     *
+     * @param summaryText COMPLETED 事件的摘要，通常传当步 thought（护栏步传 reasoning）；
+     *                    传 null 会退化成兜底文案「已完成」，把 STARTED 阶段展示的决策依据覆盖掉
+     */
+    public void publishReactDecisionComplete(String sessionId, String spanId, String summaryText) {
+        publishTraceComplete(sessionId, spanId, summaryText, null);
     }
 
     private String generateNodeId(String nodeName) {
@@ -493,9 +504,12 @@ public class ThoughtChainPublisher {
             if (map.containsKey("error")) return truncate(String.valueOf(map.get("error")), TEXT_SUMMARY_LIMIT);
             if (map.containsKey("worker")) return "完成 " + map.get("worker");
             if (map.containsKey("length")) return "生成 " + map.get("length") + " 字符";
+            if (map.containsKey("outputLength")) return "输出 " + map.get("outputLength") + " 字符";
             if (map.containsKey("searchRounds")) return "完成 " + map.get("searchRounds") + " 次检索";
             if (map.containsKey("total")) return "返回 " + map.get("total") + " 条结果";
             if (map.containsKey("intent")) return "识别为 " + map.get("intent");
+            if (map.containsKey("verdict")) return "评审 " + map.get("verdict");
+            if (map.containsKey("reasoning")) return truncate(String.valueOf(map.get("reasoning")), TEXT_SUMMARY_LIMIT);
         }
         return "已完成";
     }

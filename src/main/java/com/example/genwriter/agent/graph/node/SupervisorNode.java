@@ -12,6 +12,8 @@ import com.example.genwriter.agent.skill.NovelWritingPromptSupport;
 import com.example.genwriter.agent.skill.SkillService;
 import com.example.genwriter.agent.skill.WritingGenreProfile;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
+import com.example.genwriter.agent.streaming.ReasoningChatModelDecorator;
+import com.example.genwriter.agent.streaming.ReasoningChatModelDecorator.ReasoningCallResult;
 import com.example.genwriter.agent.supervisor.ExecutionPlan;
 import com.example.genwriter.agent.supervisor.SupervisorDecision;
 import com.example.genwriter.agent.supervisor.SupervisorModeProperties;
@@ -33,6 +35,11 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.function.FunctionCallback;
+import org.springframework.ai.model.function.FunctionCallingOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
@@ -56,12 +63,15 @@ public class SupervisorNode implements NodeAction {
     private final ThoughtChainPublisher chainPublisher;
     private final SkillService skillService;
     private final WritingOutputSettingsService writingOutputSettingsService;
+    private final ReasoningChatModelDecorator reasoningChatModelDecorator;
 
     private ChatClient chatClient;
     private String systemPrompt;
     private ChatClient reactChatClient;
     private String reactSystemPrompt;
     private ReactLoop reactLoop;
+    /** read_skill_detail 工具回调：决策调用（callWithReasoning）需携带，供装饰器完成工具循环。 */
+    private FunctionCallback readSkillDetailCallback;
 
     private static final Map<String, String> WORKER_DISPLAY_NAMES = Map.of(
             "intent_recognition", "意图识别",
@@ -78,7 +88,7 @@ public class SupervisorNode implements NodeAction {
 
     @PostConstruct
     void init() {
-        ToolCallback readSkillDetail = FunctionToolCallback
+        this.readSkillDetailCallback = FunctionToolCallback
                 .builder("read_skill_detail",
                         (java.util.function.Function<ReadSkillInput, String>) this::readSkillDetail)
                 .description("读取指定 Skill 的完整 Markdown 内容。" +
@@ -88,7 +98,7 @@ public class SupervisorNode implements NodeAction {
 
         this.chatClient = chatClientFactory.create(properties.getTemperature())
                 .mutate()
-                .defaultTools(readSkillDetail)
+                .defaultTools(readSkillDetailCallback)
                 .build();
         this.systemPrompt = promptProvider.buildSystemPrompt();
 
@@ -234,7 +244,6 @@ public class SupervisorNode implements NodeAction {
 
         int planIndex = 0;
         int replanCount = 0;
-        int stepCounter = 0;
         while (planIndex < steps.size()) {
             String workerName = steps.get(planIndex);
 
@@ -283,16 +292,14 @@ public class SupervisorNode implements NodeAction {
             }
 
             String displayName = WORKER_DISPLAY_NAMES.getOrDefault(workerName, workerName);
-            String workerNodeId = chainPublisher.publishStart(sessionId, displayName,
-                    ChainNode.Type.EXECUTION, supervisorNodeId,
-                    Map.of("worker", workerName, "step", stepCounter + 1));
 
             publishStatus(sessionId, "正在调用 " + displayName + "...");
             log.info("[SupervisorNode] 执行 Worker: name={}, step={}/{}", workerName, planIndex + 1, steps.size());
 
             try {
                 Map<String, Object> result;
-                SessionContextHolder.set(sessionId, workerNodeId, workerName);
+                // 与 ReAct 路径一致：步骤节点由 worker 自己发布，supervisor 不再发同名包裹节点。
+                SessionContextHolder.set(sessionId, supervisorNodeId, workerName);
                 try {
                     result = worker.execute(new HashMap<>(accumulated));
                 } finally {
@@ -309,16 +316,11 @@ public class SupervisorNode implements NodeAction {
                     }
                 }
 
-                Object outputSummary = buildWorkerOutputSummary(workerName, result);
-                chainPublisher.publishComplete(sessionId, workerNodeId, outputSummary);
                 planIndex++;
-                stepCounter++;
             } catch (Exception e) {
                 log.error("[SupervisorNode] Worker 执行失败: name={}, error={}", workerName, e.getMessage(), e);
-                chainPublisher.publishError(sessionId, workerNodeId, e.getMessage());
                 publishStatus(sessionId, "步骤 " + displayName + " 执行异常，跳过继续...");
                 planIndex++;
-                stepCounter++;
             }
         }
 
@@ -340,9 +342,9 @@ public class SupervisorNode implements NodeAction {
     /**
      * ReAct 主路径：调用 {@link ReactLoop}，把 LLM 单步决策、worker 执行、SSE/chain 发布适配为回调。
      *
-     * <p>行为与旧 while-loop 对齐：每步 publishStart/publishComplete、publishStatus、SessionContextHolder 设置。
-     * executor 在内部闭环完成 nodeId 的发布（start/complete/error），因 ReactLoop 接口不透出 nodeId。
-     * 首步护栏：尚未执行 intent_recognition 时强制首步为 intent_recognition，复用旧路径的护栏语义。
+     * <p>行为与旧 while-loop 对齐：每步 publishStatus + SessionContextHolder 设置；步骤节点本身由 worker 发布，
+     * supervisor 不再发同名包裹节点（否则轨迹里每步都是两层同名节点）。首步护栏：尚未执行 intent_recognition
+     * 时强制首步为 intent_recognition，复用旧路径的护栏语义。
      *
      * <p>decider 读取 ReactLoop 维护的 history（每项含 worker/thought/reasoning/result）作为 observation。
      */
@@ -352,9 +354,16 @@ public class SupervisorNode implements NodeAction {
         boolean[] intentDone = {false};
         ContentPhase[] contentPhase = {ContentPhase.IDLE};
 
+        // 硬护栏强制出的步骤要能和模型自主决策区分（identity 语义，与下方 decisionSpanIds 一致）
+        Set<ReactStep> guardSteps = Collections.newSetFromMap(new IdentityHashMap<>());
+
         ReactLoop.Decider decider = (s, hist) -> {
             ReactStep forced = forcedContentStep(intentDone[0], contentPhase[0], reviewCountOf(s));
-            return forced != null ? forced : decideNextReactStep(s, hist);
+            if (forced != null) {
+                guardSteps.add(forced);
+                return forced;
+            }
+            return decideNextReactStep(s, hist);
         };
 
         ReactLoop.WorkerExecutor executor = (workerName, s) -> {
@@ -365,19 +374,17 @@ public class SupervisorNode implements NodeAction {
             }
             String displayName = WORKER_DISPLAY_NAMES.getOrDefault(workerName, workerName);
             int stepNo = ++stepCounter[0];
-            String workerNodeId = chainPublisher.publishStart(sessionId, displayName,
-                    ChainNode.Type.EXECUTION, supervisorNodeId,
-                    Map.of("worker", workerName, "step", stepNo));
             publishStatus(sessionId, "正在调用 " + displayName + "...");
             log.info("[SupervisorNode][ReAct] 执行 Worker: name={}, step={}", workerName, stepNo);
 
             Map<String, Object> result;
-            SessionContextHolder.set(sessionId, workerNodeId, workerName);
+            // 步骤节点只由 worker 自己发布（其 publishStart 的 parentId 传 null，按当前 span 挂载）：
+            // supervisor 再发一个同名包裹节点会让轨迹里出现 "意图识别 > 意图识别" 的双层重复。
+            SessionContextHolder.set(sessionId, supervisorNodeId, workerName);
             try {
                 result = worker.execute(new HashMap<>(s));
             } catch (Exception e) {
                 log.error("[SupervisorNode][ReAct] Worker 执行失败: name={}, error={}", workerName, e.getMessage(), e);
-                chainPublisher.publishError(sessionId, workerNodeId, e.getMessage());
                 publishStatus(sessionId, "步骤 " + displayName + " 执行异常，跳过继续...");
                 throw e;
             } finally {
@@ -406,8 +413,6 @@ public class SupervisorNode implements NodeAction {
                 s.remove("reviewFeedback");
             }
 
-            Object outputSummary = buildWorkerOutputSummary(workerName, result);
-            chainPublisher.publishComplete(sessionId, workerNodeId, outputSummary);
             return result;
         };
 
@@ -420,16 +425,20 @@ public class SupervisorNode implements NodeAction {
                 if (ReactLoop.Phase.BEFORE.name().equals(phase)) {
                     String spanId = chainPublisher.publishReactDecisionTrace(
                             sessionId, supervisorNodeId,
-                            step.thought(), step.reasoning(), step.action());
+                            step.thought(), step.reasoning(), step.action(),
+                            guardSteps.contains(step) ? ThoughtChainPublisher.DECISION_GUARD
+                                    : ThoughtChainPublisher.DECISION_REACT);
                     decisionSpanIds.put(step, spanId);
                 } else {
-                    // AFTER / SKIP / ERROR：结束该决策 span
+                    // AFTER / SKIP / ERROR：结束该决策 span，摘要沿用决策依据（护栏步用硬护栏理由），
+                    // 否则 COMPLETED 会退化成兜底文案「已完成」并覆盖 STARTED 阶段展示的思考
                     String spanId = decisionSpanIds.remove(step);
                     if (spanId != null) {
                         if (ReactLoop.Phase.ERROR.name().equals(phase)) {
                             chainPublisher.publishTraceError(sessionId, spanId, error);
                         } else {
-                            chainPublisher.publishReactDecisionComplete(sessionId, spanId);
+                            chainPublisher.publishReactDecisionComplete(sessionId, spanId,
+                                    guardSteps.contains(step) ? step.reasoning() : step.thought());
                         }
                     }
                 }
@@ -460,12 +469,18 @@ public class SupervisorNode implements NodeAction {
         String userPrompt = promptProvider.buildReactStepPrompt(state, observationSummaries);
 
         String response;
+        String chainOfThought = null;
         try {
-            response = reactChatClient.prompt()
-                    .system(reactSystemPrompt)
-                    .user(userPrompt)
-                    .call()
-                    .content();
+            // 决策改走推理装饰器聚合调用：采集模型真实思维链（reasoning_content），
+            // 并携带 read_skill_detail 工具（工具循环在装饰器内完成）
+            FunctionCallingOptions options = FunctionCallingOptions.builder()
+                    .temperature(properties.getTemperature())
+                    .functionCallbacks(List.of(readSkillDetailCallback))
+                    .build();
+            ReasoningCallResult result = reasoningChatModelDecorator.callWithReasoning(new Prompt(
+                    List.of(new SystemMessage(reactSystemPrompt), new UserMessage(userPrompt)), options));
+            response = result.content();
+            chainOfThought = result.reasoningContent();
         } catch (Exception e) {
             log.error("[SupervisorNode][ReAct] LLM 决策调用失败", e);
             return null;
@@ -481,11 +496,27 @@ public class SupervisorNode implements NodeAction {
             }
             String thought = root.path("thought").asText("");
             String reasoning = root.path("reasoning").asText("");
-            return new ReactStep(thought, action, null, reasoning);
+            // 真实思维链与模型自述决策依据合并，随 ReactStep 传给 StepHook，
+            // 由 publishReactDecisionTrace 写入「ReAct 决策」span 的 reasoningContent
+            return new ReactStep(thought, action, null, combineReasoning(chainOfThought, reasoning));
         } catch (Exception e) {
             log.warn("[SupervisorNode][ReAct] 决策解析失败: response={}", response, e);
             return null;
         }
+    }
+
+    /**
+     * 真实思维链（reasoning_content）与模型自述 reasoning 合并：
+     * 前端「ReAct 决策」节点的「模型思考过程」区块优先展示模型内部思考，自述以标注补充。
+     */
+    private static String combineReasoning(String chainOfThought, String selfReported) {
+        boolean hasChain = chainOfThought != null && !chainOfThought.isBlank();
+        boolean hasSelf = selfReported != null && !selfReported.isBlank();
+        if (hasChain && hasSelf) {
+            return chainOfThought.trim() + "\n\n[决策自述] " + selfReported.trim();
+        }
+        if (hasChain) return chainOfThought.trim();
+        return hasSelf ? selfReported.trim() : null;
     }
 
     /** 读取 state 中 ReviewWorker 写入的已评审轮数，缺失时按 0 处理。 */

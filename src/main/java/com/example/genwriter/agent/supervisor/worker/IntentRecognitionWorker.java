@@ -75,38 +75,25 @@ public class IntentRecognitionWorker implements WorkerAgent {
         String userPrompt = renderedPrompt.userPrompt();
         StringBuilder contentBuilder = new StringBuilder();
         String response;
-        String reasoningContent = null;
         SessionContextHolder.set(sessionId, nodeId, name());
+        // 标记当前模型是否为推理模型（采集由 ReasoningChatModelDecorator 在标准管线上完成）
         boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型识别意图",
                 AgentTraceEvent.Kind.LLM, nodeId,
                 Map.of("promptLength", userPrompt.length(), "temperature", TEMPERATURE,
                         "reasoningCaptured", reasoningCaptured), null);
         try {
-            if (reasoningCaptured) {
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        systemPrompt, userPrompt, TEMPERATURE,
-                        contentBuilder::append);
-                response = result.content();
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                chatClient.prompt()
-                        .system(systemPrompt)
-                        .user(userPrompt)
-                        .stream()
-                        .content()
-                        .doOnNext(contentBuilder::append)
-                        .then(Mono.just(contentBuilder.toString()))
-                        .block();
-                response = contentBuilder.toString();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", response != null ? response.length() : 0,
-                                "reasoningCaptured", false));
-            }
+            chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .stream()
+                    .content()
+                    .doOnNext(contentBuilder::append)
+                    .then(Mono.just(contentBuilder.toString()))
+                    .block();
+            response = contentBuilder.toString();
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", response != null ? response.length() : 0));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -121,13 +108,12 @@ public class IntentRecognitionWorker implements WorkerAgent {
             log.info("意图识别: intent={}, writingType={}", result.intent(), result.writingType());
             chainPublisher.publishComplete(sessionId, nodeId,
                     Map.of("intent", result.intent(), "writingType", result.writingType(),
-                            "reason", result.reason()), reasoningContent);
+                            "reason", result.reason()), null);
             return Map.of("intent", result.intent(), "writingType", result.writingType());
         } catch (Exception e) {
             log.warn("意图解析失败，降级 UNKNOWN: response={}", response, e);
             chainPublisher.publishComplete(sessionId, nodeId,
-                    Map.of("intent", "UNKNOWN", "writingType", "CREATE", "fallback", true),
-                    reasoningContent);
+                    Map.of("intent", "UNKNOWN", "writingType", "CREATE", "fallback", true), null);
             return Map.of("intent", "UNKNOWN", "writingType", "CREATE");
         }
     }

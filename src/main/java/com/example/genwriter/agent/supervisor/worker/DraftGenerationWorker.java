@@ -10,6 +10,7 @@ import com.example.genwriter.agent.profile.RenderedAgentPrompt;
 import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.agent.streaming.ReasoningStreamHelper;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.skill.WritingGenreResolver;
 import com.example.genwriter.agent.supervisor.WorkerAgent;
 import com.example.genwriter.agent.supervisor.WorkerRegistry;
@@ -58,6 +59,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
     private final UpdateWritingSkillTool updateWritingSkillToolCallback;
     private final SaveSettingDetailTool saveSettingDetailTool;
@@ -204,10 +206,14 @@ public class DraftGenerationWorker implements WorkerAgent {
                             MemoryType.WORLD_SETTING, MemoryType.CHARACTER_PROFILE, MemoryType.FORESHADOWING),
                     sessionId,
                     null,
-                    memoryProbeRecorder));
+                    memoryProbeRecorder,
+                    globalRerankConverger,
+                    longTermMemoryProperties));
         }
 
         SessionContextHolder.set(sessionId, nodeId, name());
+        // 标记当前模型是否为推理模型（采集由 ReasoningChatModelDecorator 在标准管线上完成，
+        // update_writing_skill / save_setting_detail 工具与思考流共存，不再互斥）
         boolean reasoningCaptured = reasoningStreamHelper.isReasoningModel();
         String llmSpanId = chainPublisher.publishTraceStart(sessionId, "模型撰写正文",
                 AgentTraceEvent.Kind.LLM, nodeId,
@@ -216,45 +222,27 @@ public class DraftGenerationWorker implements WorkerAgent {
                         "reasoningCaptured", reasoningCaptured), null);
         promptSpec = AgentToolSupport.applySessionContext(promptSpec, sessionId, nodeId, name());
         SessionContextHolder.ContextSnapshot contextSnapshot = SessionContextHolder.snapshot();
-        String reasoningContent = null;
         try {
-            if (reasoningCaptured) {
-                log.info("[DraftGenerationWorker] Reasoning stream path uses raw streaming client; tool calls are unavailable and setting extraction fallback will persist story settings. sessionId={}", sessionId);
-                var result = reasoningStreamHelper.stream(sessionId, nodeId,
-                        systemPrompt, userPrompt, TEMPERATURE,
-                        chunk -> {
-                            contentBuilder.append(chunk);
-                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                    ContentStreamPublisher.Stage.DRAFT, chunk, contentBuilder);
-                        });
-                reasoningContent = result.reasoningContent();
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", result.content() != null ? result.content().length() : 0,
-                                "reasoningLength", reasoningContent != null ? reasoningContent.length() : 0,
-                                "reasoningCaptured", true));
-            } else {
-                final var finalPromptSpec = promptSpec;
-                CompletableFuture.supplyAsync(() -> {
-                            SessionContextHolder.restore(contextSnapshot);
-                            try {
-                                return finalPromptSpec.stream()
-                                        .content()
-                                        .doOnNext(chunk -> {
-                                            contentBuilder.append(chunk);
-                                            contentStreamPublisher.publishDelta(sessionId, nodeId,
-                                                    ContentStreamPublisher.Stage.DRAFT, chunk, contentBuilder);
-                                        })
-                                        .then(Mono.just(contentBuilder.toString()))
-                                        .block();
-                            } finally {
-                                SessionContextHolder.clear();
-                            }
-                        })
-                        .get(5, TimeUnit.MINUTES);
-                chainPublisher.publishTraceComplete(sessionId, llmSpanId,
-                        Map.of("outputLength", contentBuilder.length(),
-                                "reasoningCaptured", false));
-            }
+            final var finalPromptSpec = promptSpec;
+            CompletableFuture.supplyAsync(() -> {
+                        SessionContextHolder.restore(contextSnapshot);
+                        try {
+                            return finalPromptSpec.stream()
+                                    .content()
+                                    .doOnNext(chunk -> {
+                                        contentBuilder.append(chunk);
+                                        contentStreamPublisher.publishDelta(sessionId, nodeId,
+                                                ContentStreamPublisher.Stage.DRAFT, chunk, contentBuilder);
+                                    })
+                                    .then(Mono.just(contentBuilder.toString()))
+                                    .block();
+                        } finally {
+                            SessionContextHolder.clear();
+                        }
+                    })
+                    .get(5, TimeUnit.MINUTES);
+            chainPublisher.publishTraceComplete(sessionId, llmSpanId,
+                    Map.of("outputLength", contentBuilder.length()));
         } catch (Exception e) {
             chainPublisher.publishTraceError(sessionId, llmSpanId, e.getMessage());
             chainPublisher.publishError(sessionId, nodeId, e.getMessage());
@@ -270,7 +258,7 @@ public class DraftGenerationWorker implements WorkerAgent {
         }
         log.info("正文写作完成: length={}", fullResponse.length());
         chainPublisher.publishComplete(sessionId, nodeId,
-                Map.of("length", fullResponse.length()), reasoningContent);
+                Map.of("length", fullResponse.length()), null);
         contentStreamPublisher.completeStage(sessionId, nodeId, ContentStreamPublisher.Stage.DRAFT, fullResponse);
         return Map.of("draft", fullResponse);
     }

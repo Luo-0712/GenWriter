@@ -121,15 +121,80 @@ const flattenTrace = (nodes) => {
   return rows;
 };
 
+const REACT_DECISION_NAME = 'ReAct 决策';
+const FALLBACK_SUMMARY = '已完成';
+
+// 节点标题：护栏步骤由后端在 metadata.decisionType 标记，历史数据按名字兜底识别
+const nodeTitle = (node) => {
+  if (node.metadata?.decisionType === 'guard') return '系统护栏';
+  if (node.name === REACT_DECISION_NAME) return '决策';
+  return node.name || KIND_LABELS[node.kind] || '执行步骤';
+};
+
+// 兜底摘要（后端无 output 时的默认值）不展示，避免整屏重复的「已完成」
+const nodeSummary = (node) => (node.summary && node.summary !== FALLBACK_SUMMARY ? node.summary : null);
+
+const mergeSameNameChild = (parent, child) => {
+  const metadata = { ...(parent.metadata || {}), ...(child.metadata || {}) };
+  return {
+    ...parent,
+    // 子节点是真正跑出产物的那层，它的摘要/输出/思考过程更有信息量
+    phase: child.phase && child.phase !== 'STARTED' ? child.phase : parent.phase,
+    input: child.input ?? parent.input,
+    output: child.output ?? parent.output,
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    reasoningContent: child.reasoningContent ?? parent.reasoningContent,
+    error: child.error ?? parent.error,
+    summary: child.summary ?? parent.summary,
+    endedAt: child.endedAt ?? parent.endedAt,
+    durationMs: child.durationMs ?? parent.durationMs,
+  };
+};
+
+/**
+ * 折叠同名父子节点。后端历史版本会在同一步骤上发两层同名节点
+ * （supervisor 包裹节点 + worker 自身节点），轨迹里表现为 "意图识别 > 意图识别"。
+ * 这里把唯一同名子节点合并进父节点，位置由子节点的子节点顶上。
+ */
+const normalizeTraceNodes = (nodes = []) => nodes.map((node) => {
+  const children = normalizeTraceNodes(node.children || []);
+  const sameName = children.filter((child) => child.name === node.name);
+  if (sameName.length !== 1) return { ...node, children };
+
+  const [child] = sameName;
+  const position = children.indexOf(child);
+  return {
+    ...mergeSameNameChild(node, child),
+    children: [...children.slice(0, position), ...(child.children || []), ...children.slice(position + 1)],
+  };
+});
+
 const TraceNodeItem = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 1);
   const reasoningRef = useRef(null);
+  // 首次收到思考流时自动展开一次；历史恢复节点与用户手动收起后不再强制展开
+  const hadReasoningRef = useRef(Boolean(node.reasoningContent));
   const status = PHASE_TO_STATUS[node.phase] || 'RUNNING';
   const hasChildren = node.children && node.children.length > 0;
   const hasDetails = node.input || node.output || node.metadata || node.error || node.reasoningContent;
+  const kindStyle = KIND_STYLES[node.kind] || KIND_STYLES.STATUS;
+  // reasoningCaptured / reason 由 worker 写在 span 的输入摘要里（metadata 作为兼容来源）
+  const reasoningMeta = node.metadata?.reasoningCaptured != null ? node.metadata : node.input;
+  const reasoningDisabled = reasoningMeta?.reasoningCaptured === false;
+  const reasoningDisabledText = reasoningMeta?.reason === 'tool_calls_required'
+    ? '该步骤因工具调用不展示思考过程'
+    : '当前模型未输出思考过程（非推理模型，或该步骤无需思考）';
   const isRunning = status === 'STARTED' || status === 'RUNNING';
-  // 工具调用必需时后端降级不采 reasoning，前端显示提示
-  const reasoningDisabled = node.metadata?.reasoningCaptured === false;
+  // 思考流进行中：节点上显示「思考中」呼吸标识
+  const isThinking = isRunning && Boolean(node.reasoningContent);
+
+  // 首个思考 chunk 到达时自动展开（仅一次，之后尊重用户操作）
+  useEffect(() => {
+    if (node.reasoningContent && !hadReasoningRef.current) {
+      hadReasoningRef.current = true;
+      setExpanded(true);
+    }
+  }, [node.reasoningContent]);
 
   // reasoning 流式追加时自动滚动到底
   useEffect(() => {
@@ -154,13 +219,24 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
         />
         <div className="trace-node-body">
           <div className="trace-node-title-row">
-            <span className="trace-node-title">{node.name || KIND_LABELS[node.kind] || '执行步骤'}</span>
+            <span className="trace-node-title">{nodeTitle(node)}</span>
+            {node.kind === 'LLM' && (
+              <span className="trace-node-chip trace-node-kind-chip" style={kindStyle}>
+                {KIND_LABELS[node.kind] || node.kind}
+              </span>
+            )}
+            {isThinking && (
+              <span className="trace-node-chip trace-node-thinking-chip">
+                <span className="thinking-panel-live-dot" />
+                思考中
+              </span>
+            )}
             {node.toolName && <span className="trace-node-chip">{node.toolName}</span>}
             {node.durationMs != null && node.durationMs > 0 && (
               <span className="trace-node-duration">{formatDuration(node.durationMs)}</span>
             )}
           </div>
-          {node.summary && <div className="trace-node-summary">{node.summary}</div>}
+          {nodeSummary(node) && <div className="trace-node-summary">{nodeSummary(node)}</div>}
         </div>
       </div>
 
@@ -194,7 +270,7 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
           )}
           {reasoningDisabled && !node.reasoningContent && (
             <div className="trace-detail-section trace-detail-reasoning-disabled">
-              该步骤因工具调用不展示思考过程
+              {reasoningDisabledText}
             </div>
           )}
           {node.metadata && formatValue(node.metadata) && (
@@ -245,7 +321,7 @@ const ThinkingPanel = ({ traceEvents = [], chainNodes = [], isStreaming }) => {
   const [filter, setFilter] = useState('ALL');
   const contentRef = useRef(null);
 
-  const traceTree = useMemo(() => mergeTraceEvents(traceEvents), [traceEvents]);
+  const traceTree = useMemo(() => normalizeTraceNodes(mergeTraceEvents(traceEvents)), [traceEvents]);
   const flatTrace = useMemo(() => flattenTrace(traceTree), [traceTree]);
   const hasTrace = flatTrace.length > 0;
   const hasLegacy = chainNodes.length > 0;

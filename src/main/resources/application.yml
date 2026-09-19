@@ -18,7 +18,7 @@ spring:
       chat:
         enabled: true
         options:
-          model: qwen3.8-flash
+          model: qwen3.7-flash
           temperature: 0.7
       embedding:
         enabled: true
@@ -118,44 +118,65 @@ app:
     allowed-image-extensions: jpg,jpeg,png,gif,webp
     allowed-document-extensions: pdf,doc,docx,txt,md,csv,json,xml
 
+# 检索精排与相关性闸门（长期记忆 / RAG 两侧统一；rerank 默认关闭，可整体回退）
+retrieval:
+  rerank:
+    enabled: false
+    endpoint: ""
+    model: bge-reranker-v2-m3
+    timeout-ms: 2000
+    batch-size: 32
+    top-n: 5
+    recall-limit: 30
+    max-retries: 0
+  gate:
+    enabled: true
+    min-top-score: 0.40
+    min-margin: 0.05
+    margin-index: 3
+    min-score-floor: 0.25
+
 genwriter:
   llm:
-    default-provider: deepseek
-    default-model: deepseek-v4-flash
+    default-provider: dashscope
+    default-model: qwen3.7-flash
     default-temperature: 0.7
     default-max-tokens: 65535
     models:
-      - name: deepseek-v4-flash
-        supportsVision: false
-      - name: qwen3.8-flash
+      - name: qwen3.7-flash
         supportsVision: false
       - name: qwen-turbo
         supportsVision: false
       - name: qwen-vl-plus
         supportsVision: true
-      - name: deepseek-chat
+      - name: deepseek-flash
         supportsVision: false
-      - name: deepseek-reasoner
+      - name: deepseek-v4-pro
         supportsVision: false
     providers:
       - type: dashscope
         display-name: 通义千问
         api-key: ${DASHSCOPE_API_KEY}
+        # qwen3.x 系列只在 OpenAI 兼容端点提供服务，原生端点会返回 400 url error
+        base-url: https://dashscope.aliyuncs.com/compatible-mode
+        api-compatibility: openai_compatible
+        # qwen3 系列为推理模型，raw SSE 路径解析 reasoning_content 供前端展示思考过程
+        reasoning: true
         models:
-          - qwen3.8-flash
-          - qwen3.7-max
-          - qwen-turbo
-        active-model: qwen3.8-flash
+          - qwen3.7-flash
+        active-model: qwen3.7-flash
       - type: deepseek
         display-name: DeepSeek
         api-key: ${DEEPSEEK_API_KEY}
         base-url: https://api.deepseek.com
         api-compatibility: openai_compatible
         reasoning: true
+        # 官方 /models 仅暴露这两个；deepseek-chat / deepseek-reasoner / deepseek-v4-flash
+        # 均已弃用或为别名，实测会静默降级到 deepseek-flash，故不再列出
         models:
-          - deepseek-v4-flash
+          - deepseek-flash
           - deepseek-v4-pro
-        active-model: deepseek-v4-flash
+        active-model: deepseek-flash
   embedding:
     default-model: qwen3.7-text-embedding-flash
     dimension: 1024
@@ -200,8 +221,12 @@ genwriter:
       recent-event-limit: 100
     retrieval:
       max-results: 5
-      similarity-threshold: 0.65
+      # 0.65 对中文短 query 过严：新版收紧 textSearch 后文本路不再给向量路兜底，
+      # A/B 评测显示阈值 >0.55 后 Hit@5 开始掉档（0.55=100%，0.60=88.9%，0.65=77.8%）。
+      # 0.50 可在召回不掉的前提下换取误注入率 12.5%->0% 与注入量 -20%~-28%。
+      similarity-threshold: 0.50
       dedup-threshold: 0.85
+      global-top-n: 5
     extraction:
       enabled: true
       async: true

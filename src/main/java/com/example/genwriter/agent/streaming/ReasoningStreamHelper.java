@@ -128,7 +128,7 @@ public class ReasoningStreamHelper {
      * <p>ProviderConfig.thinkingParam 非空时以其为准（允许 yml 覆盖）；
      * 否则按供应商类型推断：deepseek 与 dashscope 下的推理模型默认开启，其它类型默认关闭。
      */
-    private boolean resolveEnableThinking(LLMConfig.ProviderConfig config) {
+    public boolean resolveEnableThinking(LLMConfig.ProviderConfig config) {
         if (config.getThinkingParam() != null) {
             return config.getThinkingParam();
         }
