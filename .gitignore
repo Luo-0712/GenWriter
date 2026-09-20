@@ -42,6 +42,11 @@ temp/
 temp_images/
 dump.rdb
 
+### JVM 崩溃转储 ###
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
+
 ### Writing / Docs ###
 .writing/
 
@@ -51,3 +56,6 @@ dump.rdb
 
 ### ZCode agent sessions ###
 .zcode/
+
+### CodeBuddy agent data ###
+.codebuddy/

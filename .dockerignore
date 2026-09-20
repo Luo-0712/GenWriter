@@ -20,6 +20,13 @@ logs/
 temp/
 dump.rdb
 
+# AI agent local data (勿打入构建上下文)
+.codebuddy
+.claude
+.zcode
+.codex
+.writing
+
 # Docker (避免递归)
 docker-compose.yml
 Dockerfile*
