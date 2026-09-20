@@ -73,6 +73,11 @@ public class ChatModelConfig {
                     log.info("注册模型: {} ({})", key, provider.getDisplayName());
                 }
                 // 注册简称键（如 "dashscope"、"openai"）方便切换
+                dynamicModel.registerModel(provider.getType(), model);
+                // 覆盖前面按自动配置注册的兜底客户端：providers 中显式配置的客户端（可走 OpenAI 兼容端点）优先
+                if (provider.getActiveModel().equals(llmConfig.getDefaultModel())) {
+                    dynamicModel.registerModel(llmConfig.getDefaultModel(), model);
+                }
                 String providerKey = provider.getType() + ":" + provider.getActiveModel();
                 if (provider.getType().equals(llmConfig.getDefaultProvider())) {
                     dynamicModel.switchModel(providerKey);

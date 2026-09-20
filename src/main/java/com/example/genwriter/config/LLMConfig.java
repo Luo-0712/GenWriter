@@ -26,8 +26,10 @@ public class LLMConfig {
 
     /**
      * 默认模型名称
+     * 与 application.yml 的 genwriter.llm.default-model 保持一致，
+     * 且必须是某个 provider 的 models 列表中已注册的名字
      */
-    private String defaultModel = "qwen3.8-flash";
+    private String defaultModel = "qwen3.7-flash";
 
     /**
      * 请求超时时间
