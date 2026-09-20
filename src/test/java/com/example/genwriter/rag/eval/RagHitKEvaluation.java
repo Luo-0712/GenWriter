@@ -37,7 +37,9 @@ public class RagHitKEvaluation {
     record QuestionResult(String question, List<ScoredChunk> ranked, boolean hitAt1, boolean hitAt3, boolean hitAt5) {}
 
     record StrategyReport(String strategyName, int chunkCount, double avgChunkChars,
-            double hit1, double hit3, double hit5, List<QuestionResult> details) {}
+            double hit1, double hit3, double hit5, List<QuestionResult> details,
+            int unrelatedCount, double falseInjectionRate, double rejectionRate,
+            List<Double> unrelatedTopScores) {}
 
     public static void main(String[] args) throws Exception {
         var api = new com.alibaba.cloud.ai.dashscope.api.DashScopeApi(System.getenv("DASHSCOPE_API_KEY"));
@@ -94,11 +96,34 @@ public class RagHitKEvaluation {
         double h5 = results.stream().filter(QuestionResult::hitAt5).count() / (double) results.size();
         int totalChars = chunks.stream().mapToInt(c -> c.getContent().length()).sum();
 
-        System.out.printf("[%s] chunks=%d avgChars=%.0f Hit@1=%.1f%% Hit@3=%.1f%% Hit@5=%.1f%%%n",
+        // 负样本：与语料无关的 query，top1 余弦相似度越过判定阈值即记为「误注入」，否则为「拒答」
+        double evalThreshold = evalThreshold();
+        List<Double> unrelatedTopScores = new ArrayList<>();
+        for (String unrelated : RagEvalDataset.unrelatedQueries()) {
+            float[] uq = normalize(embeddingModel.embed(unrelated));
+            double topSim = 0.0;
+            for (int i = 0; i < chunks.size(); i++) {
+                topSim = Math.max(topSim, cosine(uq, chunkVectors.get(i)));
+            }
+            unrelatedTopScores.add(topSim);
+        }
+        long injections = unrelatedTopScores.stream().filter(s -> s >= evalThreshold).count();
+        double falseInjectionRate = unrelatedTopScores.isEmpty() ? 0.0
+                : injections / (double) unrelatedTopScores.size();
+        double rejectionRate = 1.0 - falseInjectionRate;
+
+        System.out.printf("[%s] chunks=%d avgChars=%.0f Hit@1=%.1f%% Hit@3=%.1f%% Hit@5=%.1f%% "
+                        + "无关误注入率=%.1f%% 拒答率=%.1f%% (threshold=%.2f)%n",
                 strategy.getStrategyName(), chunks.size(), chunks.isEmpty() ? 0 : totalChars / (double) chunks.size(),
-                h1 * 100, h3 * 100, h5 * 100);
+                h1 * 100, h3 * 100, h5 * 100, falseInjectionRate * 100, rejectionRate * 100, evalThreshold);
         return new StrategyReport(strategy.getStrategyName(), chunks.size(),
-                chunks.isEmpty() ? 0 : totalChars / (double) chunks.size(), h1, h3, h5, results);
+                chunks.isEmpty() ? 0 : totalChars / (double) chunks.size(), h1, h3, h5, results,
+                unrelatedTopScores.size(), falseInjectionRate, rejectionRate, unrelatedTopScores);
+    }
+
+    /** 注入判定阈值：默认 0.70（与线上 cosine 阈值对齐），可用 -Drag.eval.similarity-threshold=0.65 覆盖 */
+    private static double evalThreshold() {
+        return Double.parseDouble(System.getProperty("rag.eval.similarity-threshold", "0.70"));
     }
 
     private static List<float[]> embedAll(com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel embeddingModel,
@@ -138,16 +163,41 @@ public class RagHitKEvaluation {
         sb.append("- 向量模型：`").append(RagEvalDataset.EMBEDDING_MODEL).append("`（维度 ").append(dim).append("）\n");
         sb.append("- 语料：写作技法手册 8 章约 ").append(RagEvalDataset.CORPUS.length()).append(" 字（Markdown）\n");
         sb.append("- 问题集：").append(RagEvalDataset.questions().size()).append(" 个写作场景问题，人工标注正确内容片段\n");
+        sb.append("- 负样本集：").append(RagEvalDataset.unrelatedQueries().size())
+                .append(" 个与语料无关的 query（与记忆侧 UNRELATED_QUERIES 语义等价）\n");
+        sb.append("- 注入判定阈值：").append(evalThreshold())
+                .append("（-Drag.eval.similarity-threshold 可覆盖）\n");
         sb.append("- 切分参数：chunkSize=").append(CHUNK_SIZE).append(", overlap=").append(CHUNK_OVERLAP).append('\n');
         sb.append("- 命中判定：chunk 文本包含任一标注片段即视为正确\n\n");
 
         sb.append("## 总览\n\n");
-        sb.append("| 策略 | chunk 数 | 平均 chunk 字数 | Hit@1 | Hit@3 | Hit@5 |\n");
-        sb.append("|---|---|---|---|---|---|\n");
+        sb.append("| 策略 | chunk 数 | 平均 chunk 字数 | Hit@1 | Hit@3 | Hit@5 | 无关误注入率 | 拒答率 |\n");
+        sb.append("|---|---|---|---|---|---|---|---|\n");
         for (StrategyReport r : reports) {
-            sb.append(String.format("| %s | %d | %.0f | %.1f%% | %.1f%% | %.1f%% |%n",
+            sb.append(String.format("| %s | %d | %.0f | %.1f%% | %.1f%% | %.1f%% | %.1f%% | %.1f%% |%n",
                     r.strategyName(), r.chunkCount(), r.avgChunkChars(),
-                    r.hit1() * 100, r.hit3() * 100, r.hit5() * 100));
+                    r.hit1() * 100, r.hit3() * 100, r.hit5() * 100,
+                    r.falseInjectionRate() * 100, r.rejectionRate() * 100));
+        }
+
+        sb.append("\n## 负样本明细（无关 query 的 top1 余弦相似度）\n\n");
+        List<String> unrelated = RagEvalDataset.unrelatedQueries();
+        sb.append("| 无关 query |");
+        for (StrategyReport r : reports) {
+            sb.append(" ").append(r.strategyName()).append(" |");
+        }
+        sb.append("\n|---|");
+        for (int i = 0; i < reports.size(); i++) {
+            sb.append("---|");
+        }
+        sb.append('\n');
+        for (int i = 0; i < unrelated.size(); i++) {
+            sb.append("| ").append(unrelated.get(i)).append(" |");
+            for (StrategyReport r : reports) {
+                double score = i < r.unrelatedTopScores().size() ? r.unrelatedTopScores().get(i) : 0.0;
+                sb.append(" ").append(String.format("%.4f%s", score, score >= evalThreshold() ? " ⚠️" : "")).append(" |");
+            }
+            sb.append('\n');
         }
 
         sb.append("\n## 各策略失题明细\n\n");
