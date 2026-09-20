@@ -112,7 +112,7 @@ public class ReasoningChatModelDecorator implements ChatModel {
 
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
             ReasoningStreamingClient.RoundResult result = streamingClient.streamRound(
-                    session.baseUrl(), session.apiKey(), session.model(),
+                    session.baseUrl(), session.apiCompatibility(), session.apiKey(), session.model(),
                     toOpenAiMessages(messages), session.temperature(), session.enableThinking(),
                     session.tools(), null);
             reasoningAll.append(result.reasoningContent());
@@ -138,7 +138,7 @@ public class ReasoningChatModelDecorator implements ChatModel {
 
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
             ReasoningStreamingClient.RoundResult result = streamingClient.streamRound(
-                    session.baseUrl(), session.apiKey(), session.model(),
+                    session.baseUrl(), session.apiCompatibility(), session.apiKey(), session.model(),
                     toOpenAiMessages(messages), session.temperature(), session.enableThinking(),
                     session.tools(),
                     new ReasoningStreamingClient.ChunkCallback() {
@@ -180,19 +180,22 @@ public class ReasoningChatModelDecorator implements ChatModel {
         messages.add(new ToolResponseMessage(responses));
     }
 
-    private record StreamSession(String baseUrl, String apiKey, String model, Double temperature,
-                                 boolean enableThinking, List<Map<String, Object>> tools,
+    private record StreamSession(String baseUrl, String apiCompatibility, String apiKey, String model,
+                                 Double temperature, boolean enableThinking,
+                                 List<Map<String, Object>> tools,
                                  List<FunctionCallback> toolCallbacks, ToolContext toolContext,
                                  String sessionId, String spanId) {}
 
-    private record CallSession(String baseUrl, String apiKey, String model, Double temperature,
-                               boolean enableThinking, List<Map<String, Object>> tools,
+    private record CallSession(String baseUrl, String apiCompatibility, String apiKey, String model,
+                               Double temperature, boolean enableThinking,
+                               List<Map<String, Object>> tools,
                                List<FunctionCallback> toolCallbacks, ToolContext toolContext) {}
 
     private StreamSession prepareStreamSession(Prompt prompt) {
         CallSession callSession = prepareSession(prompt);
         SessionContextHolder.ContextSnapshot snapshot = SessionContextHolder.snapshot();
-        return new StreamSession(callSession.baseUrl(), callSession.apiKey(), callSession.model(),
+        return new StreamSession(callSession.baseUrl(), callSession.apiCompatibility(),
+                callSession.apiKey(), callSession.model(),
                 callSession.temperature(), callSession.enableThinking(), callSession.tools(),
                 callSession.toolCallbacks(), callSession.toolContext(),
                 snapshot != null ? snapshot.sessionId() : null,
@@ -210,6 +213,7 @@ public class ReasoningChatModelDecorator implements ChatModel {
         ToolContext toolContext = new ToolContext(toolContextMap != null ? toolContextMap : Map.of());
         return new CallSession(
                 config.getBaseUrl(),
+                config.getApiCompatibility(),
                 config.getApiKey(),
                 config.getActiveModel(),
                 options != null ? options.getTemperature() : null,

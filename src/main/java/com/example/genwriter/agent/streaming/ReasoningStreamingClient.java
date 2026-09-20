@@ -88,9 +88,61 @@ public class ReasoningStreamingClient {
                                    List<Map<String, Object>> messages, Double temperature,
                                    boolean enableThinking, List<Map<String, Object>> tools,
                                    ChunkCallback callback) {
+        return streamRound(baseUrl, null, apiKey, model, messages, temperature, enableThinking,
+                tools, callback);
+    }
+
+    /**
+     * {@link #streamRound} 的重载：用供应商的 api-compatibility 决定端点是否需要 {@code /v1} 前缀。
+     *
+     * @param apiCompatibility 供应商的 api-compatibility 配置值（如 openai_compatible / native）
+     */
+    public RoundResult streamRound(String baseUrl, String apiCompatibility, String apiKey, String model,
+                                   List<Map<String, Object>> messages, Double temperature,
+                                   boolean enableThinking, List<Map<String, Object>> tools,
+                                   ChunkCallback callback) {
+        String endpoint = resolveChatCompletionsUrl(baseUrl, apiCompatibility);
+        RoundResult result = streamOnce(apiKey, model, messages, temperature, enableThinking,
+                tools, callback, endpoint);
+        if (result == null) {
+            String alternate = withoutVersionSegment(endpoint);
+            if (alternate != null) {
+                log.warn("chat/completions 首次调用失败，改用备用端点重试: {}", alternate);
+                result = streamOnce(apiKey, model, messages, temperature, enableThinking,
+                        tools, callback, alternate);
+            }
+        }
+        return result != null ? result : new RoundResult("", "", List.of(), null);
+    }
+
+    /**
+     * 解析 chat/completions 端点。OpenAI 兼容供应商统一走
+     * {@code {base-url}/v1/chat/completions}：base-url 已带版本段（如 {@code .../compatible-mode/v1}）
+     * 时按原样拼接，避免出现 {@code /v1/v1}；DashScope 的 {@code .../compatible-mode} 少这一层
+     * 会直接 404，DeepSeek 两种写法都通，故只对缺失版本段的 base-url 补 {@code /v1}；
+     * native 供应商沿用原有的 {@code {base-url}/chat/completions}。
+     */
+    static String resolveChatCompletionsUrl(String baseUrl, String apiCompatibility) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("base-url 不能为空，请在 application.yml 中配置供应商的 base-url");
         }
+        String base = baseUrl.replaceAll("/+$", "");
+        if ("native".equalsIgnoreCase(apiCompatibility) || base.matches(".*/v\\d+$")) {
+            return base + "/chat/completions";
+        }
+        return base + "/v1/chat/completions";
+    }
+
+    /** 去掉端点里的版本段（{@code /v1/chat/completions} → {@code /chat/completions}）；无版本段时返回 null。 */
+    private static String withoutVersionSegment(String endpoint) {
+        String alternate = endpoint.replaceFirst("/v\\d+/chat/completions$", "/chat/completions");
+        return alternate.equals(endpoint) ? null : alternate;
+    }
+
+    private RoundResult streamOnce(String apiKey, String model,
+                                    List<Map<String, Object>> messages, Double temperature,
+                                    boolean enableThinking, List<Map<String, Object>> tools,
+                                    ChunkCallback callback, String endpoint) {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
@@ -113,14 +165,11 @@ public class ReasoningStreamingClient {
         TreeMap<Integer, ToolCallAgg> toolCallAgg = new TreeMap<>();
         AtomicReference<String> finishReasonRef = new AtomicReference<>(null);
 
-        String finalBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-
         try {
             WebClient.builder()
-                    .baseUrl(finalBaseUrl)
                     .build()
                     .post()
-                    .uri("chat/completions")
+                    .uri(java.net.URI.create(endpoint))
                     .header("Authorization", "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
@@ -136,6 +185,10 @@ public class ReasoningStreamingClient {
                     .doOnError(e -> log.warn("SSE streaming error: {}", e.getMessage()))
                     .blockLast(Duration.ofMinutes(10));
         } catch (Exception e) {
+            // 返回 null 交给调用方尝试备用端点；流中途异常时保留已聚合内容，避免丢掉响应
+            if (finishReasonRef.get() == null) {
+                return null;
+            }
             log.warn("SSE streaming failed: {}", e.getMessage());
         }
 
