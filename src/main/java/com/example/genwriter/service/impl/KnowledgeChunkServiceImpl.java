@@ -1,5 +1,6 @@
 package com.example.genwriter.service.impl;
 
+import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.config.EmbeddingConfig;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.mapper.KnowledgeBaseMapper;
@@ -9,6 +10,13 @@ import com.example.genwriter.model.dto.request.SearchKnowledgeChunkRequest;
 import com.example.genwriter.model.dto.response.KnowledgeChunkDTO;
 import com.example.genwriter.model.entity.KnowledgeBase;
 import com.example.genwriter.model.entity.KnowledgeChunk;
+import com.example.genwriter.retrieval.gate.GateDecision;
+import com.example.genwriter.retrieval.gate.RelevanceGate;
+import com.example.genwriter.retrieval.gate.RetrievalGateProperties;
+import com.example.genwriter.retrieval.rerank.RerankCandidate;
+import com.example.genwriter.retrieval.rerank.RerankProperties;
+import com.example.genwriter.retrieval.rerank.RerankResult;
+import com.example.genwriter.retrieval.rerank.Reranker;
 import com.example.genwriter.service.EmbeddingService;
 import com.example.genwriter.service.KnowledgeChunkService;
 import com.example.genwriter.util.VectorUtils;
@@ -19,7 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -35,6 +47,11 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final EmbeddingService embeddingService;
     private final EmbeddingConfig embeddingConfig;
+    private final Reranker reranker;
+    private final RelevanceGate relevanceGate;
+    private final RetrievalGateProperties gateProperties;
+    private final RerankProperties rerankProperties;
+    private final LongTermMemoryProbeRecorder probeRecorder;
 
     @Override
     @Transactional
@@ -162,6 +179,13 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         double threshold = request.getThreshold() != null ? request.getThreshold() : embeddingConfig.getSimilarityThreshold();
         int limit = request.getLimit() != null ? request.getLimit() : embeddingConfig.getDefaultSearchLimit();
 
+        // 2. rerank 精排路径：宽召回（不做阈值过滤，阈值判定下沉到 gate）+ 精排 + 门控
+        List<KnowledgeChunkDTO> rerankedResults = rerankAndGate(request, queryEmbedding, limit);
+        if (rerankedResults != null) {
+            return rerankedResults;
+        }
+
+        // 3. 降级 / 未启用 rerank：原阈值路径（保持既有行为）
         if (embeddingConfig.isUseDbVectorSearch()) {
             // 使用 pgvector 数据库级向量搜索 (余弦距离 <=>)
             // 阈值语义转换: 余弦距离 = 1 - 余弦相似度, 故 1 - threshold 对齐 cosine_dist < 阈值
@@ -196,6 +220,89 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
                 .map(SimilarityScore::chunk)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 宽召回 + cross-encoder 精排 + 相关性闸门。
+     *
+     * @return null 表示 rerank 不可用或调用失败（调用方回退原阈值路径）；
+     *         空列表表示门控拒绝（整段不注入，空召回语义）
+     */
+    private List<KnowledgeChunkDTO> rerankAndGate(SearchKnowledgeChunkRequest request,
+                                                  float[] queryEmbedding,
+                                                  int limit) {
+        if (!reranker.isAvailable()) {
+            return null;
+        }
+
+        try {
+            List<KnowledgeChunk> wideCandidates = wideRecall(request.getKbId(), queryEmbedding,
+                    rerankProperties.getRecallLimit());
+            if (wideCandidates.isEmpty()) {
+                // 宽召回为空走原路径兜底（保持原空结果语义）
+                return List.of();
+            }
+
+            List<RerankCandidate> candidates = wideCandidates.stream()
+                    .map(chunk -> new RerankCandidate(chunk.getId(), chunk.getContent()))
+                    .toList();
+            List<RerankResult> reranked = reranker.rerank(request.getQuery(), candidates, limit);
+            if (reranked.isEmpty()) {
+                return null;
+            }
+
+            GateDecision decision = relevanceGate.evaluate(
+                    reranked.stream().map(RerankResult::score).collect(Collectors.toList()));
+            recordGateDecision(decision, reranked.size());
+            if (!decision.pass()) {
+                return List.of();
+            }
+
+            Map<String, KnowledgeChunk> chunkById = wideCandidates.stream()
+                    .collect(Collectors.toMap(KnowledgeChunk::getId, chunk -> chunk, (a, b) -> a, LinkedHashMap::new));
+            List<KnowledgeChunkDTO> ordered = new ArrayList<>();
+            for (RerankResult result : reranked) {
+                KnowledgeChunk chunk = chunkById.get(result.id());
+                if (chunk != null) {
+                    ordered.add(convertToDTO(chunk));
+                }
+            }
+            return ordered;
+        } catch (Exception e) {
+            // 降级优先于精度：任何异常回退原阈值路径，不阻断主链路
+            log.warn("[RAG] rerank 精排失败，降级为原排序: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 宽召回：按 embedding_model 过滤（跨模型向量不可比），不做阈值过滤，取 top recallLimit。
+     */
+    private List<KnowledgeChunk> wideRecall(String kbId, float[] queryEmbedding, int recallLimit) {
+        if (embeddingConfig.isUseDbVectorSearch()) {
+            String vectorLiteral = VectorUtils.arrayToVectorString(queryEmbedding);
+            return knowledgeChunkMapper.similaritySearch(
+                    kbId, vectorLiteral, embeddingConfig.getDefaultModel(), Math.max(recallLimit, 1));
+        }
+
+        // 内存路径：全量计算余弦相似度后取 top N（无阈值过滤）
+        return knowledgeChunkMapper.selectByKbId(kbId).stream()
+                .filter(chunk -> embeddingConfig.getDefaultModel().equalsIgnoreCase(chunk.getEmbeddingModel()))
+                .map(chunk -> new SimilarityScore(chunk,
+                        VectorUtils.cosineSimilarity(queryEmbedding, chunk.getEmbedding())))
+                .sorted(Comparator.comparingDouble(SimilarityScore::similarity).reversed())
+                .limit(Math.max(recallLimit, 1))
+                .map(SimilarityScore::chunk)
+                .collect(Collectors.toList());
+    }
+
+    private void recordGateDecision(GateDecision decision, int candidateCount) {
+        try {
+            probeRecorder.recordGateDecision(null, "rag", decision.pass(),
+                    decision.topScore(), decision.margin(), decision.rejectReason(), candidateCount);
+        } catch (Exception e) {
+            log.debug("记录门控探针失败: {}", e.getMessage());
+        }
     }
 
     @Override

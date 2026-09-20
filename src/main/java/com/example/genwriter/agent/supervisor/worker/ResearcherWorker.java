@@ -6,6 +6,7 @@ import com.example.genwriter.agent.memory.LongTermMemoryAdvisor;
 import com.example.genwriter.agent.memory.LongTermMemoryProbeRecorder;
 import com.example.genwriter.agent.memory.LongTermMemoryPromptFormatter;
 import com.example.genwriter.agent.memory.LongTermMemoryProperties;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
 import com.example.genwriter.agent.memory.RedisChatMemory;
 import com.example.genwriter.agent.profile.AgentPromptRenderer;
 import com.example.genwriter.agent.profile.RenderedAgentPrompt;
@@ -50,6 +51,7 @@ public class ResearcherWorker implements WorkerAgent {
     private final LongTermMemoryPromptFormatter memoryPromptFormatter;
     private final LongTermMemoryProperties longTermMemoryProperties;
     private final LongTermMemoryProbeRecorder memoryProbeRecorder;
+    private final GlobalRerankConverger globalRerankConverger;
     private final ThoughtChainPublisher chainPublisher;
 
     @PostConstruct
@@ -120,7 +122,9 @@ public class ResearcherWorker implements WorkerAgent {
                         List.of(MemoryType.DOMAIN_KNOWLEDGE),
                         sessionId,
                         null,
-                        memoryProbeRecorder));
+                        memoryProbeRecorder,
+                        globalRerankConverger,
+                        longTermMemoryProperties));
             }
 
             final var finalPromptSpec = promptSpec;

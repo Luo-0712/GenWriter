@@ -35,6 +35,28 @@ public class LongTermMemoryProbeRecorder {
         ));
     }
 
+    /**
+     * 记录门控决策（通过/拒绝原因/分数），日志只记分数与条数，不落原文内容。
+     *
+     * @param stage 归因阶段：memory / advisor / rag
+     */
+    public void recordGateDecision(String sessionId,
+                                   String stage,
+                                   boolean pass,
+                                   double topScore,
+                                   double margin,
+                                   String rejectReason,
+                                   int candidateCount) {
+        record(sessionId, "gateDecision", Map.of(
+                "stage", stage != null ? stage : "",
+                "pass", pass,
+                "topScore", Double.isNaN(topScore) ? 0.0 : topScore,
+                "margin", Double.isNaN(margin) ? 0.0 : margin,
+                "rejectReason", rejectReason != null ? rejectReason : "",
+                "candidateCount", candidateCount
+        ));
+    }
+
     public void recordWriteDecision(String sessionId,
                                     String decision,
                                     String memoryId,

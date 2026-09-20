@@ -6,6 +6,10 @@ import com.example.genwriter.agent.memory.LongTermMemoryProperties;
 import com.example.genwriter.mapper.LongTermMemoryMapper;
 import com.example.genwriter.mapper.TaskSessionMapper;
 import com.example.genwriter.model.entity.LongTermMemory;
+import com.example.genwriter.retrieval.gate.RetrievalGate;
+import com.example.genwriter.retrieval.gate.RetrievalGateProperties;
+import com.example.genwriter.retrieval.rerank.RerankProperties;
+import com.example.genwriter.retrieval.rerank.Reranker;
 import com.example.genwriter.model.enums.MemoryType;
 import com.example.genwriter.service.EmbeddingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +51,9 @@ class LongTermMemoryServiceImplTest {
     @Mock
     private LongTermMemoryProbeRecorder probeRecorder;
 
+    @Mock
+    private Reranker reranker;
+
     private LongTermMemoryMetadataSupport metadataSupport;
     private LongTermMemoryServiceImpl service;
 
@@ -60,7 +67,11 @@ class LongTermMemoryServiceImplTest {
                 new LongTermMemoryProperties(),
                 metadataSupport,
                 probeRecorder,
-                new com.example.genwriter.config.EmbeddingConfig()
+                new com.example.genwriter.config.EmbeddingConfig(),
+                reranker,
+                new RetrievalGate(new RetrievalGateProperties()),
+                new RetrievalGateProperties(),
+                new RerankProperties()
         );
         when(embeddingService.embed(anyString())).thenReturn(new float[]{1.0f, 0.0f});
     }

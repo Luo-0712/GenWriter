@@ -7,6 +7,13 @@ import com.example.genwriter.config.EmbeddingConfig;
 import com.example.genwriter.exception.BizException;
 import com.example.genwriter.mapper.LongTermMemoryMapper;
 import com.example.genwriter.mapper.TaskSessionMapper;
+import com.example.genwriter.retrieval.gate.GateDecision;
+import com.example.genwriter.retrieval.gate.RelevanceGate;
+import com.example.genwriter.retrieval.gate.RetrievalGateProperties;
+import com.example.genwriter.retrieval.rerank.RerankCandidate;
+import com.example.genwriter.retrieval.rerank.RerankProperties;
+import com.example.genwriter.retrieval.rerank.RerankResult;
+import com.example.genwriter.retrieval.rerank.Reranker;
 import com.example.genwriter.model.dto.request.CreateMemoryRequest;
 import com.example.genwriter.model.dto.request.UpdateMemoryRequest;
 import com.example.genwriter.model.dto.response.MemoryVO;
@@ -50,6 +57,10 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
     private final LongTermMemoryMetadataSupport metadataSupport;
     private final LongTermMemoryProbeRecorder probeRecorder;
     private final EmbeddingConfig embeddingConfig;
+    private final Reranker reranker;
+    private final RelevanceGate relevanceGate;
+    private final RetrievalGateProperties gateProperties;
+    private final RerankProperties rerankProperties;
 
     @Override
     public List<MemoryVO> retrieveMemories(String query, List<MemoryType> types,
@@ -60,7 +71,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         double threshold = defaultSearchThreshold();
 
         List<ScoredMemory> ranked = rankCandidates(query, typeNames, projectId, threshold, limit);
-        List<ScoredMemory> selected = diversifyByType(ranked, typeNames, limit);
+        List<ScoredMemory> selected = diversifyByType(ranked, typeNames, limit, gateProperties.getMinScoreFloor());
 
         for (ScoredMemory scored : selected) {
             LongTermMemory memory = scored.memory;
@@ -210,7 +221,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                     .toList();
         }
 
-        return diversifyByType(ranked, typeNames, effectiveLimit).stream()
+        return diversifyByType(ranked, typeNames, effectiveLimit, gateProperties.getMinScoreFloor()).stream()
                 .map(scored -> {
                     scored.memory.setSimilarity(scored.score);
                     return convertToVO(scored.memory);
@@ -346,33 +357,85 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         for (LongTermMemory memory : mapper.similaritySearch(
                 vectorLiteral, sqlTypes, projectId, embeddingConfig.getDefaultModel(),
                 threshold, candidateLimit)) {
-            mergeCandidate(candidates, memory, false);
+            mergeCandidate(candidates, memory, 0);
         }
 
         List<String> terms = metadataSupport.extractTextSearchTerms(query);
         if (!terms.isEmpty()) {
-            for (LongTermMemory memory : mapper.textSearch(terms, sqlTypes, projectId, candidateLimit)) {
-                mergeCandidate(candidates, memory, true);
+            // 命中约束：至少命中一半 term（单 term 至少 1 次），避免 OR 单 term 命中即召回
+            int minHits = Math.max(1, (terms.size() + 1) / 2);
+            for (LongTermMemory memory : mapper.textSearch(terms, minHits, sqlTypes, projectId, candidateLimit)) {
+                mergeCandidate(candidates, memory,
+                        memory.getTermHitCount() != null ? memory.getTermHitCount() : 0);
             }
         }
 
-        return candidates.values().stream()
+        List<ScoredMemory> ranked = candidates.values().stream()
                 .peek(candidate -> candidate.score = calculateScore(candidate, query, terms, projectId))
+                .filter(candidate -> candidate.score >= gateProperties.getMinScoreFloor())
                 .sorted(Comparator.comparingDouble((ScoredMemory candidate) -> candidate.score).reversed())
                 .collect(Collectors.toList());
+
+        return rerankAndGate(query, ranked, finalLimit);
     }
 
-    private void mergeCandidate(Map<String, ScoredMemory> candidates, LongTermMemory memory, boolean textMatched) {
+    /**
+     * cross-encoder 精排 + 相关性闸门。
+     * rerank 未启用 / 超时 / 异常 / 返回空时静默回退原融合分排序，绝不阻断主链路。
+     */
+    private List<ScoredMemory> rerankAndGate(String query, List<ScoredMemory> ranked, int finalLimit) {
+        if (ranked.isEmpty() || !reranker.isAvailable()) {
+            return ranked;
+        }
+
+        List<RerankCandidate> rerankCandidates = ranked.stream()
+                .map(candidate -> new RerankCandidate(candidate.memory.getId(), candidate.memory.getContent()))
+                .toList();
+        List<RerankResult> reranked = reranker.rerank(query, rerankCandidates, finalLimit);
+        if (reranked.isEmpty()) {
+            return ranked;
+        }
+
+        Map<String, Double> idToScore = new LinkedHashMap<>();
+        reranked.forEach(result -> idToScore.put(result.id(), result.score()));
+        List<ScoredMemory> rerankedOrder = ranked.stream()
+                .filter(candidate -> idToScore.containsKey(candidate.memory.getId()))
+                .peek(candidate -> candidate.score = idToScore.get(candidate.memory.getId()))
+                .sorted(Comparator.comparingDouble((ScoredMemory candidate) -> candidate.score).reversed())
+                .toList();
+
+        GateDecision decision = relevanceGate.evaluate(
+                rerankedOrder.stream().map(candidate -> candidate.score).toList());
+        recordGateDecision(decision, rerankedOrder.size());
+        if (!decision.pass()) {
+            return List.of();
+        }
+        return new ArrayList<>(rerankedOrder);
+    }
+
+    private void recordGateDecision(GateDecision decision, int candidateCount) {
+        if (probeRecorder == null) {
+            return;
+        }
+        try {
+            probeRecorder.recordGateDecision(null, "memory", decision.pass(),
+                    decision.topScore(), decision.margin(), decision.rejectReason(), candidateCount);
+        } catch (Exception e) {
+            log.debug("记录门控探针失败: {}", e.getMessage());
+        }
+    }
+
+    private void mergeCandidate(Map<String, ScoredMemory> candidates, LongTermMemory memory, int termHitCount) {
         if (memory == null || memory.getId() == null) {
             return;
         }
         ScoredMemory existing = candidates.get(memory.getId());
         if (existing == null) {
-            candidates.put(memory.getId(), new ScoredMemory(memory, textMatched));
+            candidates.put(memory.getId(), new ScoredMemory(memory, termHitCount));
             return;
         }
 
-        existing.textMatched = existing.textMatched || textMatched;
+        existing.termHitCount = Math.max(existing.termHitCount, termHitCount);
         double oldSimilarity = existing.memory.getSimilarity() != null ? existing.memory.getSimilarity() : 0.0;
         double newSimilarity = memory.getSimilarity() != null ? memory.getSimilarity() : 0.0;
         if (newSimilarity > oldSimilarity) {
@@ -384,7 +447,7 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         LongTermMemory memory = candidate.memory;
         Map<String, Object> metadata = metadataSupport.parseMetadata(memory.getMetadata());
         double vectorScore = clamp(memory.getSimilarity() != null ? memory.getSimilarity() : 0.0);
-        double keywordScore = keywordScore(memory, metadata, query, terms, candidate.textMatched);
+        double keywordScore = keywordScore(memory, metadata, query, terms, candidate.termHitCount);
         double entityScore = entityScore(metadata, query, terms);
         double importanceBoost = importanceBoost(memory.getImportance());
         double scopeBoost = "PROJECT".equals(memory.getScope())
@@ -392,18 +455,19 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 && projectId.equals(memory.getProjectId())
                 ? PROJECT_SCOPE_BOOST : 0.0;
 
-        return vectorScore * VECTOR_WEIGHT
+        double base = vectorScore * VECTOR_WEIGHT
                 + keywordScore * KEYWORD_WEIGHT
-                + entityScore * ENTITY_WEIGHT
-                + importanceBoost
-                + scopeBoost;
+                + entityScore * ENTITY_WEIGHT;
+        // 乘性偏置：重要度/范围加成只作为相关分的调节系数，
+        // 保证 query 完全无关（base=0）时分数恒为 0，永远不会把无关项抬过阈值
+        return base * (1.0 + importanceBoost + scopeBoost);
     }
 
     private double keywordScore(LongTermMemory memory,
                                 Map<String, Object> metadata,
                                 String query,
                                 List<String> terms,
-                                boolean textMatched) {
+                                int termHitCount) {
         String searchable = normalizeSearchText(memory.getContent() + " " + metadata);
         int hits = 0;
         for (String term : terms) {
@@ -411,12 +475,11 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
                 hits++;
             }
         }
+        // 与 SQL 端命中数取较大者（metadata JSON 转义可能导致两端计数差异）
+        hits = Math.max(hits, termHitCount);
         double ratio = terms.isEmpty() ? 0.0 : Math.min(1.0, hits / (double) Math.min(4, terms.size()));
         if (!query.isBlank() && searchable.contains(normalizeSearchText(query))) {
             ratio = Math.max(ratio, 1.0);
-        }
-        if (textMatched) {
-            ratio = Math.max(ratio, 0.35);
         }
         return ratio;
     }
@@ -447,7 +510,8 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
         return 0.0;
     }
 
-    private List<ScoredMemory> diversifyByType(List<ScoredMemory> ranked, List<String> typeNames, int limit) {
+    private List<ScoredMemory> diversifyByType(List<ScoredMemory> ranked, List<String> typeNames,
+                                               int limit, double minScore) {
         if (ranked.isEmpty() || limit <= 0) {
             return List.of();
         }
@@ -460,6 +524,10 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
             grouped.put(typeName, new ArrayDeque<>());
         }
         for (ScoredMemory scored : ranked) {
+            // 分数下限：低于下限的候选不参与补齐，凑不满不凑
+            if (scored.score < minScore) {
+                continue;
+            }
             grouped.computeIfAbsent(scored.memory.getMemoryType(), key -> new ArrayDeque<>()).add(scored);
         }
 
@@ -785,12 +853,12 @@ public class LongTermMemoryServiceImpl implements LongTermMemoryService {
 
     private static class ScoredMemory {
         private final LongTermMemory memory;
-        private boolean textMatched;
+        private int termHitCount;
         private double score;
 
-        private ScoredMemory(LongTermMemory memory, boolean textMatched) {
+        private ScoredMemory(LongTermMemory memory, int termHitCount) {
             this.memory = memory;
-            this.textMatched = textMatched;
+            this.termHitCount = termHitCount;
         }
     }
 }

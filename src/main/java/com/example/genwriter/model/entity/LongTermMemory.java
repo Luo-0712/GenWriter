@@ -36,6 +36,8 @@ public class LongTermMemory {
     private LocalDateTime updatedAt;
     @TableField(exist = false)
     private Double similarity;
+    @TableField(exist = false)
+    private Integer termHitCount;
 
     @Override
     public boolean equals(Object that) {

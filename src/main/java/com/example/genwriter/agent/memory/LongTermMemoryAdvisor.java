@@ -2,6 +2,10 @@ package com.example.genwriter.agent.memory;
 
 import com.example.genwriter.model.dto.response.MemoryVO;
 import com.example.genwriter.model.enums.MemoryType;
+import com.example.genwriter.retrieval.GlobalRerankConverger;
+import com.example.genwriter.retrieval.gate.GateDecision;
+import com.example.genwriter.retrieval.rerank.RerankCandidate;
+import com.example.genwriter.retrieval.rerank.RerankResult;
 import com.example.genwriter.service.LongTermMemoryService;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -13,6 +17,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,12 +31,14 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
     private final String sessionId;
     private final List<String> preExtractedQueries;
     private final LongTermMemoryProbeRecorder probeRecorder;
+    private final GlobalRerankConverger globalConverger;
+    private final LongTermMemoryProperties properties;
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
                                  LongTermMemoryPromptFormatter promptFormatter,
                                  List<MemoryType> memoryTypes,
                                  String sessionId) {
-        this(memoryService, promptFormatter, memoryTypes, sessionId, null, null);
+        this(memoryService, promptFormatter, memoryTypes, sessionId, null, null, null, new LongTermMemoryProperties());
     }
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
@@ -39,7 +46,8 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                                  List<MemoryType> memoryTypes,
                                  String sessionId,
                                  List<String> preExtractedQueries) {
-        this(memoryService, promptFormatter, memoryTypes, sessionId, preExtractedQueries, null);
+        this(memoryService, promptFormatter, memoryTypes, sessionId, preExtractedQueries, null, null,
+                new LongTermMemoryProperties());
     }
 
     public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
@@ -48,12 +56,26 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                                  String sessionId,
                                  List<String> preExtractedQueries,
                                  LongTermMemoryProbeRecorder probeRecorder) {
+        this(memoryService, promptFormatter, memoryTypes, sessionId, preExtractedQueries, probeRecorder, null,
+                new LongTermMemoryProperties());
+    }
+
+    public LongTermMemoryAdvisor(LongTermMemoryService memoryService,
+                                 LongTermMemoryPromptFormatter promptFormatter,
+                                 List<MemoryType> memoryTypes,
+                                 String sessionId,
+                                 List<String> preExtractedQueries,
+                                 LongTermMemoryProbeRecorder probeRecorder,
+                                 GlobalRerankConverger globalConverger,
+                                 LongTermMemoryProperties properties) {
         this.memoryService = memoryService;
         this.promptFormatter = promptFormatter;
         this.memoryTypes = memoryTypes;
         this.sessionId = sessionId;
         this.preExtractedQueries = preExtractedQueries;
         this.probeRecorder = probeRecorder;
+        this.globalConverger = globalConverger;
+        this.properties = properties != null ? properties : new LongTermMemoryProperties();
     }
 
     @NotNull
@@ -103,12 +125,23 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
                 return chain.nextAroundCall(request);
             }
 
-            String memoryContext = promptFormatter.format(new ArrayList<>(merged.values()));
-            if (memoryContext.isBlank()) {
-                publishProbe(queries, queryResults, probeItems(new ArrayList<>(merged.values())), 0);
+            // 多 query 全局收敛：全局重排 + 门控 + 全局 topN 截断，消除 N×topK 注入放大
+            List<MemoryVO> converged = converge(queries, merged);
+            if (converged == null) {
+                publishProbe(queries, queryResults, List.of(), 0);
                 return chain.nextAroundCall(request);
             }
-            publishProbe(queries, queryResults, probeItems(new ArrayList<>(merged.values())), merged.size());
+            if (converged.isEmpty()) {
+                publishProbe(queries, queryResults, List.of(), 0);
+                return chain.nextAroundCall(request);
+            }
+
+            String memoryContext = promptFormatter.format(converged);
+            if (memoryContext.isBlank()) {
+                publishProbe(queries, queryResults, probeItems(converged), 0);
+                return chain.nextAroundCall(request);
+            }
+            publishProbe(queries, queryResults, probeItems(converged), converged.size());
             String baseSystemText = request.systemText() != null ? request.systemText() : "";
             String enhancedSystemText = baseSystemText.isBlank()
                     ? memoryContext
@@ -121,6 +154,70 @@ public class LongTermMemoryAdvisor implements CallAroundAdvisor {
         } catch (Exception e) {
             log.warn("长期记忆检索失败，跳过注入: {}", e.getMessage());
             return chain.nextAroundCall(request);
+        }
+    }
+
+    /**
+     * 多 query 全局收敛。
+     *
+     * <p>rerank 可用：跨 query 全局精排（每候选取跨 query 最高分）+ 统一门控 + 全局 topN 截断；
+     * rerank 不可用/失败：按相似度降序 + 全局 topN 截断（同样消除注入量放大）。
+     *
+     * @return 收敛后的记忆列表；返回 null 表示门控拒绝（整段不注入）
+     */
+    private List<MemoryVO> converge(List<String> queries, Map<String, MemoryVO> merged) {
+        int globalTopN = Math.max(1, properties.getRetrieval().getGlobalTopN());
+        List<MemoryVO> values = new ArrayList<>(merged.values());
+
+        if (globalConverger == null || !globalConverger.isRerankAvailable()) {
+            values.sort(Comparator.comparingDouble(
+                    (MemoryVO m) -> m.getSimilarity() != null ? m.getSimilarity() : 0.0).reversed());
+            return values.size() > globalTopN ? new ArrayList<>(values.subList(0, globalTopN)) : values;
+        }
+
+        try {
+            List<RerankCandidate> candidates = values.stream()
+                    .map(m -> new RerankCandidate(m.getId(), m.getContent()))
+                    .toList();
+            List<RerankResult> reranked = globalConverger.globalRerank(queries, candidates, globalTopN);
+            if (reranked.isEmpty()) {
+                values.sort(Comparator.comparingDouble(
+                        (MemoryVO m) -> m.getSimilarity() != null ? m.getSimilarity() : 0.0).reversed());
+                return values.size() > globalTopN ? new ArrayList<>(values.subList(0, globalTopN)) : values;
+            }
+
+            GateDecision decision = globalConverger.gate(reranked.stream().map(RerankResult::score).toList());
+            recordGateDecision(decision, reranked.size());
+            if (!decision.pass()) {
+                return null;
+            }
+
+            List<MemoryVO> ordered = new ArrayList<>();
+            for (RerankResult result : reranked) {
+                MemoryVO memory = merged.get(result.id());
+                if (memory != null) {
+                    memory.setSimilarity(result.score());
+                    ordered.add(memory);
+                }
+            }
+            return ordered;
+        } catch (Exception e) {
+            log.debug("全局精排失败，降级为相似度排序: {}", e.getMessage());
+            values.sort(Comparator.comparingDouble(
+                    (MemoryVO m) -> m.getSimilarity() != null ? m.getSimilarity() : 0.0).reversed());
+            return values.size() > globalTopN ? new ArrayList<>(values.subList(0, globalTopN)) : values;
+        }
+    }
+
+    private void recordGateDecision(GateDecision decision, int candidateCount) {
+        if (probeRecorder == null) {
+            return;
+        }
+        try {
+            probeRecorder.recordGateDecision(sessionId, "advisor", decision.pass(),
+                    decision.topScore(), decision.margin(), decision.rejectReason(), candidateCount);
+        } catch (Exception e) {
+            log.debug("记录门控探针失败: {}", e.getMessage());
         }
     }
 

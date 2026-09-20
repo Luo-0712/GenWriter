@@ -26,6 +26,10 @@ public class LongTermMemoryProperties {
         private int maxResults = 5;
         private double similarityThreshold = 0.65;
         private double dedupThreshold = 0.85;
+        /**
+         * 多 query 结果合并后的全局 topN 截断上限，消除注入量放大
+         */
+        private int globalTopN = 5;
     }
 
     @Data

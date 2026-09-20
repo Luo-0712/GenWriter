@@ -75,7 +75,13 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "metadata::text AS metadata, access_count AS accessCount, " +
             "last_accessed_at::timestamp AS lastAccessedAt, " +
             "created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt, " +
-            "0.0 AS similarity " +
+            "0.0 AS similarity, " +
+            "<if test='terms != null and !terms.isEmpty()'>" +
+            "<foreach item='term' collection='terms' open='' separator=' + ' close=''>" +
+            "(CASE WHEN content ILIKE CONCAT('%', #{term}, '%') OR metadata::text ILIKE CONCAT('%', #{term}, '%') THEN 1 ELSE 0 END)" +
+            "</foreach> AS termHitCount " +
+            "</if>" +
+            "<if test='terms == null or terms.isEmpty()'>0 AS termHitCount </if>" +
             "FROM long_term_memory WHERE " +
             "<if test='types != null and !types.isEmpty()'>" +
             "memory_type IN " +
@@ -92,17 +98,24 @@ public interface LongTermMemoryMapper extends BaseMapper<LongTermMemory> {
             "content ILIKE CONCAT('%', #{term}, '%') OR metadata::text ILIKE CONCAT('%', #{term}, '%')" +
             "</foreach>" +
             ") " +
+            // 命中约束：至少命中 minHits 个 term，避免 OR 单 term 命中即召回
+            "AND (" +
+            "<foreach item='term' collection='terms' open='' separator=' + ' close=''>" +
+            "(CASE WHEN content ILIKE CONCAT('%', #{term}, '%') OR metadata::text ILIKE CONCAT('%', #{term}, '%') THEN 1 ELSE 0 END)" +
+            "</foreach>" +
+            ") &gt;= #{minHits} " +
             "</if>" +
-            "ORDER BY " +
-            "CASE importance WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 ELSE 1 END DESC, updated_at DESC " +
+            "ORDER BY termHitCount DESC, updated_at DESC " +
             "LIMIT #{limit}" +
             "</script>")
     @Results({
             @Result(property = "embedding", column = "embedding",
                     typeHandler = PgVectorTypeHandler.class, jdbcType = JdbcType.OTHER),
-            @Result(property = "similarity", column = "similarity")
+            @Result(property = "similarity", column = "similarity"),
+            @Result(property = "termHitCount", column = "termHitCount")
     })
     List<LongTermMemory> textSearch(@Param("terms") List<String> terms,
+                                    @Param("minHits") int minHits,
                                     @Param("types") List<String> types,
                                     @Param("projectId") String projectId,
                                     @Param("limit") int limit);
