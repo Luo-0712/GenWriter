@@ -10,7 +10,6 @@ import {
 } from '../api/documents';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import VersionNavigator from './VersionNavigator';
-import { formatVersionTime } from '../utils/version';
 import { createSelectionFingerprint, markdownToHtml, normalizeTextForFingerprint } from '../utils/markdownEditor';
 import '../styles/global.css';
 
@@ -75,6 +74,10 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
   const selectedSuggestionMode = useMemo(
     () => SUGGESTION_MODES.find((item) => item.value === suggestionMode) || SUGGESTION_MODES[0],
     [suggestionMode]
+  );
+  const selectedIterationMode = useMemo(
+    () => ITERATION_MODES.find((item) => item.value === iterationMode) || ITERATION_MODES[0],
+    [iterationMode]
   );
 
   useEffect(() => {
@@ -515,7 +518,7 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
             className="iteration-input"
             value={iterationText}
             onChange={(event) => setIterationText(event.target.value)}
-            placeholder="给 agent 的本轮迭代指令..."
+            placeholder={selectedIterationMode.fallback}
             disabled={!sessionId || isLoading}
           />
           <button className="iteration-submit" type="button" onClick={handleIterate} disabled={!canIterate}>
@@ -523,13 +526,13 @@ const WritingWorkbench = ({ sessionId, isLoading, selectedKbId, documentRefresh,
           </button>
         </div>
 
-        {(notice || error || selectedDocument) && (
+        {(notice || error) && (
           <div
             className={`workbench-footer-note${error ? ' error' : ''}`}
             role={error ? 'alert' : 'status'}
             aria-live={error ? 'assertive' : 'polite'}
           >
-            {error || notice || `${selectedDocument?.title || emptyTitle} · ${formatVersionTime(selectedDocument?.updatedAt)}`}
+            {error || notice}
           </div>
         )}
       </div>

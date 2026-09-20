@@ -1,37 +1,66 @@
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9f9f9;
-  --bg-sidebar: #f5f5f5;
-  --bg-hover: #e8e8e8;
+  /* ===== 背景三级分层（温暖纸感） ===== */
+  --bg-app: #f4f3f1;            /* 侧栏等最底层，暖灰下沉 */
+  --bg-panel: #ffffff;          /* 主内容面板 */
+  --bg-panel-sunken: #faf9f7;   /* 工作台等次级面板，微沉 */
+  --bg-hover: #ebe9e6;
   --bg-input: #ffffff;
-  --bg-user-message: #f0f0f0;
+  --bg-card: #ffffff;
+  --bg-user-message: #f0efed;
   --bg-assistant-message: #ffffff;
+  --accent-soft: #f7ede2;       /* accent 极浅底，用于 hover / 选中 */
 
+  /* ===== 文字三级 ===== */
   --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --text-tertiary: #999999;
+  --text-secondary: #5c5a57;
+  --text-tertiary: #8a8782;
   --text-link: #c2854a;
 
-  --border-color: #e5e5e5;
-  --border-light: #f0f0f0;
+  /* ===== 边框两档（收敛发丝线） ===== */
+  --border-subtle: #e8e6e3;
+  --border-strong: #d9d6d1;
 
+  /* ===== Accent（仅主行动点） ===== */
   --accent-color: #c2854a;
   --accent-hover: #a8703a;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* ===== 状态色（muted 低饱和，bg/text 成对） ===== */
+  --status-running-bg: #eef4ee;
+  --status-running-text: #3f7a4a;
+  --status-success-bg: #eef4ee;
+  --status-success-text: #3f7a4a;
+  --status-error-bg: #f8eeee;
+  --status-error-text: #b04848;
+  --status-warning-bg: #f7f0e4;
+  --status-warning-text: #92600f;
+  --status-neutral-bg: #f1f0ee;
+  --status-neutral-text: #5c5a57;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* ===== 阴影（仅卡片 hover 与浮层） ===== */
+  --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(26, 25, 23, 0.08);
 
-  --font-sans: 'Inter', 'Segoe UI', 'Georgia', 'Noto Serif SC', 'Source Han Serif SC', '思源宋体', 'STSong', 'KaiTi', '楷体', serif;
+  /* ===== 圆角两档制 + 小元素档 ===== */
+  --radius-sm: 8px;             /* 小元素：hover 区、chip 内边 */
+  --radius-card: 12px;          /* 卡片 */
+  --radius-pill: 999px;         /* 按钮 / 徽章 / 标签 */
+
+  /* ===== 字体双栈：UI 无衬线 / 长文衬线 ===== */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans SC', sans-serif;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'Source Han Serif SC', '思源宋体', 'STSong', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
 
+  /* ===== 字号阶梯（四级） ===== */
+  --fs-xs: 12px;    /* 辅助说明、徽章 */
+  --fs-sm: 14px;    /* 次级文本、按钮 */
+  --fs-md: 16px;    /* 正文 */
+  --fs-lg: 20px;    /* 标题 */
+
+  /* ===== 布局 ===== */
   --sidebar-width: 260px;
   --max-content-width: 768px;
 
-  /* Spacing scale */
+  /* ===== 间距刻度 ===== */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -39,9 +68,19 @@
   --space-xl: 32px;
   --space-2xl: 48px;
 
-  /* Panel padding */
+  /* ===== 面板内边距 ===== */
   --panel-padding-x: 28px;
   --panel-padding-y: 20px;
+
+  /* ===== 兼容别名（旧变量名 → 新值，逐步迁移后删除） ===== */
+  --bg-primary: var(--bg-panel);
+  --bg-secondary: var(--bg-panel-sunken);
+  --bg-sidebar: var(--bg-app);
+  --border-color: var(--border-subtle);
+  --border-light: var(--border-subtle);
+  --font-sans: var(--font-ui);
+  --radius-md: var(--radius-card);
+  --radius-lg: var(--radius-card);
 }
 
 * {
@@ -51,11 +90,11 @@
 }
 
 body {
-  font-family: var(--font-sans);
-  font-size: 15px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
   line-height: 1.6;
   color: var(--text-primary);
-  background-color: var(--bg-primary);
+  background-color: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -69,7 +108,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 

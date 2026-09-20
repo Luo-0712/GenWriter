@@ -70,6 +70,14 @@ const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, ha
     window.localStorage.setItem(WORKBENCH_WIDTH_KEY, String(DEFAULT_WORKBENCH_WIDTH));
   }, []);
 
+  // 助手消息已经开始产出执行轨迹时，下面那个「思考中」占位气泡就是重复提示
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const hasLiveTrace = Boolean(lastMessage && lastMessage.role === 'assistant' && (
+    (lastMessage.traceEvents?.length || 0) > 0
+    || (lastMessage.chainNodes?.length || 0) > 0
+    || (lastMessage.thinkingSteps?.length || 0) > 0
+  ));
+
   return (
     <div className={`chat-area${workbenchCollapsed ? ' workbench-is-collapsed' : ''}`} style={{ '--workbench-width': `${workbenchWidth}px` }}>
       <div className="chat-conversation">
@@ -86,7 +94,7 @@ const ChatArea = ({ messages, onSend, onSuggestionClick, onExport, isLoading, ha
             {messages.map((message, index) => (
               <MessageBubble key={index} message={message} onExport={onExport} />
             ))}
-            {isLoading && !hasContentStarted && (
+            {isLoading && !hasContentStarted && !hasLiveTrace && (
               <div className="message-bubble assistant">
                 <div className="message-avatar">G</div>
                 <div className="message-content">

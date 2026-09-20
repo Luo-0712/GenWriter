@@ -159,6 +159,7 @@ const VersionNavigator = ({ documents, selectedId, dirty, loading, onSelect }) =
         </div>
       </div>
 
+      {documents.length > 1 && (
       <div className="version-neighbors" aria-label="相邻版本">
         {visibleDocuments.map((document) => {
           const isCurrent = document.id === selectedId;
@@ -178,6 +179,7 @@ const VersionNavigator = ({ documents, selectedId, dirty, loading, onSelect }) =
           );
         })}
       </div>
+      )}
 
       {historyOpen && (
         <div

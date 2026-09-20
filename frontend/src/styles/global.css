@@ -26,7 +26,7 @@
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: #e74c3c;
+  background: var(--status-error-text);
   color: white;
   padding: 10px 20px;
   border-radius: var(--radius-sm);
