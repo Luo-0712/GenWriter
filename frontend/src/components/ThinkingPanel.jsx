@@ -123,16 +123,46 @@ const flattenTrace = (nodes) => {
 
 const REACT_DECISION_NAME = 'ReAct 决策';
 const FALLBACK_SUMMARY = '已完成';
+// 护栏步骤（系统按内容流水线规则强制出的下一步）不是模型决策，展示上统一换成用户语言
+const GUARD_TITLE = '流程衔接';
 
-// 节点标题：护栏步骤由后端在 metadata.decisionType 标记，历史数据按名字兜底识别
+// 旧数据带的护栏前缀；新数据已改为用户文案，不再命中
+const LEGACY_GUARD_PATTERN = /^[硬软]?护栏[:：]/;
+// 内部术语：出现即说明该摘要还是旧的内部措辞
+const GUARD_INTERNAL_PATTERN = /intent_recognition|reviewCount|ReviewWorker|polishedContent|polish|review|draft/;
+
+const isGuardNode = (node) =>
+  node.metadata?.decisionType === 'guard' || LEGACY_GUARD_PATTERN.test(node.summary || '');
+
+// 历史护栏摘要 → 中性文案；命中顺序即优先级
+const GUARD_SUMMARY_RULES = [
+  [/intent_recognition/, '先识别写作意图，再继续下一步'],
+  [/reviewCount|已达上限/, '修订轮次已达上限，以当前润色稿定稿'],
+  [/draft[^。]*polish|润色稿已过期/, '正文已更新，先按新稿重新润色'],
+  [/polish|润色/, '润色完成，先评审再决定下一步'],
+];
+
+const sanitizeGuardSummary = (node) => {
+  const raw = node.summary || '';
+  if (!isGuardNode(node)) return raw;
+  // 已经是用户语言的摘要原样保留，只改旧文案
+  if (!LEGACY_GUARD_PATTERN.test(raw) && !GUARD_INTERNAL_PATTERN.test(raw)) return raw;
+  const hit = GUARD_SUMMARY_RULES.find(([pattern]) => pattern.test(raw));
+  return hit ? hit[1] : '系统自动衔接下一步';
+};
+
+// 节点标题：护栏步骤由后端在 metadata.decisionType 标记，历史数据按护栏文案前缀兜底识别
 const nodeTitle = (node) => {
-  if (node.metadata?.decisionType === 'guard') return '系统护栏';
+  if (isGuardNode(node)) return GUARD_TITLE;
   if (node.name === REACT_DECISION_NAME) return '决策';
   return node.name || KIND_LABELS[node.kind] || '执行步骤';
 };
 
 // 兜底摘要（后端无 output 时的默认值）不展示，避免整屏重复的「已完成」
-const nodeSummary = (node) => (node.summary && node.summary !== FALLBACK_SUMMARY ? node.summary : null);
+const nodeSummary = (node) => {
+  const summary = sanitizeGuardSummary(node);
+  return summary && summary !== FALLBACK_SUMMARY ? summary : null;
+};
 
 const mergeSameNameChild = (parent, child) => {
   const metadata = { ...(parent.metadata || {}), ...(child.metadata || {}) };
@@ -172,11 +202,14 @@ const normalizeTraceNodes = (nodes = []) => nodes.map((node) => {
 const TraceNodeItem = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 1);
   const reasoningRef = useRef(null);
+  // 护栏步的 reasoningContent 是流水线规则说明、不是模型思考：不展示，也不触发「思考中」与自动展开
+  const guard = isGuardNode(node);
+  const showReasoning = Boolean(node.reasoningContent) && !guard;
   // 首次收到思考流时自动展开一次；历史恢复节点与用户手动收起后不再强制展开
-  const hadReasoningRef = useRef(Boolean(node.reasoningContent));
+  const hadReasoningRef = useRef(showReasoning);
   const status = PHASE_TO_STATUS[node.phase] || 'RUNNING';
   const hasChildren = node.children && node.children.length > 0;
-  const hasDetails = node.input || node.output || node.metadata || node.error || node.reasoningContent;
+  const hasDetails = node.input || node.output || node.metadata || node.error || showReasoning;
   const kindStyle = KIND_STYLES[node.kind] || KIND_STYLES.STATUS;
   // reasoningCaptured / reason 由 worker 写在 span 的输入摘要里（metadata 作为兼容来源）
   const reasoningMeta = node.metadata?.reasoningCaptured != null ? node.metadata : node.input;
@@ -186,15 +219,16 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
     : '当前模型未输出思考过程（非推理模型，或该步骤无需思考）';
   const isRunning = status === 'STARTED' || status === 'RUNNING';
   // 思考流进行中：节点上显示「思考中」呼吸标识
-  const isThinking = isRunning && Boolean(node.reasoningContent);
+  const isThinking = isRunning && showReasoning;
+  const summary = nodeSummary(node);
 
   // 首个思考 chunk 到达时自动展开（仅一次，之后尊重用户操作）
   useEffect(() => {
-    if (node.reasoningContent && !hadReasoningRef.current) {
+    if (showReasoning && !hadReasoningRef.current) {
       hadReasoningRef.current = true;
       setExpanded(true);
     }
-  }, [node.reasoningContent]);
+  }, [showReasoning, node.reasoningContent]);
 
   // reasoning 流式追加时自动滚动到底
   useEffect(() => {
@@ -204,8 +238,11 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
   }, [node.reasoningContent, expanded]);
 
   return (
-    <div className={`trace-node trace-node-depth-${Math.min(depth, 4)} trace-node-${status.toLowerCase()}`}>
-      <div className="trace-node-main" style={{ paddingLeft: `${depth * 18}px` }}>
+    <div
+      className={`trace-node trace-node-depth-${Math.min(depth, 4)} trace-node-${status.toLowerCase()}`}
+      style={{ '--trace-indent': `${depth * 18}px`, '--trace-depth': depth }}
+    >
+      <div className="trace-node-main">
         <button
           className="trace-node-expander"
           onClick={() => setExpanded(!expanded)}
@@ -220,28 +257,33 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
         <div className="trace-node-body">
           <div className="trace-node-title-row">
             <span className="trace-node-title">{nodeTitle(node)}</span>
-            {node.kind === 'LLM' && (
-              <span className="trace-node-chip trace-node-kind-chip" style={kindStyle}>
-                {KIND_LABELS[node.kind] || node.kind}
-              </span>
-            )}
-            {isThinking && (
-              <span className="trace-node-chip trace-node-thinking-chip">
-                <span className="thinking-panel-live-dot" />
-                思考中
-              </span>
-            )}
-            {node.toolName && <span className="trace-node-chip">{node.toolName}</span>}
-            {node.durationMs != null && node.durationMs > 0 && (
-              <span className="trace-node-duration">{formatDuration(node.durationMs)}</span>
-            )}
+            {/* 标签与耗时统一右对齐成一列，长标题/长摘要不再把它们挤到第二行 */}
+            <span className="trace-node-meta">
+              {node.kind === 'LLM' && !guard && (
+                <span className="trace-node-chip trace-node-kind-chip" style={kindStyle}>
+                  {KIND_LABELS[node.kind] || node.kind}
+                </span>
+              )}
+              {isThinking && (
+                <span className="trace-node-chip trace-node-thinking-chip">
+                  <span className="thinking-panel-live-dot" />
+                  思考中
+                </span>
+              )}
+              {node.toolName && <span className="trace-node-chip">{node.toolName}</span>}
+              {node.durationMs != null && node.durationMs > 0 && (
+                <span className="trace-node-duration">{formatDuration(node.durationMs)}</span>
+              )}
+            </span>
           </div>
-          {nodeSummary(node) && <div className="trace-node-summary">{nodeSummary(node)}</div>}
+          {summary && (
+            <div className="trace-node-summary" title={summary}>{summary}</div>
+          )}
         </div>
       </div>
 
       {expanded && hasDetails && (
-        <div className="trace-node-details" style={{ marginLeft: `${depth * 18 + 22}px` }}>
+        <div className="trace-node-details">
           {node.error && (
             <div className="trace-detail-section trace-detail-error">
               <span className="trace-detail-label">错误</span>
@@ -260,7 +302,7 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
               <div className="trace-detail-body">{formatValue(node.output)}</div>
             </div>
           )}
-          {node.reasoningContent && (
+          {showReasoning && (
             <div className="trace-detail-section trace-detail-reasoning">
               <span className="trace-detail-label">模型思考过程</span>
               <div className="trace-detail-reasoning-body" ref={reasoningRef}>
@@ -268,7 +310,7 @@ const TraceNodeItem = ({ node, depth = 0 }) => {
               </div>
             </div>
           )}
-          {reasoningDisabled && !node.reasoningContent && (
+          {reasoningDisabled && !showReasoning && !guard && (
             <div className="trace-detail-section trace-detail-reasoning-disabled">
               {reasoningDisabledText}
             </div>
@@ -332,7 +374,12 @@ const ThinkingPanel = ({ traceEvents = [], chainNodes = [], isStreaming }) => {
     const keepTree = (nodes) => nodes
       .map((node) => {
         const children = keepTree(node.children || []);
-        const keepSelf = filter === 'ERROR' ? node.phase === 'ERROR' || node.kind === 'ERROR' : node.kind === filter;
+        // 护栏步历史上以 LLM kind 落库，但它不是模型调用，不该出现在「模型」分类下
+        const keepSelf = filter === 'ERROR'
+          ? node.phase === 'ERROR' || node.kind === 'ERROR'
+          : filter === 'LLM'
+            ? node.kind === filter && !isGuardNode(node)
+            : node.kind === filter;
         if (keepSelf || children.length > 0) return { ...node, children };
         return null;
       })
@@ -341,7 +388,8 @@ const ThinkingPanel = ({ traceEvents = [], chainNodes = [], isStreaming }) => {
   }, [filter, traceTree]);
 
   const stats = useMemo(() => {
-    const completed = flatTrace.filter((n) => n.phase === 'COMPLETED').length;
+    // 「N 步完成」只反映真实工作步骤：护栏步是系统内部衔接，不计入
+    const completed = flatTrace.filter((n) => n.phase === 'COMPLETED' && !isGuardNode(n)).length;
     const errors = flatTrace.filter((n) => n.phase === 'ERROR' || n.kind === 'ERROR').length;
     const running = flatTrace.filter((n) => n.phase === 'STARTED' || n.phase === 'RUNNING').length;
     const tools = flatTrace.filter((n) => n.kind === 'TOOL').length;
@@ -357,8 +405,13 @@ const ThinkingPanel = ({ traceEvents = [], chainNodes = [], isStreaming }) => {
   if (!hasNodes) return null;
 
   const latest = hasTrace ? flatTrace[flatTrace.length - 1] : chainNodes[chainNodes.length - 1];
+  // 折叠态用展示名（「ReAct 决策」这类原始事件名是内部术语）；
+  // 末步若是护栏衔接，回退到最近的真实工作步骤，摘要行才说明「做到哪了」
+  const latestShown = hasTrace
+    ? [...flatTrace].reverse().find((n) => !isGuardNode(n)) || latest
+    : latest;
   const latestStatusText = hasTrace
-    ? `${latest?.name || '执行中'}${latest?.phase === 'COMPLETED' ? ' 已完成' : latest?.phase === 'ERROR' ? ' 失败' : '...'}`
+    ? `${nodeTitle(latestShown)}${latestShown?.phase === 'COMPLETED' ? ' 已完成' : latestShown?.phase === 'ERROR' ? ' 失败' : '...'}`
     : `${latest?.nodeName || ''}${latest?.status === 'COMPLETED' ? ' 已完成' : latest?.status === 'ERROR' ? ' 失败' : '...'}`;
 
   return (

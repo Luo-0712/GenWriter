@@ -160,6 +160,22 @@ class ThoughtChainPublisherTest {
     }
 
     @Test
+    void publishReactDecisionTrace_marksGuardSpansAsSupervisorKind() {
+        ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
+
+        String spanId = publisher.publishReactDecisionTrace(
+                "session-1", "supervisor-node-1",
+                "正文已更新，先按新稿重新润色", null, "polish",
+                ThoughtChainPublisher.DECISION_GUARD);
+
+        AgentTraceEvent decision = captureTraceEvents("session-1").stream()
+                .filter(e -> spanId.equals(e.getSpanId())).findFirst().orElseThrow();
+        // 护栏步不是模型调用，归到 SUPERVISOR：不该出现在前端的「模型」分类与标签里
+        assertEquals(AgentTraceEvent.Kind.SUPERVISOR.name(), decision.getKind());
+        assertEquals(ThoughtChainPublisher.DECISION_GUARD, decision.getMetadata().get("decisionType"));
+    }
+
+    @Test
     void publishReactDecisionComplete_keepsDecisionSummaryInsteadOfFallback() {
         ThoughtChainPublisher publisher = new ThoughtChainPublisher(sseService);
 

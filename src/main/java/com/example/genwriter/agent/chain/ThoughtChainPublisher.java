@@ -412,7 +412,7 @@ public class ThoughtChainPublisher {
      * 由 SupervisorNode 的 ReAct StepHook 在 BEFORE 阶段调用，让前端 trace 树能看到每步决策依据。
      *
      * @param decisionType {@link #DECISION_REACT}（模型决策）或 {@link #DECISION_GUARD}（硬护栏强制），
-     *                     写入 metadata 供前端区分展示
+     *                     写入 metadata 供前端区分展示；护栏步的 span kind 记为 SUPERVISOR
      */
     public String publishReactDecisionTrace(String sessionId, String parentSpanId,
                                             String thought, String reasoning, String action,
@@ -425,12 +425,16 @@ public class ThoughtChainPublisher {
         // 思考全文写入 reasoningContent 专属字段（前端「模型思考过程」区块渲染），
         // metadata 仅保留决策元信息；reasoning 全文不经过 TEXT_SUMMARY_LIMIT 截断
         String reasoningContent = buildDecisionReasoningContent(thought, reasoning);
+        // 护栏步由确定性规则产出、并非模型调用：记为 SUPERVISOR，不落进「模型」分类
+        AgentTraceEvent.Kind kind = DECISION_GUARD.equals(decisionType)
+                ? AgentTraceEvent.Kind.SUPERVISOR
+                : AgentTraceEvent.Kind.LLM;
         AgentTraceEvent event = AgentTraceEvent.builder()
                 .traceId(sessionId)
                 .eventId(generateEventId())
                 .spanId(spanId)
                 .parentSpanId(parentSpanId)
-                .kind(AgentTraceEvent.Kind.LLM.name())
+                .kind(kind.name())
                 .phase(AgentTraceEvent.Phase.STARTED.name())
                 .name("ReAct 决策")
                 .summary(thought != null && !thought.isBlank() ? truncate(thought, TEXT_SUMMARY_LIMIT) : "ReAct 决策")
@@ -439,7 +443,7 @@ public class ThoughtChainPublisher {
                 .startedAt(now)
                 .timestamp(now)
                 .build();
-        traceSpans.put(spanId, new TraceSpan(sessionId, parentSpanId, "ReAct 决策", AgentTraceEvent.Kind.LLM, now));
+        traceSpans.put(spanId, new TraceSpan(sessionId, parentSpanId, "ReAct 决策", kind, now));
         publishTraceEvent(sessionId, event);
         return spanId;
     }

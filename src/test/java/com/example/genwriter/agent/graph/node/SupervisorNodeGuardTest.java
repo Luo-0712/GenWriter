@@ -5,7 +5,11 @@ import com.example.genwriter.agent.react.ReactStep;
 import com.example.genwriter.agent.supervisor.worker.ReviewWorker;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,5 +67,41 @@ class SupervisorNodeGuardTest {
 
         assertEquals("polish", afterDraft.action());
         assertTrue(afterPolish.isFinish());
+    }
+
+    /**
+     * 护栏步的 reasoning 会作为轨迹摘要直接渲染给用户，因此只能是用户语言：
+     * worker id、字段名、护栏术语都不得出现（技术原因走 {@code forcedContentStepDiagnostic} 与日志）。
+     */
+    @Test
+    void forcedReasoningIsUserFacingCopy() {
+        List<ReactStep> steps = List.of(
+                SupervisorNode.forcedContentStep(false, ContentPhase.IDLE, 0),
+                SupervisorNode.forcedContentStep(true, ContentPhase.POLISH_AFTER_DRAFT, 0),
+                SupervisorNode.forcedContentStep(true, ContentPhase.REVIEW_AFTER_POLISH, 0),
+                SupervisorNode.forcedContentStep(
+                        true, ContentPhase.REVIEW_AFTER_POLISH, ReviewWorker.MAX_REVIEW_ROUNDS));
+
+        List<String> forbidden = List.of("护栏", "强制", "ReviewWorker", "polishedContent",
+                "intent_recognition", "reviewCount", "review", "polish", "draft");
+        for (ReactStep step : steps) {
+            assertNotNull(step, "护栏分支都应产出步骤");
+            assertFalse(step.reasoning() == null || step.reasoning().isBlank());
+            for (String word : forbidden) {
+                assertFalse(step.reasoning().contains(word),
+                        "用户可见的护栏文案不应出现内部术语「" + word + "」: " + step.reasoning());
+            }
+        }
+    }
+
+    /** 技术原因仍可通过诊断文案取到，保证排查能力没有随文案中性化一起丢掉。 */
+    @Test
+    void diagnosticKeepsTechnicalReason() {
+        String afterDraft = SupervisorNode.forcedContentStepDiagnostic(
+                true, ContentPhase.POLISH_AFTER_DRAFT, 0);
+
+        assertTrue(afterDraft.contains("polish"));
+        assertTrue(SupervisorNode.forcedContentStepDiagnostic(false, ContentPhase.IDLE, 0)
+                .contains("intent_recognition"));
     }
 }

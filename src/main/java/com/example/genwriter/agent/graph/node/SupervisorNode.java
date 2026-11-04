@@ -86,6 +86,14 @@ public class SupervisorNode implements NodeAction {
 
     record ReadSkillInput(String name) {}
 
+    /** 状态行展示：worker 名 → 中文显示名，未登记的原样保留（避免把内部 id 摆到用户面前）。 */
+    private static String displaySteps(List<String> steps) {
+        List<String> display = steps.stream()
+                .map(name -> WORKER_DISPLAY_NAMES.getOrDefault(name, name))
+                .toList();
+        return String.join(" → ", display);
+    }
+
     @PostConstruct
     void init() {
         this.readSkillDetailCallback = FunctionToolCallback
@@ -239,7 +247,7 @@ public class SupervisorNode implements NodeAction {
         chainPublisher.publishComplete(sessionId, supervisorNodeId,
                 Map.of("steps", steps, "reasoning", plan.reasoning()));
 
-        publishStatus(sessionId, "【规划】执行计划: " + String.join(" → ", steps));
+        publishStatus(sessionId, "【规划】执行计划: " + displaySteps(steps));
         log.info("[SupervisorNode] 执行计划: steps={}, reasoning={}", steps, plan.reasoning());
 
         int planIndex = 0;
@@ -275,7 +283,7 @@ public class SupervisorNode implements NodeAction {
                     replanCount++;
                     chainPublisher.publishComplete(sessionId, replanNodeId,
                             Map.of("newSteps", steps, "restartFrom", planIndex));
-                    publishStatus(sessionId, "【重规划】调整为: " + String.join(" → ", steps));
+                    publishStatus(sessionId, "【重规划】调整为: " + displaySteps(steps));
                     log.info("[SupervisorNode] 重规划: steps={}, restartFrom={}, replanCount={}", steps, planIndex, replanCount);
                     continue;
                 }
@@ -361,6 +369,9 @@ public class SupervisorNode implements NodeAction {
             ReactStep forced = forcedContentStep(intentDone[0], contentPhase[0], reviewCountOf(s));
             if (forced != null) {
                 guardSteps.add(forced);
+                log.info("[SupervisorNode][ReAct] 护栏接管本步决策: action={}, 原因={}",
+                        forced.action(),
+                        forcedContentStepDiagnostic(intentDone[0], contentPhase[0], reviewCountOf(s)));
                 return forced;
             }
             return decideNextReactStep(s, hist);
@@ -430,7 +441,7 @@ public class SupervisorNode implements NodeAction {
                                     : ThoughtChainPublisher.DECISION_REACT);
                     decisionSpanIds.put(step, spanId);
                 } else {
-                    // AFTER / SKIP / ERROR：结束该决策 span，摘要沿用决策依据（护栏步用硬护栏理由），
+                    // AFTER / SKIP / ERROR：结束该决策 span，摘要沿用决策依据（护栏步用面向用户的可读理由），
                     // 否则 COMPLETED 会退化成兜底文案「已完成」并覆盖 STARTED 阶段展示的思考
                     String spanId = decisionSpanIds.remove(step);
                     if (spanId != null) {
@@ -548,32 +559,51 @@ public class SupervisorNode implements NodeAction {
     static ReactStep forcedContentStep(boolean intentDone, ContentPhase phase, int reviewCount) {
         if (!intentDone) {
             return new ReactStep(
-                    "首步需先识别意图与 writingType",
+                    "先识别写作意图与文体类型",
                     "intent_recognition",
                     null,
-                    "首步护栏：强制 intent_recognition");
+                    "先识别写作意图，再继续下一步");
         }
         return switch (phase) {
             case POLISH_AFTER_DRAFT -> new ReactStep(
                     "正文已更新，润色稿已过期，需重新润色",
                     "polish",
                     null,
-                    "硬护栏：draft 之后强制 polish（ReviewWorker 只评审 polishedContent）");
+                    "正文已更新，先按新稿重新润色");
             case REVIEW_AFTER_POLISH -> {
                 if (reviewCount >= ReviewWorker.MAX_REVIEW_ROUNDS) {
                     yield new ReactStep(
                             "评审轮数已达上限，停止修订",
                             ReactStep.FINISH,
                             null,
-                            "硬护栏：reviewCount=" + reviewCount + " 已达上限，以最新润色稿定稿");
+                            "修订轮次已达上限，以当前润色稿定稿");
                 }
                 yield new ReactStep(
                         "润色已更新，需先评审再决定后续",
                         "review",
                         null,
-                        "硬护栏：polish 之后强制 review");
+                        "润色完成，先评审再决定下一步");
             }
             case IDLE -> null;
+        };
+    }
+
+    /**
+     * 护栏触发原因的技术描述，仅用于日志。
+     *
+     * <p>{@link #forcedContentStep} 的 reasoning 会渲染给用户（轨迹摘要），因此那里只放用户语言；
+     * 排查需要的 worker/字段级原因在这里给出，不进 SSE、不进 metadata。
+     */
+    static String forcedContentStepDiagnostic(boolean intentDone, ContentPhase phase, int reviewCount) {
+        if (!intentDone) {
+            return "首步护栏：强制 intent_recognition";
+        }
+        return switch (phase) {
+            case POLISH_AFTER_DRAFT -> "硬护栏：draft 之后强制 polish（ReviewWorker 只评审 polishedContent）";
+            case REVIEW_AFTER_POLISH -> reviewCount >= ReviewWorker.MAX_REVIEW_ROUNDS
+                    ? "硬护栏：reviewCount=" + reviewCount + " 已达上限，以最新润色稿定稿"
+                    : "硬护栏：polish 之后强制 review";
+            case IDLE -> "无护栏";
         };
     }
 

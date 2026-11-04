@@ -1,2 +1,11 @@
-/mvnw text eol=lf
+# 行尾统一：仓库内一律存 LF，检出到任何平台也写 LF。
+# 文本文件在 add 时由 clean filter 把 CRLF 归一成 LF，避免整文件 diff。
+* text=auto eol=lf
+
+# Windows 原生脚本保留 CRLF（cmd.exe 对 LF 的兼容性不保证）
 *.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# mvnw 要进 Linux/Docker 执行，必须是 LF
+/mvnw text eol=lf

@@ -2296,12 +2296,16 @@
   transition: border-color 0.2s;
 }
 
+/* 全列表只有一条进度条：每个节点的长条都向左抵消自身层级的缩进（每层 14px），
+   全部对齐到同一条竖线上；上下不留间隙，首尾相接成一条连续长条。
+   父节点的长条覆盖整棵子树，子节点自己的长条按状态色覆盖在上面——
+   于是读起来是一根长条，颜色随当前步骤的状态变化。 */
 .trace-node::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
+  left: calc(var(--trace-depth, 0) * -14px);
+  top: 0;
+  bottom: 0;
   width: 3px;
   border-radius: 0;
   background: var(--border-color);
@@ -2328,8 +2332,8 @@
 .trace-node-main {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: 6px 8px 6px 0;
+  gap: 8px;
+  padding: 5px 8px 5px var(--trace-indent, 0px);
   min-width: 0;
   border-radius: var(--radius-sm);
   transition: background 0.15s;
@@ -2403,15 +2407,28 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .trace-node-title {
+  flex: 1 1 auto;
   font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text-secondary);
   line-height: 1.5;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 标签与耗时右对齐成一列：各步耗时竖向对齐，长标题也不会把它们挤走 */
+.trace-node-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .trace-node-chip {
@@ -2445,18 +2462,29 @@
   color: var(--text-tertiary);
   font-size: var(--fs-xs);
   flex-shrink: 0;
+  /* 等宽数字：各步耗时按位对齐，不会因 7.1s / 36.5s 宽度不同而参差 */
+  font-variant-numeric: tabular-nums;
 }
 
 .trace-node-summary {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: var(--fs-xs);
   color: var(--text-tertiary);
-  line-height: 1.5;
+  line-height: 1.45;
   word-break: break-word;
+  /* 超长摘要按行数截断（紧凑 1 行 / 详情 2 行），完整内容走 title 悬停 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.thinking-panel-content-compact .trace-node-summary {
+  -webkit-line-clamp: 1;
 }
 
 .trace-node-details {
-  margin: 0 0 5px;
+  margin: 0 0 5px calc(var(--trace-indent, 0px) + 22px);
   padding: 7px 9px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -2876,10 +2904,12 @@
 
   .trace-node-main {
     gap: 5px;
+    padding-left: min(var(--trace-indent, 0px), 18px);
   }
 
   .trace-node-details {
-    margin-left: 12px !important;
+    /* 窄屏收敛缩进，但仍跟随层级（此前用 !important 压平，和层级缩进相互打架） */
+    margin-left: calc(min(var(--trace-indent, 0px), 18px) + 12px);
   }
 
   .chain-node-dot {
