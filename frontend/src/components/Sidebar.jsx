@@ -42,6 +42,8 @@ const navItems = [
   )},
 ];
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'genwriter-sidebar-collapsed';
+
 const Sidebar = ({
   projects,
   activeProject,
@@ -58,6 +60,13 @@ const Sidebar = ({
   onUpdateSession,
   onNavigate,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState(null);
@@ -73,6 +82,18 @@ const Sidebar = ({
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const sessionInputRef = useRef(null);
+
+  const toggleCollapsed = () => {
+    setIsCollapsed((previous) => {
+      const next = !previous;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+      } catch {
+        // Keep the sidebar usable when browser storage is unavailable.
+      }
+      return next;
+    });
+  };
 
   // 项目编辑聚焦
   useEffect(() => {
@@ -180,16 +201,45 @@ const Sidebar = ({
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isCollapsed ? 'is-collapsed' : ''}`}>
       <div className="sidebar-header">
-        <button className="new-chat-btn" onClick={onNewChat}>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={toggleCollapsed}
+          title={isCollapsed ? '展开侧栏' : '收起侧栏'}
+          aria-label={isCollapsed ? '展开侧栏' : '收起侧栏'}
+          aria-expanded={!isCollapsed}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <path d={isCollapsed ? 'M9 4v16m6-10 3 2-3 2' : 'M9 4v16m6-4-3-2 3-2'}></path>
+          </svg>
+        </button>
+        <button className="new-chat-btn" onClick={onNewChat} title="新对话" aria-label="新对话">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          新对话
+          {!isCollapsed && <span>新对话</span>}
         </button>
       </div>
+
+      {isCollapsed && (
+        <nav className="sidebar-compact-nav" aria-label="主导航">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`sidebar-compact-nav-item ${view === item.key ? 'active' : ''}`}
+              onClick={() => onNavigate(item.key)}
+              title={item.label}
+              aria-label={item.label}
+              aria-current={view === item.key ? 'page' : undefined}
+            >
+              {item.icon}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <div className="sidebar-content">
         <div className="project-section">
