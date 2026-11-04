@@ -530,6 +530,15 @@
   margin-bottom: 24px;
 }
 
+.welcome-logo img {
+  display: block;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 20px;
+}
+
 .welcome-title {
   font-size: 32px;
   font-weight: 600;
