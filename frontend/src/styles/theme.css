@@ -46,8 +46,10 @@
   --radius-card: 12px;          /* 卡片 */
   --radius-pill: 999px;         /* 按钮 / 徽章 / 标签 */
 
-  /* ===== 字体双栈：UI 无衬线 / 长文衬线 ===== */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans SC', sans-serif;
+  /* ===== 字体：UI 用 Inter + Noto Sans SC（index.html 引入），长文仍用衬线 ===== */
+  --font-inter: 'Inter';
+  --font-noto-sans-sc: 'Noto Sans SC';
+  --font-ui: var(--font-inter), var(--font-noto-sans-sc), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --font-serif: 'Georgia', 'Noto Serif SC', 'Source Han Serif SC', '思源宋体', 'STSong', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
 
