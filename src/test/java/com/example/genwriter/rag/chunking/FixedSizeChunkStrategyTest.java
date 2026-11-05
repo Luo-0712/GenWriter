@@ -110,9 +110,13 @@ class FixedSizeChunkStrategyTest {
 
     @Test
     void testChunkMarkdownFile() throws IOException {
-        // 读取markdown文件
-        Path markdownPath = Path.of("e:\\JavaProjects\\GenWriter\\temp\\Spring AI Alibaba RAG最佳实践.md");
-        String markdownContent = Files.readString(markdownPath);
+        String markdownContent;
+        try (var input = getClass().getResourceAsStream("/test-document.md")) {
+            assertNotNull(input, "Markdown fixture must be included in test resources");
+            String fixture = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertFalse(fixture.isBlank());
+            markdownContent = fixture.repeat((6000 + fixture.length() - 1) / fixture.length());
+        }
         
         System.out.println("========================================");
         System.out.println("文档切分测试 - Spring AI Alibaba RAG最佳实践.md");
@@ -168,8 +172,15 @@ class FixedSizeChunkStrategyTest {
         for (DocumentChunk chunk : chunks) {
             reconstructed.append(chunk.getContent());
         }
-        assertTrue(reconstructed.length() >= markdownContent.length(),
-                "切分后的内容应该覆盖原文档");
+        // The splitter normalizes whitespace. Check ordered body coverage rather than raw byte count.
+        String originalBody = markdownContent.replaceAll("\\s+", "");
+        String reconstructedBody = reconstructed.toString().replaceAll("\\s+", "");
+        int cursor = 0;
+        for (int index = 0; index < originalBody.length(); index++) {
+            int found = reconstructedBody.indexOf(originalBody.charAt(index), cursor);
+            assertTrue(found >= 0, "切分后应按顺序保留全部正文字符，缺失位置: " + index);
+            cursor = found + 1;
+        }
         
         System.out.println("========================================");
         System.out.println("测试通过! 所有断言验证成功");
