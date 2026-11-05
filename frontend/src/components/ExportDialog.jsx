@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { exportDocument } from '../api/documents';
-import '../styles/global.css';
 
 const ExportDialog = ({ message, sessionId, onClose }) => {
   const defaultTitle = (message?.content || '').substring(0, 50).replace(/\n/g, ' ').trim();

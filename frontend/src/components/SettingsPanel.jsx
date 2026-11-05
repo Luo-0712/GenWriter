@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as llmApi from '../api/llmProviders';
 import * as settingsApi from '../api/settings';
-import '../styles/global.css';
+import SelectField from './SelectField';
 
 const PROVIDER_TYPE_LABEL = {
   dashscope: '通义千问',
@@ -221,19 +221,8 @@ const SettingsPanel = () => {
               <div className="settings-provider-body">
                 <div className="settings-model-select-row">
                   <label className="settings-model-label">选择模型</label>
-                  <select
-                    className="settings-model-select"
-                    value={selectedModel}
-                    onChange={(e) =>
-                      handleModelChange(provider.type, e.target.value)
-                    }
-                  >
-                    {(provider.models || []).map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectField className="settings-model-select" aria-label={`选择 ${provider.type} 模型`} value={selectedModel} onChange={(value) => handleModelChange(provider.type, value)}
+                    options={(provider.models || []).map((model) => ({ value: model, label: model }))} />
                   <button
                     className="settings-switch-btn"
                     disabled={

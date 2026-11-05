@@ -6,9 +6,9 @@ import { BookOpen, Bot, Download, LayoutPanelLeft, Plus, X, PanelRightOpen } fro
 import WorkEditor from './WorkEditor';
 import MessageBubble from './MessageBubble';
 import InputBox from './InputBox';
+import SelectField from './SelectField';
 import { CandidateDialog, LegacyDialog, WorkExportDialog, WorkspaceModal } from './WorkspaceDialogs';
 import { getReading } from '../api/workspace';
-import '../styles/workspace.css';
 
 const operations = [ ['DISCUSS', '自由讨论，不写入正文'], ['REPLACE', '修改当前节点'], ['APPEND', '续写本节'], ['CREATE_NODE', '新增章节'] ];
 
@@ -80,8 +80,8 @@ export default function ProjectWorkspace({ project, workspace, sessions, activeS
         <button type="button" aria-pressed={workspace.mode === 'studio'} onClick={() => workspace.preferences({ mode: 'studio' })}><LayoutPanelLeft size={15} />创作台</button></nav>
       {workspace.mode === 'agent' && <nav className="workspace-view-switch" aria-label="智能体主区">{[['chat', '会话'], ['document', '正文'], ['reading', '全文']].map(([value, label]) => <button type="button" key={value} aria-pressed={view === value} onClick={() => setView(value)}>{label}</button>)}</nav>}
       <div className="workspace-header-actions">{isLoading && <span className="workspace-running" role="status">正在生成</span>}
-        <button className="workspace-action" type="button" onClick={async () => { await workspace.refresh(); setCandidateList(true); }}>候选 {pending.length > 0 && <span className="workspace-count">{pending.length}</span>}</button>
-        {workspace.mode === 'studio' && <><button className="workspace-action" type="button" onClick={() => setView(view === 'reading' ? 'document' : 'reading')}>{view === 'reading' ? '返回正文' : '全文阅读'}</button>
+        <button className="workspace-ghost" type="button" onClick={async () => { await workspace.refresh(); setCandidateList(true); }}>候选 {pending.length > 0 && <span className="workspace-count">{pending.length}</span>}</button>
+        {workspace.mode === 'studio' && <><button className="workspace-ghost" type="button" onClick={() => setView(view === 'reading' ? 'document' : 'reading')}>{view === 'reading' ? '返回正文' : '全文阅读'}</button>
           <button className="workspace-action workspace-mobile-toggle" type="button" onClick={() => setMobileAssistant(!mobileAssistant)}><Bot size={16} />助手</button></>}
         <button className="workspace-action" type="button" onClick={() => setExportOpen(true)}><Download size={15} />导出作品</button>
       </div>
@@ -100,9 +100,9 @@ export default function ProjectWorkspace({ project, workspace, sessions, activeS
           event.preventDefault(); const width = Math.min(600, Math.max(280, (workspace.widths?.[workspace.mode] || 360) + (event.key === 'ArrowLeft' ? 20 : -20)));
           workspace.preferences({ widths: { ...workspace.widths, [workspace.mode]: width } });
         }} />
-      <aside className="workspace-chat-pane" aria-label="创作助手"><header className="workspace-chat-header"><div><span className="workspace-kicker">创作会话</span>
-        <select aria-label="选择创作会话" value={activeSession?.id || ''} onChange={(event) => { const session = sessions.find((item) => item.id === event.target.value); if (session) onSelectSession(session); }}>
-          {!activeSession && <option value="">新会话</option>}{sessions.map((session) => <option key={session.id} value={session.id}>{session.title}</option>)}</select></div>
+      <aside className="workspace-chat-pane" aria-label="创作助手"><header className="workspace-chat-header"><div className="workspace-chat-session"><span className="workspace-kicker">创作会话</span>
+        <SelectField aria-label="选择创作会话" value={activeSession?.id || ''} onChange={(value) => { const session = sessions.find((item) => item.id === value); if (session) onSelectSession(session); }}
+          options={[...(!activeSession ? [{ value: '', label: '新会话' }] : []), ...sessions.map((session) => ({ value: session.id, label: session.title }))]} /></div>
         <button className="workspace-icon-button" type="button" aria-label="新建创作会话" onClick={onNewChat}><Plus size={17} /></button>
         <button className="workspace-icon-button workspace-mobile-toggle" type="button" aria-label="关闭助手" onClick={() => setMobileAssistant(false)}><X size={17} /></button>
       </header>
@@ -115,7 +115,8 @@ export default function ProjectWorkspace({ project, workspace, sessions, activeS
             <p>{item.content.slice(0, 150)}{item.content.length > 150 ? '…' : ''}</p><button className="workspace-action" type="button" onClick={() => setCandidate(item)}>{item.status === 'ADOPTED' ? '查看修改' : '预览修改'}</button>
           </div>)}<div ref={messagesEndRef} />
         </div>
-        <div className="workspace-task-target"><label>本次写入目标<select aria-label="本次写入目标" value={visibleOperation} disabled={isLoading} onChange={(event) => setOperation(event.target.value)}>{operations.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <div className="workspace-task-target"><label htmlFor="workspace-task-target">本次写入目标</label><SelectField id="workspace-task-target" aria-label="本次写入目标" value={visibleOperation} disabled={isLoading} onChange={setOperation}
+          options={operations.map(([value, label]) => ({ value, label }))} />
           {visibleOperation !== 'DISCUSS' && <span title={visibleTarget?.title}>{visibleTarget?.title || '请先选择正文节点'} · {visibleOperation === 'CREATE_NODE' ? '采纳时新建章节' : '采纳后更新正文'}</span>}</div>
         <InputBox onSend={send} disabled={isSessionLoading || workspace.loading} isLoading={isLoading} sessionId={activeSession?.id || ''} kbId={selectedKbId} />
       </aside>

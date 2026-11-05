@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as knowledgeBasesApi from '../api/knowledgeBases';
 import KnowledgeBaseDetail from './KnowledgeBaseDetail';
-import '../styles/global.css';
+import SelectField from './SelectField';
 
 const KB_TYPE_MAP = {
   reference: '参考资料',
@@ -181,16 +181,8 @@ const KnowledgeBasePanel = ({ onBack }) => {
             className="memory-search-input"
           />
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="memory-filter-select"
-        >
-          <option value="">全部类型</option>
-          {Object.entries(KB_TYPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
+        <SelectField aria-label="知识库类型" value={filterType} onChange={setFilterType} className="memory-filter-select"
+          options={[{ value: '', label: '全部类型' }, ...Object.entries(KB_TYPE_MAP).map(([value, label]) => ({ value, label }))]} />
       </div>
 
       {error && (
@@ -314,15 +306,9 @@ const KnowledgeBasePanel = ({ onBack }) => {
                 />
               </div>
               <div className="memory-form-group">
-                <label>类型</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                >
-                  {Object.entries(KB_TYPE_MAP).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
+                <label htmlFor="knowledge-type">类型</label>
+                <SelectField id="knowledge-type" aria-label="知识库类型" value={formData.type} onChange={(value) => setFormData({ ...formData, type: value })}
+                  options={Object.entries(KB_TYPE_MAP).map(([value, label]) => ({ value, label }))} />
               </div>
             </div>
             <div className="memory-modal-footer">

@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { X } from 'lucide-react';
 import { getDocument } from '../api/documents';
 import * as api from '../api/workspace';
+import SelectField from './SelectField';
 
 export function WorkspaceModal({ title, onClose, children, footer, wide = false }) {
   const dialogRef = useRef(null);
@@ -101,7 +102,7 @@ export function LegacyDialog({ workspace, onClose }) {
   </>}>
     {error && <p className="workspace-error" role="alert">{error}</p>}
     {loading ? <p>加载历史文稿…</p> : !documents.length ? <p className="workspace-muted">该作品没有待整理的历史文稿。</p> : <>
-      <label>导入到<select value={parentId} onChange={(event) => setParentId(event.target.value)}>{workspace.nodes.map((node) => <option key={node.id} value={node.id}>{node.title}</option>)}</select></label>
+      <label htmlFor="legacy-parent">导入到</label><SelectField id="legacy-parent" aria-label="导入到节点" value={parentId} onChange={setParentId} options={workspace.nodes.map((node) => ({ value: node.id, label: node.title }))} />
       <div className="legacy-browser"><nav aria-label="历史文稿列表">{documents.map((document) => <button type="button" key={document.id} className={selected?.id === document.id ? 'selected' : ''} onClick={() => setSelected(document)}>
         <span>{document.title}</span><small>原版本 V{document.version} · {new Date(document.updatedAt).toLocaleDateString()}</small>
       </button>)}</nav><article className="workspace-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]}>{selected?.content || ''}</ReactMarkdown></article></div>
@@ -133,7 +134,7 @@ export function WorkExportDialog({ project, workspace, sessionId, onClose }) {
   </>}>
     <p className="workspace-muted">按正文目录顺序导出各节点的当前已保存正文，候选修改在采纳后纳入全文。</p>
     {dirty.length > 0 && <p className="workspace-notice">有 {dirty.length} 个节点包含未保存修改。</p>}
-    <label>格式<select value={format} onChange={(event) => setFormat(event.target.value)}><option value="markdown">Markdown (.md)</option><option value="docx">Word (.docx)</option></select></label>
+    <label htmlFor="work-export-format">格式</label><SelectField id="work-export-format" aria-label="导出格式" value={format} onChange={setFormat} options={[{ value: 'markdown', label: 'Markdown (.md)' }, { value: 'docx', label: 'Word (.docx)' }]} />
     {error && <p className="workspace-error" role="alert">{error}</p>}
   </WorkspaceModal>;
 }

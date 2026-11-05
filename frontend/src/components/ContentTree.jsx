@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, FileText, MoreHorizontal, Plus, Archive } from 'lucide-react';
 import * as api from '../api/workspace';
+import SelectField from './SelectField';
 
 export default function ContentTree({ workspace, onSelect, onLegacy }) {
   const [dialog, setDialog] = useState(null);
@@ -92,9 +93,8 @@ export default function ContentTree({ workspace, onSelect, onLegacy }) {
       <form className="workspace-dialog" onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="node-dialog-title">
         <h2 id="node-dialog-title">{{ create: '新建正文节点', rename: '重命名', move: '移动正文节点', delete: '删除正文节点' }[dialog.type]}</h2>
         {['create', 'rename'].includes(dialog.type) && <label>标题<input autoFocus required maxLength={500} value={title} onChange={(event) => setTitle(event.target.value)} /></label>}
-        {['create', 'move'].includes(dialog.type) && <label>放入节点<select value={parentId} onChange={(event) => setParentId(event.target.value)}>
-          {workspace.nodes.filter((node) => dialog.type !== 'move' || !isDescendant(node.id, dialog.node.id)).map((node) => <option key={node.id} value={node.id}>{'　'.repeat(depthOf(node))}{node.title}</option>)}
-        </select></label>}
+        {['create', 'move'].includes(dialog.type) && <><label htmlFor="node-parent">放入节点</label><SelectField id="node-parent" aria-label="放入节点" value={parentId} onChange={setParentId}
+          options={workspace.nodes.filter((node) => dialog.type !== 'move' || !isDescendant(node.id, dialog.node.id)).map((node) => ({ value: node.id, label: `${'　'.repeat(depthOf(node))}${node.title}` }))} /></>}
         {dialog.type === 'delete' && <><p>将从正文目录移除“{dialog.node.title}”及其子节点，全文与导出也将排除这些内容。</p>
           {workspace.nodes.some((node) => isDescendant(node.id, dialog.node.id) && workspace.drafts[node.id]?.dirty) && <p className="workspace-notice">这些节点中有未保存修改，删除后将丢弃这些修改。</p>}</>}
         <div className="workspace-dialog-actions"><button type="button" onClick={() => setDialog(null)}>取消</button>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import * as knowledgeBasesApi from '../api/knowledgeBases';
 import * as knowledgeChunksApi from '../api/knowledgeChunks';
 import * as ragApi from '../api/rag';
-import '../styles/global.css';
+import SelectField from './SelectField';
 
 const STRATEGY_MAP = {
   recursive: '递归分块',
@@ -172,16 +172,8 @@ const KnowledgeBaseDetail = ({ kbId, onBack }) => {
             {selectedFile ? selectedFile.name : '选择文件'}
           </label>
 
-          <select
-            value={strategy}
-            onChange={(e) => setStrategy(e.target.value)}
-            className="memory-filter-select"
-            style={{ margin: 0 }}
-          >
-            {Object.entries(STRATEGY_MAP).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          <SelectField aria-label="分块策略" value={strategy} onChange={setStrategy} className="memory-filter-select"
+            options={Object.entries(STRATEGY_MAP).map(([value, label]) => ({ value, label }))} />
 
           <button
             className="memory-new-btn"

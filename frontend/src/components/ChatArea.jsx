@@ -3,7 +3,6 @@ import MessageBubble from './MessageBubble';
 import InputBox from './InputBox';
 import WelcomeScreen from './WelcomeScreen';
 import WritingWorkbench from './WritingWorkbench';
-import '../styles/global.css';
 
 const WORKBENCH_WIDTH_KEY = 'genwriter_workbench_width';
 const WORKBENCH_COLLAPSED_KEY = 'genwriter_workbench_collapsed';

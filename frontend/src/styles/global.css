@@ -1,5 +1,6 @@
 @import './theme.css';
 @import './components.css';
+@import './workspace.css';
 
 #root {
   width: 100vw;

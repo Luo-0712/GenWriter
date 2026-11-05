@@ -13,16 +13,17 @@
   /* ===== 文字三级 ===== */
   --text-primary: #1a1a1a;
   --text-secondary: #5c5a57;
-  --text-tertiary: #8a8782;
-  --text-link: #c2854a;
+  --text-tertiary: #76726b;
+  --text-link: #8f592c;
+  --text-inverse: #fffdf9;
 
   /* ===== 边框两档（收敛发丝线） ===== */
   --border-subtle: #e8e6e3;
   --border-strong: #d9d6d1;
 
   /* ===== Accent（仅主行动点） ===== */
-  --accent-color: #c2854a;
-  --accent-hover: #a8703a;
+  --accent-color: #a96e3b;
+  --accent-hover: #8b562b;
 
   /* ===== 状态色（muted 低饱和，bg/text 成对） ===== */
   --status-running-bg: #eef4ee;
@@ -50,11 +51,24 @@
   --font-serif: 'Georgia', 'Noto Serif SC', 'Source Han Serif SC', '思源宋体', 'STSong', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
 
-  /* ===== 字号阶梯（四级） ===== */
-  --fs-xs: 12px;    /* 辅助说明、徽章 */
-  --fs-sm: 14px;    /* 次级文本、按钮 */
-  --fs-md: 16px;    /* 正文 */
-  --fs-lg: 20px;    /* 标题 */
+  /* ===== 字号阶梯：正文与操作使用各自稳定的基准 ===== */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-control: 13px;
+  --fs-document: 17px;
+  --fs-document-title: 28px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --control-height-sm: 28px;
+  --control-height: 32px;
+  --control-height-lg: 36px;
+  --radius-control: 6px;
+  --focus-ring: 0 0 0 3px rgba(169, 110, 59, .2);
+  --accent-primary: var(--accent-color);
+  --bg-tertiary: var(--bg-hover);
 
   /* ===== 布局 ===== */
   --sidebar-width: 260px;
@@ -87,6 +101,33 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
 }
 
 body {

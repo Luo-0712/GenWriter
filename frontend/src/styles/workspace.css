@@ -1081,7 +1081,7 @@
     padding: 13px;
   }
   .workspace-chat-pane .mode-pill {
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
 }
 @media(max-width:950px) {
@@ -1152,7 +1152,7 @@
     padding: 12px;
   }
   .workspace-save-state {
-    font-size: 10px;
+    font-size: var(--fs-xs);
   }
   .work-editor-scroll {
     padding: 17px 12px;

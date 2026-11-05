@@ -1,4 +1,3 @@
-import '../styles/global.css';
 
 const formatSize = (bytes) => {
   if (!bytes) return '';

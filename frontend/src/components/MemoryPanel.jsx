@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as memoriesApi from '../api/memories';
-import '../styles/global.css';
+import SelectField from './SelectField';
 
 const MEMORY_TYPE_MAP = {
   WRITING_PREFERENCE: '写作偏好',
@@ -255,24 +255,9 @@ const MemoryPanel = ({ projectId, onBack }) => {
             className="memory-search-input"
           />
         </div>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="memory-filter-select">
-          <option value="">全部类型</option>
-          {Object.entries(MEMORY_TYPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
-        <select value={filterScope} onChange={(e) => setFilterScope(e.target.value)} className="memory-filter-select">
-          <option value="">全部作用域</option>
-          {Object.entries(SCOPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
-        <select value={filterImportance} onChange={(e) => setFilterImportance(e.target.value)} className="memory-filter-select">
-          <option value="">全部重要性</option>
-          <option value="HIGH">高</option>
-          <option value="MEDIUM">中</option>
-          <option value="LOW">低</option>
-        </select>
+        <SelectField aria-label="记忆类型" value={filterType} onChange={setFilterType} className="memory-filter-select" options={[{ value: '', label: '全部类型' }, ...Object.entries(MEMORY_TYPE_MAP).map(([value, label]) => ({ value, label }))]} />
+        <SelectField aria-label="记忆作用域" value={filterScope} onChange={setFilterScope} className="memory-filter-select" options={[{ value: '', label: '全部作用域' }, ...Object.entries(SCOPE_MAP).map(([value, label]) => ({ value, label }))]} />
+        <SelectField aria-label="记忆重要性" value={filterImportance} onChange={setFilterImportance} className="memory-filter-select" options={[{ value: '', label: '全部重要性' }, { value: 'HIGH', label: '高' }, { value: 'MEDIUM', label: '中' }, { value: 'LOW', label: '低' }]} />
         {selectedIds.size > 0 && (
           <button className="memory-batch-delete-btn" onClick={handleBatchDelete}>
             删除选中 ({selectedIds.size})
@@ -413,37 +398,19 @@ const MemoryPanel = ({ projectId, onBack }) => {
               </div>
               <div className="memory-form-row">
                 <div className="memory-form-group">
-                  <label>类型</label>
-                  <select
-                    value={formData.memoryType}
-                    onChange={(e) => setFormData({ ...formData, memoryType: e.target.value })}
-                  >
-                    {Object.entries(MEMORY_TYPE_MAP).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
+                  <label htmlFor="memory-type">类型</label>
+                  <SelectField id="memory-type" aria-label="记忆类型" value={formData.memoryType} onChange={(value) => setFormData({ ...formData, memoryType: value })}
+                    options={Object.entries(MEMORY_TYPE_MAP).map(([value, label]) => ({ value, label }))} />
                 </div>
                 <div className="memory-form-group">
-                  <label>作用域</label>
-                  <select
-                    value={formData.scope}
-                    onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                  >
-                    {Object.entries(SCOPE_MAP).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
+                  <label htmlFor="memory-scope">作用域</label>
+                  <SelectField id="memory-scope" aria-label="记忆作用域" value={formData.scope} onChange={(value) => setFormData({ ...formData, scope: value })}
+                    options={Object.entries(SCOPE_MAP).map(([value, label]) => ({ value, label }))} />
                 </div>
                 <div className="memory-form-group">
-                  <label>重要性</label>
-                  <select
-                    value={formData.importance}
-                    onChange={(e) => setFormData({ ...formData, importance: e.target.value })}
-                  >
-                    <option value="HIGH">高</option>
-                    <option value="MEDIUM">中</option>
-                    <option value="LOW">低</option>
-                  </select>
+                  <label htmlFor="memory-importance">重要性</label>
+                  <SelectField id="memory-importance" aria-label="记忆重要性" value={formData.importance} onChange={(value) => setFormData({ ...formData, importance: value })}
+                    options={[{ value: 'HIGH', label: '高' }, { value: 'MEDIUM', label: '中' }, { value: 'LOW', label: '低' }]} />
                 </div>
               </div>
               {formData.scope === 'PROJECT' && (

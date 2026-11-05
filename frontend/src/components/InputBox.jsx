@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import AttachmentPreview from './AttachmentPreview';
 import { uploadAttachment, deleteAttachment, getThumbnailUrl } from '../api/attachments';
-import '../styles/global.css';
+import { ArrowRight, CircleHelp, FilePlus2, Globe2, Paperclip, Send, Sparkles, Wand2 } from 'lucide-react';
 
 const MODES = [
-  { value: 'AUTO', label: '自动识别', icon: '✦' },
-  { value: 'CREATE', label: '新建文档', icon: '✎' },
-  { value: 'CONTINUE', label: '续写', icon: '→' },
-  { value: 'POLISH', label: '润色优化', icon: '✧' },
-  { value: 'KNOWLEDGE_QA', label: '知识问答', icon: '?' },
+  { value: 'AUTO', label: '自动识别', icon: Sparkles },
+  { value: 'CREATE', label: '新建文档', icon: FilePlus2 },
+  { value: 'CONTINUE', label: '续写', icon: ArrowRight },
+  { value: 'POLISH', label: '润色优化', icon: Wand2 },
+  { value: 'KNOWLEDGE_QA', label: '知识问答', icon: CircleHelp },
 ];
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -259,9 +259,7 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
           title="添加附件"
           type="button"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-          </svg>
+          <Paperclip size={17} />
         </button>
         <input
           ref={fileInputRef}
@@ -283,14 +281,12 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
           rows={1}
         />
         <button
+          aria-label="发送消息"
           className="send-btn"
           onClick={handleSubmit}
           disabled={!canSend}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
+          <Send size={16} />
         </button>
       </div>
       <AttachmentPreview attachments={attachments} onRemove={handleRemoveAttachment} onRetry={handleRetryAttachment} />
@@ -299,31 +295,30 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
           {MODES.map((m) => (
             <button
               key={m.value}
+              aria-pressed={mode === m.value}
               className={`mode-pill${mode === m.value ? ' active' : ''}`}
               onClick={() => setMode(m.value)}
               type="button"
             >
-              <span className="mode-pill-icon">{m.icon}</span>
+              <span className="mode-pill-icon"><m.icon size={13} /></span>
               {m.label}
             </button>
           ))}
         </div>
         <button
+          aria-pressed={webSearch}
           className={`websearch-toggle${webSearch ? ' active' : ''}`}
           onClick={() => setWebSearch(!webSearch)}
           type="button"
           title={webSearch ? '联网搜索已开启' : '联网搜索已关闭'}
         >
           <span className="websearch-toggle-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
+            <Globe2 size={13} />
           </span>
           <span className="websearch-toggle-label">联网搜索</span>
         </button>
       </div>
-      <p className="input-hint">按 Enter 发送，Shift + Enter 换行 | 支持拖拽/粘贴图片</p>
+      <p className="input-hint">Enter 发送 · Shift + Enter 换行</p>
     </div>
   );
 };

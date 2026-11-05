@@ -11,7 +11,6 @@ import {
 import RichMarkdownEditor from './RichMarkdownEditor';
 import VersionNavigator from './VersionNavigator';
 import { createSelectionFingerprint, markdownToHtml, normalizeTextForFingerprint } from '../utils/markdownEditor';
-import '../styles/global.css';
 
 const ITERATION_MODES = [
   { value: 'CONTINUE', label: '续写', fallback: '请基于当前版本继续写作，保持既有风格和结构。' },

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import '../styles/global.css';
 
 const NODE_TYPE_CONFIG = {
   PLANNING:  { icon: '◈', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb', label: '规划' },

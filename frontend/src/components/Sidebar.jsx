@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import ContentTree from './ContentTree';
-import '../styles/global.css';
 
 const navItems = [
   { key: 'chat', label: '对话', icon: (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, History, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleDashed, History, X } from 'lucide-react';
 import { formatVersionTime, getDocumentSourceLabel } from '../utils/version';
 
 const sortVersions = (documents) => [...documents].sort((left, right) => {
@@ -100,10 +100,8 @@ const VersionNavigator = ({ documents, selectedId, dirty, loading, onSelect }) =
   if (!selectedDocument) {
     return (
       <section className="version-navigator empty" aria-label="版本导航">
-        <div>
-          <span className="version-kicker">当前版本</span>
-          <strong>尚未创建版本</strong>
-        </div>
+        <CircleDashed size={14} />
+        <strong>尚未创建版本</strong>
         <span className="workbench-muted">保存文稿后即可开始迭代</span>
       </section>
     );

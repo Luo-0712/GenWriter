@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm';
 import ThinkingPanel from './ThinkingPanel';
 import FileViewerModal from './FileViewerModal';
 import { getAttachmentUrl, getThumbnailUrl } from '../api/attachments';
-import '../styles/global.css';
 
 const renderOutlineDetail = (data) => (
   <div className="tp-outline-preview">

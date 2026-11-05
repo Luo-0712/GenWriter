@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import * as skillsApi from '../api/skills';
-import '../styles/global.css';
+import SelectField from './SelectField';
 
 const CATEGORY_MAP = {
   writing: '写作',
@@ -385,27 +385,10 @@ const SkillPanel = ({ onBack }) => {
             className="skill-search-input"
           />
         </div>
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="skill-filter-select"
-        >
-          <option value="">全部分类</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {CATEGORY_MAP[cat] || cat}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterEnabled}
-          onChange={(e) => setFilterEnabled(e.target.value)}
-          className="skill-filter-select"
-        >
-          <option value="">全部状态</option>
-          <option value="true">已启用</option>
-          <option value="false">已禁用</option>
-        </select>
+        <SelectField aria-label="技能分类" value={filterCategory} onChange={setFilterCategory} className="skill-filter-select"
+          options={[{ value: '', label: '全部分类' }, ...categories.map((value) => ({ value, label: CATEGORY_MAP[value] || value }))]} />
+        <SelectField aria-label="技能状态" value={filterEnabled} onChange={setFilterEnabled} className="skill-filter-select"
+          options={[{ value: '', label: '全部状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已禁用' }]} />
       </div>
 
       {error && (
@@ -586,15 +569,9 @@ const SkillPanel = ({ onBack }) => {
                       </div>
                       <div className="memory-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                         <div>
-                          <label>分类</label>
-                          <select
-                            value={formData.category}
-                            onChange={(e) => updateField('category', e.target.value)}
-                          >
-                            {Object.entries(CATEGORY_MAP).map(([k, v]) => (
-                              <option key={k} value={k}>{v}</option>
-                            ))}
-                          </select>
+                          <label htmlFor="skill-category">分类</label>
+                          <SelectField id="skill-category" aria-label="技能分类" value={formData.category} onChange={(value) => updateField('category', value)}
+                            options={Object.entries(CATEGORY_MAP).map(([value, label]) => ({ value, label }))} />
                         </div>
                         <div>
                           <label>标签</label>

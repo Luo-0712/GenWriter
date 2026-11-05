@@ -976,7 +976,7 @@
   margin: 0;
   font-size: 17px;
   line-height: 1.25;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -1081,7 +1081,7 @@
 }
 
 .version-chip span {
-  font-weight: 650;
+  font-weight: 600;
   font-size: var(--fs-sm);
   color: var(--text-primary);
 }
@@ -1173,7 +1173,7 @@
 .iteration-modes button.active {
   background: var(--accent-soft);
   color: var(--accent-color);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .selection-tools button:disabled {
@@ -1267,7 +1267,7 @@
   background: transparent;
   color: #57534e;
   font-size: var(--fs-sm);
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -1471,7 +1471,7 @@
   background: #fff;
   color: var(--text-primary);
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -5807,7 +5807,7 @@
   background: var(--status-neutral-bg);
   color: var(--status-neutral-text);
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
@@ -5870,7 +5870,7 @@
   gap: 6px;
   padding: 0 9px;
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -5999,7 +5999,7 @@
 
 .version-history-title {
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .version-history-copy small {
@@ -6093,7 +6093,7 @@
   background: #fff;
   color: var(--text-primary);
   font-size: var(--fs-xs);
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ChainNodeItem from './ChainNodeItem';
-import '../styles/global.css';
 
 const KIND_LABELS = {
   SUPERVISOR: '调度',

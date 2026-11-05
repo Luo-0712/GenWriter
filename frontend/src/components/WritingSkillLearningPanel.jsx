@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import * as writingSkillsApi from '../api/writingSkills';
-import '../styles/global.css';
 
 const WritingSkillLearningPanel = ({ projectId, onBack }) => {
   const [articleContent, setArticleContent] = useState('');

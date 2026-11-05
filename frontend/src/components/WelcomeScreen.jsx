@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import '../styles/global.css';
 
 const greetings = [
   '你好，我是 GenWriter',

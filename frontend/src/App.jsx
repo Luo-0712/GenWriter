@@ -12,7 +12,6 @@ import * as sessionsApi from './api/sessions';
 import * as messagesApi from './api/messages';
 import * as projectsApi from './api/projects';
 import { connectSSE } from './api/sse';
-import './styles/global.css';
 
 /* ---------- sessionStorage 执行轨迹缓存 ---------- */
 const chainStorageKey = (sessionId) => `genwriter_chain_${sessionId}`;
