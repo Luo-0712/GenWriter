@@ -54,7 +54,7 @@
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  transition: width 0.2s ease;
+  transition: width 0.26s cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 .sidebar.is-collapsed {
@@ -187,13 +187,24 @@
   height: 18px;
 }
 
-.sidebar-compact-nav,
-.sidebar.is-collapsed .sidebar-content {
+.sidebar-compact-nav {
   display: none;
 }
 
 .sidebar.is-collapsed .sidebar-compact-nav {
   display: flex;
+  animation: sidebar-compact-nav-enter 0.22s ease both;
+}
+
+@keyframes sidebar-compact-nav-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .sidebar.is-collapsed .sidebar-header {
@@ -246,7 +257,35 @@
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 10px 8px;
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
+  transition: opacity 0.14s ease, transform 0.2s ease, visibility 0s;
+}
+
+.sidebar.is-collapsed .sidebar-content {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-6px);
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-content,
+  .sidebar.is-collapsed .sidebar-content,
+  .sidebar.is-collapsed .sidebar-compact-nav,
+  .sidebar-resize-handle::after {
+    animation-duration: 0.01ms;
+    transition-duration: 0.01ms;
+  }
+
+  .sidebar.is-collapsed .sidebar-content {
+    transition-delay: 0s;
+  }
 }
 
 .project-section {

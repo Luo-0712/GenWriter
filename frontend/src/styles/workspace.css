@@ -170,7 +170,7 @@
 }
 .workspace-panels {
   display: grid;
-  grid-template-columns: minmax(0,1fr) 5px minmax(280px,var(--assistant-width));
+  grid-template-columns: minmax(0,1fr) 10px minmax(280px,var(--assistant-width));
   grid-template-areas: 'editor resizer chat';
   flex: 1;
   min-height: 0;
@@ -214,17 +214,38 @@
   display: block;
 }
 .workspace-resizer {
+  position: relative;
   grid-area: resizer;
-  background: var(--bg-panel-sunken);
+  background: transparent;
   cursor: col-resize;
-  transition: background .15s;
   touch-action: none;
 }
-.workspace-resizer:hover,.workspace-resizer:focus-visible {
-  background: var(--border-strong);
-  cursor: col-resize;
-  transition: background .15s;
-  touch-action: none;
+.workspace-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: var(--accent-color);
+  content: '';
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.workspace-resizer:hover::after,
+.workspace-resizer:focus-visible::after {
+  opacity: 0.75;
+}
+.workspace-resizer:focus-visible {
+  outline: none;
+}
+.workspace-resizer:hover + .workspace-chat-pane,
+.workspace-resizer:focus-visible + .workspace-chat-pane {
+  border-left-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-resizer::after {
+    transition-duration: 0.01ms;
+  }
 }
 .workspace-chat-pane {
   grid-area: chat;
@@ -1048,7 +1069,7 @@
     min-width: 80px;
   }
   .workspace-panels {
-    grid-template-columns: minmax(0,1fr) 4px minmax(260px,var(--assistant-width));
+    grid-template-columns: minmax(0,1fr) 10px minmax(260px,var(--assistant-width));
   }
   .work-editor-heading {
     padding: 14px 18px;
