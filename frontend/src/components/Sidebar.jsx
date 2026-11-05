@@ -44,6 +44,22 @@ const navItems = [
 ];
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'genwriter-sidebar-collapsed';
+const SIDEBAR_WIDTH_STORAGE_KEY = 'genwriter-sidebar-width';
+const SIDEBAR_COLLAPSED_WIDTH = 68;
+const SIDEBAR_COLLAPSE_THRESHOLD = 179;
+const SIDEBAR_MIN_EXPANDED_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 520;
+
+const readSidebarWidth = () => {
+  try {
+    const savedWidth = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+    return Number.isFinite(savedWidth) && savedWidth > SIDEBAR_COLLAPSE_THRESHOLD
+      ? Math.min(savedWidth, SIDEBAR_MAX_WIDTH)
+      : 260;
+  } catch {
+    return 260;
+  }
+};
 
 const Sidebar = ({
   projects,
@@ -71,11 +87,14 @@ const Sidebar = ({
       return false;
     }
   });
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
+  const [isResizing, setIsResizing] = useState(false);
   const [hoveredSession, setHoveredSession] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const resizeStateRef = useRef(null);
 
   // 项目编辑状态
   const [editingProjectId, setEditingProjectId] = useState(null);
@@ -87,16 +106,91 @@ const Sidebar = ({
   const [editingSessionTitle, setEditingSessionTitle] = useState('');
   const sessionInputRef = useRef(null);
 
-  const toggleCollapsed = () => {
-    setIsCollapsed((previous) => {
-      const next = !previous;
-      try {
-        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
-      } catch {
-        // Keep the sidebar usable when browser storage is unavailable.
-      }
-      return next;
-    });
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 760px)');
+    const update = () => { if (narrow.matches) setIsCollapsed(true); };
+    update();
+    narrow.addEventListener('change', update);
+    return () => narrow.removeEventListener('change', update);
+  }, []);
+
+  const setSidebarCollapsed = (collapsed) => {
+    setIsCollapsed(collapsed);
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+    } catch {
+      // Keep the sidebar usable when browser storage is unavailable.
+    }
+  };
+
+  const persistSidebarWidth = (width) => {
+    try {
+      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(Math.round(width)));
+    } catch {
+      // Keep the sidebar usable when browser storage is unavailable.
+    }
+  };
+
+  const toggleCollapsed = () => setSidebarCollapsed(!isCollapsed);
+
+  const handleResizePointerDown = (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: isCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth,
+      lastExpandedWidth: sidebarWidth,
+      collapsed: isCollapsed,
+    };
+    setIsResizing(true);
+  };
+
+  const handleResizePointerMove = (event) => {
+    const resizeState = resizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+
+    const nextWidth = Math.max(0, Math.min(
+      SIDEBAR_MAX_WIDTH,
+      resizeState.startWidth + event.clientX - resizeState.startX,
+    ));
+    const shouldCollapse = nextWidth <= SIDEBAR_COLLAPSE_THRESHOLD;
+    if (resizeState.collapsed !== shouldCollapse) {
+      resizeState.collapsed = shouldCollapse;
+      setSidebarCollapsed(shouldCollapse);
+    }
+
+    if (!shouldCollapse) {
+      resizeState.lastExpandedWidth = nextWidth;
+      setSidebarWidth(nextWidth);
+    }
+  };
+
+  const handleResizePointerEnd = (event) => {
+    const resizeState = resizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== event.pointerId) return;
+    persistSidebarWidth(resizeState.lastExpandedWidth);
+    resizeStateRef.current = null;
+    setIsResizing(false);
+  };
+
+  const handleResizeKeyDown = (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+
+    const nextWidth = isCollapsed && event.key === 'ArrowRight'
+      ? SIDEBAR_MIN_EXPANDED_WIDTH
+      : sidebarWidth + (event.key === 'ArrowRight' ? 16 : -16);
+    if (nextWidth <= SIDEBAR_COLLAPSE_THRESHOLD) {
+      setSidebarCollapsed(true);
+      return;
+    }
+
+    const boundedWidth = Math.min(nextWidth, SIDEBAR_MAX_WIDTH);
+    setSidebarWidth(boundedWidth);
+    setSidebarCollapsed(false);
+    persistSidebarWidth(boundedWidth);
   };
 
   // 项目编辑聚焦
@@ -205,7 +299,10 @@ const Sidebar = ({
   };
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'is-collapsed' : ''}`}>
+    <aside
+      className={`sidebar ${isCollapsed ? 'is-collapsed' : ''}${isResizing ? ' is-resizing' : ''}`}
+      style={{ '--sidebar-current-width': `${sidebarWidth}px` }}
+    >
       <div className="sidebar-header">
         <button
           className="sidebar-collapse-btn"
@@ -411,6 +508,21 @@ const Sidebar = ({
           </div>
         )}
       </div>
+      <div
+        className="sidebar-resize-handle"
+        role="separator"
+        aria-label="调整侧栏宽度"
+        aria-orientation="vertical"
+        aria-valuemin={SIDEBAR_COLLAPSED_WIDTH}
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuenow={isCollapsed ? SIDEBAR_COLLAPSED_WIDTH : Math.round(sidebarWidth)}
+        tabIndex={0}
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerEnd}
+        onPointerCancel={handleResizePointerEnd}
+        onKeyDown={handleResizeKeyDown}
+      />
     </aside>
   );
 };
