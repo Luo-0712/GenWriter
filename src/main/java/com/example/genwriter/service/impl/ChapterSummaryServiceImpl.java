@@ -27,10 +27,10 @@ public class ChapterSummaryServiceImpl implements ChapterSummaryService {
             ChatClient client = chatClientFactory.create(properties.getTemperature());
             String summary = client.prompt()
                     .system("""
-                            你是长篇写作的章节连续性摘要器。
+                            你是通用写作的章节连续性摘要器，支持文章、报告、教程和小说。
                             只基于给定章节内容总结已经发生的叙事状态，不新增设定，不纠错，不评价。
                             输出一段自然中文文段，不要列表、标题、编号或 Markdown。
-                            必须覆盖：已发生内容、关键事实、角色/对象状态、未完成事项和下一章接续点。
+                            必须覆盖：本节主题与论点、关键事实或已发生内容、角色/对象状态、未完成事项和下一节接续点。
                             """)
                     .user("""
                             用户本章写作要求：

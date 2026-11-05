@@ -56,6 +56,13 @@ public class ChatEvent {
      */
     private boolean webSearch = true;
 
+    private com.example.genwriter.model.dto.workspace.WorkspaceModels.WritingTarget target;
+
+    public ChatEvent(String sessionId, String documentId, MultimodalContent userInput, String kbId,
+                     WritingType type, boolean webSearch) {
+        this(sessionId, documentId, userInput, kbId, type, webSearch, null);
+    }
+
     /**
      * 写作类型枚举
      */

@@ -14,6 +14,10 @@ public class DocumentVO {
 
     private String id;
     private String sessionId;
+
+    private String projectId;
+
+    private String nodeId;
     private String title;
     private String type;
     private String content;

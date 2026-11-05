@@ -42,6 +42,7 @@ public class DocumentServiceImpl implements DocumentService {
 
         Document document = Document.builder()
                 .sessionId(request.getSessionId())
+                .projectId(session.getProjectId())
                 .title(request.getTitle())
                 .type(StringUtils.hasText(request.getType()) ? request.getType() : "draft")
                 .content(request.getContent())
@@ -95,10 +96,14 @@ public class DocumentServiceImpl implements DocumentService {
     public DocumentDTO createNewVersion(String sessionId, CreateDocumentRequest request) {
         log.debug("创建文档新版本: sessionId={}", sessionId);
 
+        TaskSession session = taskSessionMapper.selectById(sessionId);
+        if (session == null) throw new BizException(BizException.ErrorCode.SESSION_NOT_FOUND);
+
         int maxVersion = documentMapper.getMaxVersionBySessionId(sessionId);
 
         Document document = Document.builder()
                 .sessionId(sessionId)
+                .projectId(session.getProjectId())
                 .title(request.getTitle())
                 .type(StringUtils.hasText(request.getType()) ? request.getType() : "draft")
                 .content(request.getContent())
@@ -127,6 +132,7 @@ public class DocumentServiceImpl implements DocumentService {
         if (existing == null) {
             throw new BizException(BizException.ErrorCode.DOCUMENT_NOT_FOUND);
         }
+        if (existing.getNodeId() != null) throw new BizException("409", "正文快照只读，请保存为新版本");
 
         Document document = Document.builder()
                 .id(id)
@@ -156,6 +162,7 @@ public class DocumentServiceImpl implements DocumentService {
         if (existing == null) {
             throw new BizException(BizException.ErrorCode.DOCUMENT_NOT_FOUND);
         }
+        if (existing.getNodeId() != null) throw new BizException("409", "请从作品目录管理正文，不能删除版本快照");
 
         int result = documentMapper.deleteById(id);
         if (result <= 0) {
@@ -176,6 +183,8 @@ public class DocumentServiceImpl implements DocumentService {
         return DocumentDTO.builder()
                 .id(document.getId())
                 .sessionId(document.getSessionId())
+                .projectId(document.getProjectId())
+                .nodeId(document.getNodeId())
                 .title(document.getTitle())
                 .type(document.getType())
                 .content(document.getContent())

@@ -35,6 +35,7 @@ public class SupervisorGraphConfig {
                 .addStrategy("markdownEnabled", KeyStrategy.REPLACE)
                 .addStrategy("outputFormat", KeyStrategy.REPLACE)
                 .addStrategy("documentId", KeyStrategy.REPLACE)
+                .addStrategy("writingTarget", KeyStrategy.REPLACE)
                 .addStrategy("selectedDocumentContent", KeyStrategy.REPLACE)
                 .addStrategy("selectedDocumentTitle", KeyStrategy.REPLACE)
                 .addStrategy("selectedDocumentVersion", KeyStrategy.REPLACE)

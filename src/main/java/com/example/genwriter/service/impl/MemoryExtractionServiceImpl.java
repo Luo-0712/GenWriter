@@ -43,6 +43,16 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
     @Async("taskExecutor")
     public void extractAsync(String sessionId,
                              String userInput, String finalOutput) {
+        extract(null, sessionId, userInput, finalOutput);
+    }
+
+    @Override
+    @Async("taskExecutor")
+    public void extractForProjectAsync(String projectId, String sessionId, String userInput, String finalOutput) {
+        extract(projectId, sessionId, userInput, finalOutput);
+    }
+
+    private void extract(String fixedProjectId, String sessionId, String userInput, String finalOutput) {
         if (!properties.getExtraction().isEnabled()) {
             return;
         }
@@ -50,7 +60,7 @@ public class MemoryExtractionServiceImpl implements MemoryExtractionService {
         log.info("开始异步提取长期记忆: sessionId={}", sessionId);
 
         try {
-            String projectId = resolveProjectId(sessionId);
+            String projectId = fixedProjectId != null ? fixedProjectId : resolveProjectId(sessionId);
             String extractionPrompt = buildExtractionPrompt(userInput, finalOutput, projectId);
 
             ChatClient extractionClient = chatClientFactory.create(properties.getExtraction().getTemperature());

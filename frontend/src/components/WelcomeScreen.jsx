@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import '../styles/global.css';
 
 const greetings = [
@@ -16,15 +16,9 @@ const subtitles = [
   '专注创作，其余交给我。',
 ];
 
-const WelcomeScreen = ({ onSuggestionClick }) => {
-  const [greeting, setGreeting] = useState('');
-  const [subtitle, setSubtitle] = useState('');
-
-  useEffect(() => {
-    const index = Math.floor(Math.random() * greetings.length);
-    setGreeting(greetings[index]);
-    setSubtitle(subtitles[index]);
-  }, []);
+const WelcomeScreen = () => {
+  const [greeting] = useState(() => greetings[Math.floor(Math.random() * greetings.length)]);
+  const [subtitle] = useState(() => subtitles[Math.floor(Math.random() * subtitles.length)]);
 
   return (
     <div className="welcome-screen">

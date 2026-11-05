@@ -40,7 +40,8 @@ public class ChatEventListener {
                     event.getUserInput(),
                     event.getKbId(),
                     event.getType() != null ? event.getType().name() : "AUTO",
-                    event.isWebSearch()
+                    event.isWebSearch(),
+                    event.getTarget()
             );
             log.info("Supervisor 处理完成：sessionId={}", event.getSessionId());
         } catch (Exception e) {

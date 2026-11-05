@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ContentTree from './ContentTree';
 import '../styles/global.css';
 
 const navItems = [
@@ -59,6 +60,9 @@ const Sidebar = ({
   onDeleteSession,
   onUpdateSession,
   onNavigate,
+  workspace,
+  onSelectNode,
+  onLegacy,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
@@ -244,7 +248,7 @@ const Sidebar = ({
       <div className="sidebar-content">
         <div className="project-section">
           <div className="project-section-header">
-            <span className="section-label">项目</span>
+            <span className="section-label">作品项目</span>
             <button className="section-action-btn" onClick={onNewProject} title="新建项目">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -306,7 +310,9 @@ const Sidebar = ({
 
         <div className="divider" />
 
-        <div className="session-section">
+        {workspace && activeProject && <ContentTree workspace={workspace} onSelect={onSelectNode} onLegacy={onLegacy} />}
+
+        <div className={`session-section${workspace?.mode === 'studio' ? ' studio-sessions' : ''}`}>
           <div className="session-section-header">
             <span className="section-label">会话</span>
           </div>
@@ -315,7 +321,7 @@ const Sidebar = ({
               <div
                 key={session.id}
                 className={`session-item ${activeSession?.id === session.id ? 'active' : ''}`}
-                onClick={() => onSelectSession(session)}
+                onClick={() => { onSelectSession(session); onNavigate('chat'); workspace?.preferences({ agentView: 'chat' }); }}
                 onMouseEnter={() => setHoveredSession(session.id)}
                 onMouseLeave={() => {
                   setHoveredSession(null);

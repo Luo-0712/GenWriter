@@ -150,6 +150,8 @@ public class DocumentController {
         return DocumentVO.builder()
                 .id(dto.getId())
                 .sessionId(dto.getSessionId())
+                .projectId(dto.getProjectId())
+                .nodeId(dto.getNodeId())
                 .title(dto.getTitle())
                 .type(dto.getType())
                 .content(dto.getContent())

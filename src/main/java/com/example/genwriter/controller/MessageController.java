@@ -31,6 +31,7 @@ public class MessageController {
     private final MessageService messageService;
     private final ChatService chatService;
     private final FileStorageService fileStorageService;
+    private final com.example.genwriter.service.WorkspaceService workspaceService;
 
     /**
      * 创建消息
@@ -63,7 +64,8 @@ public class MessageController {
         } else {
             content = MultimodalContent.ofText("");
         }
-        chatService.submitChatTask(sessionId, documentId, content, type, webSearch, kbId);
+        var target = workspaceService.prepareTarget(sessionId, request != null ? request.getTarget() : null, documentId);
+        chatService.submitChatTask(sessionId, documentId, content, type, webSearch, kbId, target);
         return ApiResponse.success(null);
     }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
-import ChatArea from './components/ChatArea';
+import ProjectWorkspace from './components/ProjectWorkspace';
+import useWorkspace from './hooks/useWorkspace';
 import MemoryPanel from './components/MemoryPanel';
 import KnowledgeBasePanel from './components/KnowledgeBasePanel';
 import SettingsPanel from './components/SettingsPanel';
@@ -32,7 +33,7 @@ const saveChainToStorage = (sessionId, chainNodes, thinkingSteps, contentPrefix,
       timestamp: Date.now(),
     };
     sessionStorage.setItem(chainStorageKey(sessionId), JSON.stringify(data));
-  } catch (e) {
+  } catch {
     // sessionStorage 可能已满，静默失败
   }
 };
@@ -42,7 +43,7 @@ const loadChainFromStorage = (sessionId) => {
     const raw = sessionStorage.getItem(chainStorageKey(sessionId));
     if (!raw) return null;
     return JSON.parse(raw);
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -50,7 +51,7 @@ const loadChainFromStorage = (sessionId) => {
 const clearChainStorage = (sessionId) => {
   try {
     sessionStorage.removeItem(chainStorageKey(sessionId));
-  } catch (e) {
+  } catch {
     // ignore
   }
 };
@@ -90,6 +91,7 @@ const normalizeGeneratedContentEvent = (data) => {
     revision: typeof data.revision === 'number' ? data.revision : 0,
     updatedAt: data.updatedAt || Date.now(),
     document: data.document,
+    candidate: data.candidate,
     sources: Array.isArray(data.sources) ? data.sources : null,
   };
 };
@@ -150,16 +152,48 @@ function App() {
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingMessages] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasContentStarted, setHasContentStarted] = useState(false);
   const [view, setView] = useState('chat');
   const [exportDialogMessage, setExportDialogMessage] = useState(null);
-  const [selectedKbId, setSelectedKbId] = useState('');
+  const [selectedKbId] = useState('');
   const [documentRefresh, setDocumentRefresh] = useState({ token: 0, documentId: '' });
+  const [conversationRevision, setConversationRevision] = useState(0);
+  const workspace = useWorkspace(activeProject?.id, documentRefresh.token);
 
   const abortRef = useRef(null);
+  const projectRef = useRef(null);
+  const sessionRef = useRef(null);
+  const runningSessionRef = useRef(null);
+  const initializingRef = useRef(null);
+  useEffect(() => { projectRef.current = activeProject; sessionRef.current = activeSession; }, [activeProject, activeSession]);
+
+  const ensureSession = useCallback(async () => {
+    if (initializingRef.current) return initializingRef.current;
+    const initialize = async () => {
+      let project = projectRef.current;
+      if (!project) {
+        project = await projectsApi.createProject({ name: '新作品', description: '正文、资料与创作会话共同组织一部作品' });
+        projectRef.current = project;
+        setProjects((previous) => [project, ...previous]);
+        setActiveProject(project);
+      }
+      let session = sessionRef.current;
+      if (!session || session.projectId !== project.id) {
+        session = await sessionsApi.createSession({ title: '新对话', type: 'CHAT', projectId: project.id });
+        sessionRef.current = session;
+        setSessions((previous) => [session, ...previous]);
+        setActiveSession(session);
+      }
+      return session;
+    };
+    const pending = initialize();
+    initializingRef.current = pending;
+    try { return await pending; }
+    finally { initializingRef.current = null; }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,9 +232,11 @@ function App() {
 
   useEffect(() => {
     if (!activeSession?.id) {
-      setMessages([]);
-      return;
+      let cancelled = false;
+      Promise.resolve().then(() => { if (!cancelled) setMessages([]); });
+      return () => { cancelled = true; };
     }
+    if (runningSessionRef.current === activeSession.id) return;
     let cancelled = false;
     async function loadMessages() {
       setIsSessionLoading(true);
@@ -223,7 +259,7 @@ function App() {
                 if (meta.traceEvents) msg.traceEvents = meta.traceEvents;
                 if (meta.thinkingSteps) msg.thinkingSteps = meta.thinkingSteps;
                 if (meta.sources) msg.sources = meta.sources;
-              } catch (e) {
+              } catch {
                 // ignore parse error
               }
             }
@@ -264,11 +300,11 @@ function App() {
         }
       }
     }
-    loadMessages();
+    Promise.resolve().then(() => { if (!cancelled) loadMessages(); });
     return () => {
       cancelled = true;
     };
-  }, [activeSession?.id]);
+  }, [activeSession?.id, conversationRevision]);
 
   useEffect(() => {
     return () => {
@@ -308,39 +344,18 @@ function App() {
   }, [messages, activeSession?.id]);
 
   const handleSend = useCallback(
-    async (content, mode = 'AUTO', webSearch = true, kbId = '', attachmentIds = [], documentId = '') => {
-      if (isLoading) return;
-
-      let project = activeProject;
-      let session = activeSession;
-
+    async (content, mode = 'AUTO', webSearch = true, kbId = '', attachmentIds = [], documentId = '', target) => {
+      if (isLoading) return false;
+      let session;
       try {
-        if (!project) {
-          const createdProject = await projectsApi.createProject({
-            name: '默认项目',
-            description: '系统默认项目,用于组织您的写作会话',
-          });
-          setProjects([createdProject]);
-          setActiveProject(createdProject);
-          project = createdProject;
-        }
-
-        if (!session) {
-          const createdSession = await sessionsApi.createSession({
-            title: '新对话',
-            type: 'CHAT',
-            projectId: project.id,
-          });
-          setSessions([createdSession]);
-          setActiveSession(createdSession);
-          session = createdSession;
-        }
+        session = await ensureSession();
       } catch (e) {
         setError('初始化会话失败: ' + e.message);
-        return;
+        return false;
       }
 
       const sessionId = session.id;
+      runningSessionRef.current = sessionId;
 
       // 发送新消息前清除旧的执行轨迹缓存
       clearChainStorage(sessionId);
@@ -389,8 +404,9 @@ function App() {
 
       const doChat = async () => {
         try {
-          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId, attachmentIds, documentId);
+          await messagesApi.chat(sessionId, content, mode, webSearch, kbId || selectedKbId, attachmentIds, documentId, target);
         } catch (e) {
+          runningSessionRef.current = null;
           setIsLoading(false);
           setError('触发聊天失败: ' + e.message);
           setMessages((prev) =>
@@ -535,6 +551,7 @@ function App() {
               if (event.document?.id) {
                 setDocumentRefresh({ token: Date.now(), documentId: event.document.id });
               }
+              if (event.candidate?.id) setDocumentRefresh({ token: Date.now(), candidateId: event.candidate.id });
 
               if (event.mode === 'stage_start') {
                 assistantContent = '';
@@ -566,6 +583,7 @@ function App() {
           }
 
           if (done || completed) {
+            runningSessionRef.current = null;
             setIsLoading(false);
             setMessages((prev) =>
               prev.map((m) =>
@@ -581,6 +599,7 @@ function App() {
           }
         },
         onError: (err) => {
+          runningSessionRef.current = null;
           setIsLoading(false);
           setError('流式响应出错: ' + (err?.message || ''));
           setMessages((prev) =>
@@ -603,6 +622,7 @@ function App() {
           }
         },
         onComplete: () => {
+          runningSessionRef.current = null;
           setIsLoading(false);
           setMessages((prev) =>
             prev.map((m) =>
@@ -617,7 +637,7 @@ function App() {
         },
       });
     },
-    [activeProject, activeSession, isLoading, selectedKbId]
+    [ensureSession, isLoading, selectedKbId]
   );
 
   const handleSelectProject = useCallback(async (project) => {
@@ -641,12 +661,14 @@ function App() {
       abortRef.current = null;
     }
     setIsLoading(false);
+    runningSessionRef.current = null;
+    sessionRef.current = session;
     setActiveSession(session);
   }, []);
 
   const handleNewProject = useCallback(async () => {
     try {
-      const created = await projectsApi.createProject({ name: '新项目' });
+      const created = await projectsApi.createProject({ name: '新作品' });
       setProjects((prev) => [created, ...prev]);
       setActiveProject(created);
       setSessions([]);
@@ -693,6 +715,8 @@ function App() {
       });
       setSessions((prev) => [created, ...prev]);
       setActiveSession(created);
+      sessionRef.current = created;
+      return created;
     } catch (e) {
       setError('创建会话失败: ' + e.message);
     }
@@ -716,13 +740,6 @@ function App() {
       }
     },
     [activeSession, activeProject]
-  );
-
-  const handleSuggestionClick = useCallback(
-    (text) => {
-      handleSend(text);
-    },
-    [handleSend]
   );
 
   const handleExportMessage = useCallback((message) => {
@@ -787,13 +804,24 @@ function App() {
         onDeleteSession={handleDeleteSession}
         onUpdateSession={handleUpdateSession}
         onNavigate={setView}
+        workspace={workspace}
+        onSelectNode={(nodeId) => { setView('chat'); workspace.selectNode(nodeId); }}
+        onLegacy={() => { setView('chat'); workspace.patch({ legacyOpen: true }); }}
       />
       <main className="main-content">
-        {view === 'chat' ? (
-          <ChatArea
+        <div className="project-workspace-host" hidden={view !== 'chat'}>
+          <ProjectWorkspace
+            project={activeProject}
+            workspace={workspace}
+            sessions={sessions}
+            activeSession={activeSession}
             messages={messages}
             onSend={handleSend}
-            onSuggestionClick={handleSuggestionClick}
+            onEnsureSession={ensureSession}
+            onSelectSession={(session) => { handleSelectSession(session); workspace.preferences({ agentView: 'chat' }); }}
+            onNewChat={async () => { await handleNewChat(); workspace.preferences({ agentView: 'chat', assistantCollapsed: false }); }}
+            onNewProject={handleNewProject}
+            onConversationRefresh={() => setConversationRevision((previous) => previous + 1)}
             onExport={handleExportMessage}
             isLoading={isLoading}
             hasContentStarted={hasContentStarted}
@@ -803,7 +831,8 @@ function App() {
             sessionId={activeSession?.id || ''}
             documentRefresh={documentRefresh}
           />
-        ) : view === 'knowledge-bases' ? (
+        </div>
+        {view === 'knowledge-bases' ? (
           <KnowledgeBasePanel onBack={() => setView('chat')} />
         ) : view === 'memories' ? (
           <MemoryPanel

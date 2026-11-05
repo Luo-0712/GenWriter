@@ -62,6 +62,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
     private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
+    private ChatClient workspaceChatClient;
 
     @PostConstruct
     void init() {
@@ -77,6 +78,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
                 .mutate()
                 .defaultTools(settingDetailCallback)
                 .build();
+        this.workspaceChatClient = chatClientFactory.create(TEMPERATURE);
         registry.register(this);
     }
 
@@ -114,7 +116,7 @@ public class OutlineGenerationWorker implements WorkerAgent {
         String systemPrompt = renderedPrompt.systemPrompt();
         String userPrompt = renderedPrompt.userPrompt();
 
-        var promptSpec = chatClient.prompt()
+        var promptSpec = (AgentToolSupport.isWorkspaceRun(state) ? workspaceChatClient : chatClient).prompt()
                 .system(systemPrompt)
                 .user(userPrompt);
 

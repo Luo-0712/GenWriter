@@ -165,6 +165,7 @@ public class SupervisorNode implements NodeAction {
         accumulated.put("writingType", writingType);
         accumulated.put("context", state.value("context", String.class).orElse(""));
         accumulated.put("documentId", state.value("documentId", String.class).orElse(""));
+        accumulated.put("writingTarget", state.value("writingTarget", Map.class).orElse(Map.of()));
         String selectedDocumentContent = state.value("selectedDocumentContent", String.class).orElse("");
         if (!selectedDocumentContent.isBlank()) {
             accumulated.put("selectedDocumentContent", selectedDocumentContent);

@@ -69,6 +69,7 @@ public class DraftGenerationWorker implements WorkerAgent {
     private final WritingOutputSettingsService writingOutputSettingsService;
 
     private ChatClient chatClient;
+    private ChatClient workspaceChatClient;
 
     @PostConstruct
     void init() {
@@ -92,6 +93,7 @@ public class DraftGenerationWorker implements WorkerAgent {
                 .mutate()
                 .defaultTools(skillToolCallback, settingDetailCallback)
                 .build();
+        this.workspaceChatClient = chatClientFactory.create(TEMPERATURE).mutate().defaultTools(skillToolCallback).build();
         registry.register(this);
     }
 
@@ -142,7 +144,14 @@ public class DraftGenerationWorker implements WorkerAgent {
         String systemPrompt = renderedPrompt.systemPrompt();
         String userPrompt = renderedPrompt.userPrompt();
 
-        if ("CONTINUE".equalsIgnoreCase(writingType) && !existingDraft.isBlank()) {
+        String workspaceOperation = state.get("writingTarget") instanceof Map<?, ?> target ? String.valueOf(target.get("operation")) : "";
+        if ("APPEND".equals(workspaceOperation)) {
+            userPrompt += "\n\n--- 当前节点正文，仅供接续参考 ---\n" + existingDraft
+                    + "\n\n只输出应追加到本节末尾的新段落，不重复原正文，不另建章节。";
+        } else if ("CREATE_NODE".equals(workspaceOperation)) {
+            userPrompt += "\n\n--- 前文，仅供新章节衔接参考 ---\n" + existingDraft
+                    + "\n\n只输出新章节的标题和完整正文，不包含或重复上一章正文。";
+        } else if ("CONTINUE".equalsIgnoreCase(writingType) && !existingDraft.isBlank()) {
             userPrompt = userPrompt + "\n\n--- 已有文稿，请在此基础上自然续写 ---\n"
                     + existingDraft
                     + "\n\n续写要求：保留已有文稿，不要从头重写；在其后延展内容，并响应用户本次迭代指令。";
@@ -171,7 +180,7 @@ public class DraftGenerationWorker implements WorkerAgent {
 
         final String finalUserPrompt = userPrompt;
         StringBuilder contentBuilder = new StringBuilder();
-        var baseSpec = chatClient.prompt()
+        var baseSpec = (AgentToolSupport.isWorkspaceRun(state) ? workspaceChatClient : chatClient).prompt()
                 .system(systemPrompt);
 
         // 多模态支持：如果有图片附件，构建 PromptUserSpec with Media

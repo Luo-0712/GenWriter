@@ -128,7 +128,7 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
     if (att && att.id && !att.error) {
       try {
         await deleteAttachment(att.id, sessionId);
-      } catch (e) {
+      } catch {
         // ignore delete error on server side
       }
     }
@@ -179,7 +179,7 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
     }
   }, [sessionId]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = inputValue.trim();
     const hasContent = trimmed || attachments.some((a) => a.id && !a.error);
     if (!hasContent || isLoading || disabled || isUploading) return;
@@ -188,7 +188,8 @@ const InputBox = ({ onSend, disabled, isLoading, kbId = '', sessionId = '' }) =>
       .filter((a) => a.id && !a.error)
       .map((a) => a.id);
 
-    onSend(trimmed, mode, webSearch, kbId, attachmentIds);
+    const accepted = await onSend(trimmed, mode, webSearch, kbId, attachmentIds);
+    if (accepted === false) return;
     setInputValue('');
     setAttachments([]);
   };

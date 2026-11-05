@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 public class DocumentExportServiceImpl implements DocumentExportService {
+    private static final Pattern HEADING = Pattern.compile("^(#{1,6})\\s+(.*)$");
 
     @Override
     public byte[] exportAsMarkdown(String title, String content) {
@@ -34,29 +36,17 @@ public class DocumentExportServiceImpl implements DocumentExportService {
             String[] lines = content.split("\n");
             for (String line : lines) {
                 String trimmed = line.trim();
+                var heading = HEADING.matcher(trimmed);
                 if (trimmed.isEmpty()) {
                     doc.createParagraph();
-                } else if (trimmed.startsWith("### ")) {
+                } else if (heading.matches()) {
                     XWPFParagraph p = doc.createParagraph();
-                    p.setStyle("Heading3");
+                    int level = heading.group(1).length();
+                    p.setStyle("Heading" + level);
                     XWPFRun run = p.createRun();
-                    run.setText(trimmed.substring(4));
+                    run.setText(heading.group(2));
                     run.setBold(true);
-                    run.setFontSize(13);
-                } else if (trimmed.startsWith("## ")) {
-                    XWPFParagraph p = doc.createParagraph();
-                    p.setStyle("Heading2");
-                    XWPFRun run = p.createRun();
-                    run.setText(trimmed.substring(3));
-                    run.setBold(true);
-                    run.setFontSize(15);
-                } else if (trimmed.startsWith("# ")) {
-                    XWPFParagraph p = doc.createParagraph();
-                    p.setStyle("Heading1");
-                    XWPFRun run = p.createRun();
-                    run.setText(trimmed.substring(2));
-                    run.setBold(true);
-                    run.setFontSize(18);
+                    run.setFontSize(new int[]{18, 15, 13, 12, 11, 11}[level - 1]);
                 } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
                     XWPFParagraph p = doc.createParagraph();
                     p.setIndentationLeft(720);

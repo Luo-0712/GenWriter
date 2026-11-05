@@ -44,6 +44,16 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
     @Override
     @Async("taskExecutor")
     public void extractAsync(String sessionId, String userInput, String finalOutput) {
+        extract(null, sessionId, userInput, finalOutput);
+    }
+
+    @Override
+    @Async("taskExecutor")
+    public void extractForProjectAsync(String projectId, String sessionId, String userInput, String finalOutput) {
+        extract(projectId, sessionId, userInput, finalOutput);
+    }
+
+    private void extract(String fixedProjectId, String sessionId, String userInput, String finalOutput) {
         if (!properties.isEnabled() || !properties.getExtraction().isEnabled()) {
             return;
         }
@@ -56,7 +66,7 @@ public class SettingMemoryExtractionServiceImpl implements SettingMemoryExtracti
         int storedCount = 0;
 
         try {
-            String projectId = resolveProjectId(sessionId);
+            String projectId = fixedProjectId != null ? fixedProjectId : resolveProjectId(sessionId);
             String scope = projectId != null && !projectId.isBlank() ? "PROJECT" : "GLOBAL";
 
             ChatClient extractionClient = chatClientFactory.create(properties.getExtraction().getTemperature());

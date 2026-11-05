@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { DOMSerializer } from '@tiptap/pm/model';
+import { EditorState } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -77,6 +78,7 @@ const buildSelectionSnapshot = (editor) => {
 
 const RichMarkdownEditor = ({
   value,
+  documentKey,
   disabled = false,
   placeholder = '在这里编辑当前文稿...',
   onChange,
@@ -86,6 +88,8 @@ const RichMarkdownEditor = ({
   const [sourceMode, setSourceMode] = useState(false);
   const [sourceValue, setSourceValue] = useState(value || '');
   const appliedValueRef = useRef(value || '');
+  const currentDocumentKeyRef = useRef(documentKey);
+  const documentStatesRef = useRef(new Map());
   const onChangeRef = useRef(onChange);
   const onSelectionSnapshotRef = useRef(onSelectionSnapshot);
 
@@ -126,7 +130,8 @@ const RichMarkdownEditor = ({
         class: 'editor-prose',
       },
     },
-    onUpdate: ({ editor: currentEditor }) => {
+    onUpdate: ({ editor: currentEditor, transaction }) => {
+      if (!transaction.docChanged) return;
       const nextMarkdown = htmlToMarkdown(currentEditor.getHTML());
       appliedValueRef.current = nextMarkdown;
       setSourceValue(nextMarkdown);
@@ -139,7 +144,8 @@ const RichMarkdownEditor = ({
 
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(!disabled);
+    // Configuration changes must not be mistaken for edits before an incoming snapshot is applied.
+    editor.setEditable(!disabled, false);
   }, [disabled, editor]);
 
   useEffect(() => {
@@ -150,11 +156,23 @@ const RichMarkdownEditor = ({
   useEffect(() => {
     const nextValue = value || '';
     setSourceValue(nextValue);
-    if (!editor || nextValue === appliedValueRef.current) return;
+    const changedDocument = currentDocumentKeyRef.current !== documentKey;
+    if (!editor || (!changedDocument && nextValue === appliedValueRef.current)) return;
+    if (changedDocument && currentDocumentKeyRef.current != null) {
+      documentStatesRef.current.set(currentDocumentKeyRef.current, { value: appliedValueRef.current, state: editor.state });
+    }
+    const cached = documentStatesRef.current.get(documentKey);
+    if (changedDocument && cached?.value === nextValue) {
+      editor.view.updateState(cached.state);
+    } else {
+      editor.chain().setMeta('addToHistory', false).setContent(markdownToHtml(nextValue), { emitUpdate: false }).run();
+      const synced = editor.state;
+      editor.view.updateState(EditorState.create({ schema: synced.schema, doc: synced.doc, plugins: synced.plugins }));
+    }
     appliedValueRef.current = nextValue;
-    editor.commands.setContent(markdownToHtml(nextValue), { emitUpdate: false });
-    onSelectionSnapshotRef.current?.(null);
-  }, [editor, value]);
+    currentDocumentKeyRef.current = documentKey;
+    onSelectionSnapshotRef.current?.(buildSelectionSnapshot(editor));
+  }, [documentKey, editor, value]);
 
   const runCommand = useCallback((callback) => {
     if (!editor || disabled) return;

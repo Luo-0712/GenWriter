@@ -19,8 +19,8 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @return 影响行数
      */
     @Insert("INSERT INTO document " +
-            "(session_id, title, type, content, format, version, status, metadata, created_at, updated_at) " +
-            "VALUES (CAST(#{sessionId} AS uuid), #{title}, #{type}, #{content}, #{format}, " +
+            "(project_id, node_id, session_id, title, type, content, format, version, status, metadata, created_at, updated_at) " +
+            "VALUES (CAST(#{projectId} AS uuid), CAST(#{nodeId} AS uuid), CAST(#{sessionId} AS uuid), #{title}, #{type}, #{content}, #{format}, " +
             "#{version}, #{status}, CAST(#{metadata} AS jsonb), #{createdAt}, #{updatedAt})")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insert(Document document);
@@ -31,7 +31,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @param id 文档ID
      * @return 文档实体
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE id = CAST(#{id} AS uuid)")
     Document selectById(String id);
@@ -42,7 +42,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @param sessionId 会话ID
      * @return 文档列表
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) ORDER BY version DESC, updated_at DESC")
     List<Document> selectBySessionId(String sessionId);
@@ -54,7 +54,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @param type 文档类型
      * @return 文档列表
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) AND type = #{type} " +
             "ORDER BY version DESC")
@@ -66,7 +66,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @param sessionId 会话ID
      * @return 文档实体
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE session_id = CAST(#{sessionId} AS uuid) " +
             "ORDER BY version DESC LIMIT 1")
@@ -126,7 +126,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      *
      * @return 文档列表
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document ORDER BY updated_at DESC")
     List<Document> selectAll();
@@ -137,7 +137,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
      * @param status 文档状态
      * @return 文档列表
      */
-    @Select("SELECT id, session_id AS sessionId, title, type, content, format, version, status, " +
+    @Select("SELECT id, project_id AS projectId, node_id AS nodeId, session_id AS sessionId, title, type, content, format, version, status, " +
             "metadata::text AS metadata, created_at::timestamp AS createdAt, updated_at::timestamp AS updatedAt " +
             "FROM document WHERE status = #{status} ORDER BY updated_at DESC")
     List<Document> selectByStatus(String status);

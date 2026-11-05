@@ -133,7 +133,6 @@ public class TaskSessionServiceImpl implements TaskSessionService {
         }
 
         messageMapper.deleteBySessionId(id);
-        documentMapper.deleteBySessionId(id);
 
         int result = taskSessionMapper.deleteById(id);
         if (result <= 0) {
@@ -152,7 +151,6 @@ public class TaskSessionServiceImpl implements TaskSessionService {
 
         for (String id : ids) {
             messageMapper.deleteBySessionId(id);
-            documentMapper.deleteBySessionId(id);
         }
 
         int result = taskSessionMapper.deleteByIds(ids);

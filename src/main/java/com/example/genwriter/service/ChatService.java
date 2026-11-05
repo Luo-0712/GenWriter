@@ -16,6 +16,12 @@ public class ChatService {
 
     private final ApplicationEventPublisher publisher;
 
+    public void submitChatTask(String sessionId, String documentId, MultimodalContent userInput,
+                               ChatEvent.WritingType type, boolean webSearch, String kbId,
+                               com.example.genwriter.model.dto.workspace.WorkspaceModels.WritingTarget target) {
+        publisher.publishEvent(new ChatEvent(sessionId, documentId, userInput, kbId, type, webSearch, target));
+    }
+
     /**
      * 发布聊天事件
      * @param sessionId 会话 ID

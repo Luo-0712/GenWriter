@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import process from 'node:process'
 
 // 本机 8080 常被其他项目占用，用 VITE_BACKEND_URL 覆盖后端地址
 const backend = process.env.VITE_BACKEND_URL || 'http://localhost:8080'

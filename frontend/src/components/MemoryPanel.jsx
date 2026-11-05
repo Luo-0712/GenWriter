@@ -88,7 +88,6 @@ const MemoryPanel = ({ projectId, onBack }) => {
     }
     searchDebounceRef.current = setTimeout(() => {
       setPage(1);
-      fetchMemories();
     }, 300);
     return () => {
       if (searchDebounceRef.current) {
@@ -98,7 +97,7 @@ const MemoryPanel = ({ projectId, onBack }) => {
   }, [keyword, filterType, filterScope, filterImportance, projectId]);
 
   useEffect(() => {
-    fetchMemories();
+    Promise.resolve().then(fetchMemories);
   }, [page, fetchMemories]);
 
   const handleOpenCreate = () => {

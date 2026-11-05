@@ -31,7 +31,13 @@ public class GlobalExceptionHandler {
                 e.getErrorMessage(),
                 LocalDateTime.now()
         );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        HttpStatus status = switch (e.getErrorCode()) {
+            case "409" -> HttpStatus.CONFLICT;
+            case "403" -> HttpStatus.FORBIDDEN;
+            case "404" -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(response);
     }
 
     /**

@@ -18,6 +18,8 @@ import com.example.genwriter.message.AgentTraceEvent;
 import com.example.genwriter.message.SseMessage;
 import com.example.genwriter.model.dto.MultimodalContent;
 import com.example.genwriter.model.dto.response.DocumentDTO;
+import com.example.genwriter.model.dto.workspace.WorkspaceModels.WritingTarget;
+import com.example.genwriter.service.WorkspaceService;
 import com.example.genwriter.service.ChapterSummaryService;
 import com.example.genwriter.service.DocumentService;
 import com.example.genwriter.service.MemoryExtractionService;
@@ -69,6 +71,7 @@ public class StateGraphRunner {
     private final SupervisorModeProperties supervisorProperties;
     private final ThoughtChainPublisher chainPublisher;
     private final ObjectMapper objectMapper;
+    private final WorkspaceService workspaceService;
     private final ConcurrentMap<String, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
 
     private volatile CompiledGraph compiledSupervisorGraph;
@@ -89,7 +92,8 @@ public class StateGraphRunner {
                             ChapterSummaryService chapterSummaryService,
                             SupervisorModeProperties supervisorProperties,
                             ThoughtChainPublisher chainPublisher,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            WorkspaceService workspaceService) {
         this.supervisorGraph = supervisorGraph;
         this.sseService = sseService;
         this.messageService = messageService;
@@ -107,6 +111,7 @@ public class StateGraphRunner {
         this.supervisorProperties = supervisorProperties;
         this.chainPublisher = chainPublisher;
         this.objectMapper = objectMapper;
+        this.workspaceService = workspaceService;
     }
 
     private CompiledGraph getCompiledGraph() throws Exception {
@@ -146,9 +151,13 @@ public class StateGraphRunner {
      * @param webSearch   是否启用联网搜索
      */
     public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
+        run(sessionId, documentId, userInput, kbId, writingType, webSearch, null);
+    }
+
+    public void run(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch, WritingTarget target) {
         if (writingOutputSettingsService.isParallelChapterWritingEnabled()) {
             log.info("Supervisor 并行写章已开启，跳过会话锁: sessionId={}", sessionId);
-            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch);
+            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch, target);
             return;
         }
 
@@ -160,7 +169,7 @@ public class StateGraphRunner {
             log.info("Supervisor 会话锁已获取: sessionId={}, waitMs={}", sessionId, waitMs);
         }
         try {
-            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch);
+            runSerial(sessionId, documentId, userInput, kbId, writingType, webSearch, target);
         } finally {
             lock.unlock();
             if (!lock.hasQueuedThreads()) {
@@ -169,16 +178,19 @@ public class StateGraphRunner {
         }
     }
 
-    private void runSerial(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch) {
+    private void runSerial(String sessionId, String documentId, MultimodalContent userInput, String kbId, String writingType, boolean webSearch, WritingTarget target) {
         sseService.startRun(sessionId);
         log.info("Supervisor 执行开始: sessionId={}, type={}, webSearch={}", sessionId, writingType, webSearch);
         publishStatus(sessionId, "【任务启动】开始处理用户请求...");
 
         try {
-            DocumentDTO selectedDocument = loadSelectedDocument(sessionId, documentId);
+            DocumentDTO selectedDocument = target != null
+                    ? (target.baseDocumentId() == null ? null : workspaceService.snapshot(target.baseDocumentId()))
+                    : loadSelectedDocument(sessionId, documentId);
             messageService.createMessage(sessionId, "user", userInput.getTextOnly());
 
             String context = buildContextFromMemory(sessionId);
+            if (target != null) context += workspaceService.writingContext(target);
             if (selectedDocument != null) {
                 context = appendSelectedDocumentContext(context, selectedDocument);
             }
@@ -191,6 +203,13 @@ public class StateGraphRunner {
             inputs.put("kbId", kbId != null ? kbId : "");
             inputs.put("writingType", writingType != null ? writingType : "AUTO");
             inputs.put("context", context);
+            inputs.put("finalOutput", "");
+            if (target != null) inputs.put("writingTarget", objectMapper.convertValue(target, Map.class));
+            else inputs.put("writingTarget", Map.of());
+            inputs.put("draft", "");
+            inputs.put("selectedDocumentContent", "");
+            inputs.put("selectedDocumentTitle", "");
+            inputs.put("selectedDocumentVersion", 0);
             inputs.put("webSearch", String.valueOf(webSearch));
             if (selectedDocument != null) {
                 String selectedContent = selectedDocument.getContent() != null ? selectedDocument.getContent() : "";
@@ -213,8 +232,8 @@ public class StateGraphRunner {
 
                 if (finalOutput != null && !finalOutput.isBlank()) {
                     publishStatus(sessionId, "【任务完成】");
-                    String chapterSummary = chapterSummaryService.summarize(
-                            userInput.getTextOnly(), finalOutput, writingType);
+                    String chapterSummary = target == null ? chapterSummaryService.summarize(
+                            userInput.getTextOnly(), finalOutput, writingType) : "";
                     // 取走本 session 累积的 trace 事件（含 reasoningContent），落库到 message metadata，
                     // 前端刷新页面后可从 metadata.traceEvents 恢复 trace 树与模型思考过程。
                     List<AgentTraceEvent> traceEvents = chainPublisher.drainTraceEvents(sessionId);
@@ -224,12 +243,14 @@ public class StateGraphRunner {
 
                     if (longTermMemoryProperties.isEnabled()) {
                         try {
-                            memoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput);
+                            if (target != null && target.projectId() != null) memoryExtractionService.extractForProjectAsync(target.projectId(), sessionId, userInput.getTextOnly(), "");
+                            else memoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), target == null ? finalOutput : "");
                         } catch (Exception e) {
                             log.warn("触发长期记忆提取失败: sessionId={}", sessionId, e);
                         }
                         try {
-                            settingMemoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), finalOutput);
+                            if (target != null && target.projectId() != null) settingMemoryExtractionService.extractForProjectAsync(target.projectId(), sessionId, userInput.getTextOnly(), "");
+                            else settingMemoryExtractionService.extractAsync(sessionId, userInput.getTextOnly(), target == null ? finalOutput : "");
                         } catch (Exception e) {
                             log.warn("Trigger setting memory extraction failed: sessionId={}", sessionId, e);
                         }

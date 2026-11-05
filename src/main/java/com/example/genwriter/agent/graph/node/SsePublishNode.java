@@ -5,6 +5,9 @@ import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.example.genwriter.agent.streaming.ContentStreamPublisher;
 import com.example.genwriter.model.dto.request.CreateDocumentRequest;
 import com.example.genwriter.model.dto.response.DocumentDTO;
+import com.example.genwriter.model.dto.workspace.WorkspaceModels.Candidate;
+import com.example.genwriter.model.dto.workspace.WorkspaceModels.WritingTarget;
+import com.example.genwriter.service.WorkspaceService;
 import com.example.genwriter.service.DocumentService;
 import com.example.genwriter.service.SseService;
 import com.example.genwriter.service.TitleGenerationService;
@@ -34,6 +37,7 @@ public class SsePublishNode implements NodeAction {
     private final DocumentService documentService;
     private final WritingOutputSettingsService writingOutputSettingsService;
     private final TitleGenerationService titleGenerationService;
+    private final WorkspaceService workspaceService;
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
@@ -43,9 +47,23 @@ public class SsePublishNode implements NodeAction {
 
         if (finalOutput != null && !finalOutput.isBlank()) {
             DocumentDTO generatedDocument = null;
+            Candidate candidate = null;
+            Map<?, ?> targetData = state.value("writingTarget", Map.class).orElse(Map.of());
             try {
-                generatedDocument = createGeneratedDocumentVersion(state, sessionId, documentId, finalOutput);
+                if (!targetData.isEmpty()) {
+                    WritingTarget target = objectMapper.convertValue(targetData, WritingTarget.class);
+                    if (!"DISCUSS".equals(target.operation()) && !isKnowledgeQaResult(state)) {
+                        String title = "CREATE_NODE".equals(target.operation())
+                                ? deriveContinuedTitle(state.value("selectedDocumentTitle", String.class).orElse(""), finalOutput)
+                                : state.value("selectedDocumentTitle", String.class).filter(value -> !value.isBlank()).orElse("正文");
+                        candidate = workspaceService.createCandidate(sessionId, target, title, finalOutput,
+                                state.value("userInput", String.class).orElse(""), state.value("outputFormat", String.class).orElse("markdown"));
+                    }
+                } else {
+                    generatedDocument = createGeneratedDocumentVersion(state, sessionId, documentId, finalOutput);
+                }
             } catch (Exception e) {
+                if (!targetData.isEmpty()) throw e;
                 log.warn("保存生成文稿版本失败: sessionId={}, documentId={}, error={}",
                         sessionId, documentId, e.getMessage(), e);
             }
@@ -75,7 +93,8 @@ public class SsePublishNode implements NodeAction {
                     finalOutput,
                     data.get("document"),
                     data.get("sources"),
-                    generatedDocument != null ? generatedDocument.getId() : documentId
+                    generatedDocument != null ? generatedDocument.getId() : documentId,
+                    candidate
             );
             log.debug("SSE 内容已发布: sessionId={}, length={}", sessionId, finalOutput.length());
         }

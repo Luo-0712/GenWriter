@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ThinkingPanel from './ThinkingPanel';
@@ -137,28 +137,9 @@ const renderReviewDetail = (data) => {
 };
 
 const StreamingText = ({ text, isStreaming }) => {
-  const [displayed, setDisplayed] = useState('');
-
-  useEffect(() => {
-    if (!isStreaming) {
-      setDisplayed(text);
-      return;
-    }
-    let i = 0;
-    setDisplayed('');
-    const timer = setInterval(() => {
-      i++;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(timer);
-      }
-    }, 25);
-    return () => clearInterval(timer);
-  }, [text, isStreaming]);
-
   return (
     <span className={isStreaming ? 'streaming-text' : ''}>
-      {displayed}
+      {text}
     </span>
   );
 };

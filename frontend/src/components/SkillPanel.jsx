@@ -146,13 +146,13 @@ const SkillPanel = ({ onBack }) => {
     try {
       const result = await skillsApi.getCategories();
       setCategories(result || []);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, []);
 
   useEffect(() => {
-    fetchCategories();
+    Promise.resolve().then(fetchCategories);
   }, [fetchCategories]);
 
   useEffect(() => {

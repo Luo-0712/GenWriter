@@ -28,6 +28,7 @@ export const getDocumentSourceLabel = (document) => {
 
   if (metadata.derivedFromVersion) labels.push(`源自 V${metadata.derivedFromVersion}`);
   if (metadata.generatedBy === 'agent') labels.push('Agent');
+  else if (metadata.generatedBy === 'import') labels.push('历史导入');
   else if (metadata.createdBy === 'user') labels.push('手动');
   if (labels.length === 0) labels.push(document?.type || 'draft');
 

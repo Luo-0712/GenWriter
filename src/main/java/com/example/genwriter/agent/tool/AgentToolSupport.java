@@ -22,6 +22,10 @@ public final class AgentToolSupport {
     private AgentToolSupport() {
     }
 
+    public static boolean isWorkspaceRun(Map<String, Object> state) {
+        return state.get("writingTarget") instanceof Map<?, ?> target && !target.isEmpty();
+    }
+
     public static ChatClient.ChatClientRequestSpec applyToolVisibility(
             ChatClient.ChatClientRequestSpec promptSpec,
             boolean webSearchEnabled,
